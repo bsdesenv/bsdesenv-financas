@@ -1,0 +1,18 @@
+{
+  "name": "bsdesenv-financas",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Controle financeiro pessoal no Google Sheets + Apps Script",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test testes/servidor.test.mjs",
+    "test:e2e": "node testes/e2e.mjs",
+    "prints": "node testes/e2e.mjs --prints",
+    "exemplo": "node testes/gerar-exemplo.mjs",
+    "push": "clasp push"
+  }
+}

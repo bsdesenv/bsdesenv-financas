@@ -1,0 +1,3402 @@
+{
+ "versao": 2,
+ "app": "bsdesenv-financas",
+ "nome": "Casa (exemplo)",
+ "exportadoEm": "2026-11-18T12:00:00.000Z",
+ "categorias": [
+  {
+   "id": "moradia",
+   "nome": "Moradia",
+   "grupo": "fixo",
+   "ordem": 1
+  },
+  {
+   "id": "contas-casa",
+   "nome": "Contas da casa",
+   "grupo": "fixo",
+   "ordem": 2
+  },
+  {
+   "id": "internet-celular",
+   "nome": "Internet e celular",
+   "grupo": "fixo",
+   "ordem": 3
+  },
+  {
+   "id": "plano-saude",
+   "nome": "Plano de saúde",
+   "grupo": "fixo",
+   "ordem": 4
+  },
+  {
+   "id": "assinaturas",
+   "nome": "Assinaturas",
+   "grupo": "fixo",
+   "ordem": 5
+  },
+  {
+   "id": "mercado",
+   "nome": "Mercado",
+   "grupo": "variavel",
+   "ordem": 6
+  },
+  {
+   "id": "transporte",
+   "nome": "Transporte",
+   "grupo": "variavel",
+   "ordem": 7
+  },
+  {
+   "id": "restaurantes",
+   "nome": "Restaurantes e delivery",
+   "grupo": "variavel",
+   "ordem": 8
+  },
+  {
+   "id": "saude",
+   "nome": "Saúde e farmácia",
+   "grupo": "variavel",
+   "ordem": 9
+  },
+  {
+   "id": "lazer",
+   "nome": "Lazer",
+   "grupo": "variavel",
+   "ordem": 10
+  },
+  {
+   "id": "compras",
+   "nome": "Compras",
+   "grupo": "variavel",
+   "ordem": 11
+  },
+  {
+   "id": "pets",
+   "nome": "Pets",
+   "grupo": "variavel",
+   "ordem": 12
+  },
+  {
+   "id": "outros",
+   "nome": "Outros",
+   "grupo": "variavel",
+   "ordem": 13
+  },
+  {
+   "id": "salario",
+   "nome": "Salário",
+   "grupo": "renda",
+   "ordem": 14
+  },
+  {
+   "id": "renda-extra",
+   "nome": "Renda extra",
+   "grupo": "renda",
+   "ordem": 15
+  }
+ ],
+ "anos": {
+  "2026": {
+   "lancamentos": [
+    {
+     "id": "ex0001",
+     "mes": 1,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0002",
+     "mes": 1,
+     "dia": 5,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 95.49
+    },
+    {
+     "id": "ex0003",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 66.83
+    },
+    {
+     "id": "ex0004",
+     "mes": 1,
+     "dia": 11,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 78.32
+    },
+    {
+     "id": "ex0005",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 88.25
+    },
+    {
+     "id": "ex0006",
+     "mes": 1,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0007",
+     "mes": 1,
+     "dia": 22,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 26.96
+    },
+    {
+     "id": "ex0008",
+     "mes": 1,
+     "dia": 9,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 36.59
+    },
+    {
+     "id": "ex0009",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 22.01
+    },
+    {
+     "id": "ex0010",
+     "mes": 1,
+     "dia": 21,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 126.88
+    },
+    {
+     "id": "ex0011",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 120.32
+    },
+    {
+     "id": "ex0012",
+     "mes": 1,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 252.66
+    },
+    {
+     "id": "ex0013",
+     "mes": 1,
+     "dia": 14,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 79.03
+    },
+    {
+     "id": "ex0014",
+     "mes": 1,
+     "dia": 25,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 208.9
+    },
+    {
+     "id": "ex0015",
+     "mes": 1,
+     "dia": 15,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 213.65
+    },
+    {
+     "id": "ex0016",
+     "mes": 1,
+     "dia": 19,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 252.99
+    },
+    {
+     "id": "ex0017",
+     "mes": 1,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 57.58
+    },
+    {
+     "id": "ex0018",
+     "mes": 1,
+     "dia": 5,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 77.48
+    },
+    {
+     "id": "ex0019",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 164.86
+    },
+    {
+     "id": "ex0020",
+     "mes": 1,
+     "dia": 18,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 162.73
+    },
+    {
+     "id": "ex0021",
+     "mes": 1,
+     "dia": 16,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 32.93
+    },
+    {
+     "id": "ex0022",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 148.79
+    },
+    {
+     "id": "ex0023",
+     "mes": 1,
+     "dia": 27,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 101.36
+    },
+    {
+     "id": "ex0024",
+     "mes": 1,
+     "dia": 24,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 102.81
+    },
+    {
+     "id": "ex0025",
+     "mes": 1,
+     "dia": 3,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 67.22
+    },
+    {
+     "id": "ex0026",
+     "mes": 1,
+     "dia": 7,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 52.35
+    },
+    {
+     "id": "ex0027",
+     "mes": 1,
+     "dia": 6,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 76.19
+    },
+    {
+     "id": "ex0028",
+     "mes": 1,
+     "dia": 16,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 36.12
+    },
+    {
+     "id": "ex0029",
+     "mes": 1,
+     "dia": 7,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 64.87
+    },
+    {
+     "id": "ex0030",
+     "mes": 1,
+     "dia": 2,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 105.85
+    },
+    {
+     "id": "ex0031",
+     "mes": 1,
+     "dia": 24,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 151.58
+    },
+    {
+     "id": "ex0032",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "compras",
+     "descricao": "Roupas",
+     "valor": 117.71
+    },
+    {
+     "id": "ex0033",
+     "mes": 1,
+     "dia": 4,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 159.65
+    },
+    {
+     "id": "ex0034",
+     "mes": 1,
+     "dia": 5,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 90
+    },
+    {
+     "id": "ex0035",
+     "mes": 1,
+     "dia": null,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0036",
+     "mes": 1,
+     "dia": 28,
+     "categoriaId": "renda-extra",
+     "descricao": "Freela",
+     "valor": 590.38
+    },
+    {
+     "id": "ex0037",
+     "mes": 2,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0038",
+     "mes": 2,
+     "dia": 19,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 179.51
+    },
+    {
+     "id": "ex0039",
+     "mes": 2,
+     "dia": 12,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 127.96
+    },
+    {
+     "id": "ex0040",
+     "mes": 2,
+     "dia": 2,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 82.42
+    },
+    {
+     "id": "ex0041",
+     "mes": 2,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0042",
+     "mes": 2,
+     "dia": 9,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 22.69
+    },
+    {
+     "id": "ex0043",
+     "mes": 2,
+     "dia": 27,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 42.16
+    },
+    {
+     "id": "ex0044",
+     "mes": 2,
+     "dia": 9,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 29.86
+    },
+    {
+     "id": "ex0045",
+     "mes": 2,
+     "dia": 27,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 147.95
+    },
+    {
+     "id": "ex0046",
+     "mes": 2,
+     "dia": 23,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 206.82
+    },
+    {
+     "id": "ex0047",
+     "mes": 2,
+     "dia": 5,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 61.71
+    },
+    {
+     "id": "ex0048",
+     "mes": 2,
+     "dia": 4,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 42.82
+    },
+    {
+     "id": "ex0049",
+     "mes": 2,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 132.96
+    },
+    {
+     "id": "ex0050",
+     "mes": 2,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 123.44
+    },
+    {
+     "id": "ex0051",
+     "mes": 2,
+     "dia": 10,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 148.2
+    },
+    {
+     "id": "ex0052",
+     "mes": 2,
+     "dia": 12,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 96.19
+    },
+    {
+     "id": "ex0053",
+     "mes": 2,
+     "dia": 23,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 151.41
+    },
+    {
+     "id": "ex0054",
+     "mes": 2,
+     "dia": 21,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 140.42
+    },
+    {
+     "id": "ex0055",
+     "mes": 2,
+     "dia": 20,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 105.58
+    },
+    {
+     "id": "ex0056",
+     "mes": 2,
+     "dia": 15,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 106.17
+    },
+    {
+     "id": "ex0057",
+     "mes": 2,
+     "dia": 20,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 172.48
+    },
+    {
+     "id": "ex0058",
+     "mes": 2,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 162.49
+    },
+    {
+     "id": "ex0059",
+     "mes": 2,
+     "dia": 5,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 51.59
+    },
+    {
+     "id": "ex0060",
+     "mes": 2,
+     "dia": 24,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 100.54
+    },
+    {
+     "id": "ex0061",
+     "mes": 2,
+     "dia": 8,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 54.79
+    },
+    {
+     "id": "ex0062",
+     "mes": 2,
+     "dia": 10,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 81.99
+    },
+    {
+     "id": "ex0063",
+     "mes": 2,
+     "dia": 10,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 40.46
+    },
+    {
+     "id": "ex0064",
+     "mes": 2,
+     "dia": 22,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 44.79
+    },
+    {
+     "id": "ex0065",
+     "mes": 2,
+     "dia": 4,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 133.64
+    },
+    {
+     "id": "ex0066",
+     "mes": 2,
+     "dia": 15,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 153.26
+    },
+    {
+     "id": "ex0067",
+     "mes": 2,
+     "dia": 27,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 199.79
+    },
+    {
+     "id": "ex0068",
+     "mes": 2,
+     "dia": null,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 209.24
+    },
+    {
+     "id": "ex0069",
+     "mes": 2,
+     "dia": 16,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 72.05
+    },
+    {
+     "id": "ex0070",
+     "mes": 2,
+     "dia": 4,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 134.83
+    },
+    {
+     "id": "ex0071",
+     "mes": 2,
+     "dia": 11,
+     "categoriaId": "compras",
+     "descricao": "Roupas",
+     "valor": 240.93
+    },
+    {
+     "id": "ex0072",
+     "mes": 2,
+     "dia": 17,
+     "categoriaId": "compras",
+     "descricao": "",
+     "valor": 210.9
+    },
+    {
+     "id": "ex0073",
+     "mes": 2,
+     "dia": 12,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 171.63
+    },
+    {
+     "id": "ex0074",
+     "mes": 2,
+     "dia": 14,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 31.04
+    },
+    {
+     "id": "ex0075",
+     "mes": 2,
+     "dia": null,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0076",
+     "mes": 2,
+     "dia": 8,
+     "categoriaId": "renda-extra",
+     "descricao": "Freela",
+     "valor": 506.74
+    },
+    {
+     "id": "ex0077",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0078",
+     "mes": 3,
+     "dia": 6,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 77.35
+    },
+    {
+     "id": "ex0079",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 138.01
+    },
+    {
+     "id": "ex0080",
+     "mes": 3,
+     "dia": 21,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 201.49
+    },
+    {
+     "id": "ex0081",
+     "mes": 3,
+     "dia": 5,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 70.21
+    },
+    {
+     "id": "ex0082",
+     "mes": 3,
+     "dia": 20,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 105.99
+    },
+    {
+     "id": "ex0083",
+     "mes": 3,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0084",
+     "mes": 3,
+     "dia": 11,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 30.09
+    },
+    {
+     "id": "ex0085",
+     "mes": 3,
+     "dia": 7,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 33.53
+    },
+    {
+     "id": "ex0086",
+     "mes": 3,
+     "dia": 5,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 30.72
+    },
+    {
+     "id": "ex0087",
+     "mes": 3,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 252.08
+    },
+    {
+     "id": "ex0088",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 147.15
+    },
+    {
+     "id": "ex0089",
+     "mes": 3,
+     "dia": 21,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 206.17
+    },
+    {
+     "id": "ex0090",
+     "mes": 3,
+     "dia": 28,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 121.97
+    },
+    {
+     "id": "ex0091",
+     "mes": 3,
+     "dia": 5,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 167.18
+    },
+    {
+     "id": "ex0092",
+     "mes": 3,
+     "dia": 22,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 195
+    },
+    {
+     "id": "ex0093",
+     "mes": 3,
+     "dia": 12,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 131.6
+    },
+    {
+     "id": "ex0094",
+     "mes": 3,
+     "dia": 22,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 60.9
+    },
+    {
+     "id": "ex0095",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 84.68
+    },
+    {
+     "id": "ex0096",
+     "mes": 3,
+     "dia": 7,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 44.03
+    },
+    {
+     "id": "ex0097",
+     "mes": 3,
+     "dia": 4,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 171.64
+    },
+    {
+     "id": "ex0098",
+     "mes": 3,
+     "dia": 11,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 38.5
+    },
+    {
+     "id": "ex0099",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 141.5
+    },
+    {
+     "id": "ex0100",
+     "mes": 3,
+     "dia": 9,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 33.44
+    },
+    {
+     "id": "ex0101",
+     "mes": 3,
+     "dia": 27,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 117.55
+    },
+    {
+     "id": "ex0102",
+     "mes": 3,
+     "dia": 22,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 60.71
+    },
+    {
+     "id": "ex0103",
+     "mes": 3,
+     "dia": 11,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 32.12
+    },
+    {
+     "id": "ex0104",
+     "mes": 3,
+     "dia": 11,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 69.29
+    },
+    {
+     "id": "ex0105",
+     "mes": 3,
+     "dia": 3,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 96.51
+    },
+    {
+     "id": "ex0106",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 59.82
+    },
+    {
+     "id": "ex0107",
+     "mes": 3,
+     "dia": 6,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 100.13
+    },
+    {
+     "id": "ex0108",
+     "mes": 3,
+     "dia": 9,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 72.97
+    },
+    {
+     "id": "ex0109",
+     "mes": 3,
+     "dia": 23,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 66.01
+    },
+    {
+     "id": "ex0110",
+     "mes": 3,
+     "dia": 7,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 73.95
+    },
+    {
+     "id": "ex0111",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 88.53
+    },
+    {
+     "id": "ex0112",
+     "mes": 3,
+     "dia": 24,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 86.66
+    },
+    {
+     "id": "ex0113",
+     "mes": 3,
+     "dia": 14,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 121.11
+    },
+    {
+     "id": "ex0114",
+     "mes": 3,
+     "dia": 12,
+     "categoriaId": "lazer",
+     "descricao": "Show",
+     "valor": 76.04
+    },
+    {
+     "id": "ex0115",
+     "mes": 3,
+     "dia": 11,
+     "categoriaId": "compras",
+     "descricao": "Presente",
+     "valor": 102.96
+    },
+    {
+     "id": "ex0116",
+     "mes": 3,
+     "dia": 17,
+     "categoriaId": "compras",
+     "descricao": "Presente",
+     "valor": 356.3
+    },
+    {
+     "id": "ex0117",
+     "mes": 3,
+     "dia": null,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 93.64
+    },
+    {
+     "id": "ex0118",
+     "mes": 3,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0119",
+     "mes": 4,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0120",
+     "mes": 4,
+     "dia": 12,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 189.9
+    },
+    {
+     "id": "ex0121",
+     "mes": 4,
+     "dia": 22,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 178.34
+    },
+    {
+     "id": "ex0122",
+     "mes": 4,
+     "dia": 20,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 82.38
+    },
+    {
+     "id": "ex0123",
+     "mes": 4,
+     "dia": 21,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 107.52
+    },
+    {
+     "id": "ex0124",
+     "mes": 4,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0125",
+     "mes": 4,
+     "dia": 17,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 25.16
+    },
+    {
+     "id": "ex0126",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 36.86
+    },
+    {
+     "id": "ex0127",
+     "mes": 4,
+     "dia": 2,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 101
+    },
+    {
+     "id": "ex0128",
+     "mes": 4,
+     "dia": 20,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 132.11
+    },
+    {
+     "id": "ex0129",
+     "mes": 4,
+     "dia": 8,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 122.14
+    },
+    {
+     "id": "ex0130",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 128.54
+    },
+    {
+     "id": "ex0131",
+     "mes": 4,
+     "dia": 14,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 193.15
+    },
+    {
+     "id": "ex0132",
+     "mes": 4,
+     "dia": 27,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 198.91
+    },
+    {
+     "id": "ex0133",
+     "mes": 4,
+     "dia": 13,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 249.77
+    },
+    {
+     "id": "ex0134",
+     "mes": 4,
+     "dia": 26,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 110.98
+    },
+    {
+     "id": "ex0135",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 53.57
+    },
+    {
+     "id": "ex0136",
+     "mes": 4,
+     "dia": 8,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 179.21
+    },
+    {
+     "id": "ex0137",
+     "mes": 4,
+     "dia": 28,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 130.17
+    },
+    {
+     "id": "ex0138",
+     "mes": 4,
+     "dia": 23,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 172.76
+    },
+    {
+     "id": "ex0139",
+     "mes": 4,
+     "dia": 10,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 60.23
+    },
+    {
+     "id": "ex0140",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 88.59
+    },
+    {
+     "id": "ex0141",
+     "mes": 4,
+     "dia": 27,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 82.37
+    },
+    {
+     "id": "ex0142",
+     "mes": 4,
+     "dia": 22,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 109.62
+    },
+    {
+     "id": "ex0143",
+     "mes": 4,
+     "dia": 27,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 78.42
+    },
+    {
+     "id": "ex0144",
+     "mes": 4,
+     "dia": 12,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 45.51
+    },
+    {
+     "id": "ex0145",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 107.17
+    },
+    {
+     "id": "ex0146",
+     "mes": 4,
+     "dia": 8,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 75.2
+    },
+    {
+     "id": "ex0147",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 67.8
+    },
+    {
+     "id": "ex0148",
+     "mes": 4,
+     "dia": null,
+     "categoriaId": "lazer",
+     "descricao": "Show",
+     "valor": 55.78
+    },
+    {
+     "id": "ex0149",
+     "mes": 4,
+     "dia": 28,
+     "categoriaId": "compras",
+     "descricao": "Casa",
+     "valor": 201.46
+    },
+    {
+     "id": "ex0150",
+     "mes": 4,
+     "dia": 27,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 142.22
+    },
+    {
+     "id": "ex0151",
+     "mes": 4,
+     "dia": 7,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 77.38
+    },
+    {
+     "id": "ex0152",
+     "mes": 4,
+     "dia": 28,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 76.95
+    },
+    {
+     "id": "ex0153",
+     "mes": 4,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0154",
+     "mes": 4,
+     "dia": 26,
+     "categoriaId": "renda-extra",
+     "descricao": "Freela",
+     "valor": 777.4
+    },
+    {
+     "id": "ex0155",
+     "mes": 5,
+     "dia": null,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0156",
+     "mes": 5,
+     "dia": 25,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 95.01
+    },
+    {
+     "id": "ex0157",
+     "mes": 5,
+     "dia": 27,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 101.6
+    },
+    {
+     "id": "ex0158",
+     "mes": 5,
+     "dia": 26,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 96.95
+    },
+    {
+     "id": "ex0159",
+     "mes": 5,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0160",
+     "mes": 5,
+     "dia": 12,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 38.76
+    },
+    {
+     "id": "ex0161",
+     "mes": 5,
+     "dia": 3,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 29.13
+    },
+    {
+     "id": "ex0162",
+     "mes": 5,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 43.11
+    },
+    {
+     "id": "ex0163",
+     "mes": 5,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 151.5
+    },
+    {
+     "id": "ex0164",
+     "mes": 5,
+     "dia": 9,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 125.14
+    },
+    {
+     "id": "ex0165",
+     "mes": 5,
+     "dia": 17,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 77.64
+    },
+    {
+     "id": "ex0166",
+     "mes": 5,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 197.28
+    },
+    {
+     "id": "ex0167",
+     "mes": 5,
+     "dia": 27,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 55.84
+    },
+    {
+     "id": "ex0168",
+     "mes": 5,
+     "dia": 10,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 156.92
+    },
+    {
+     "id": "ex0169",
+     "mes": 5,
+     "dia": 27,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 92.04
+    },
+    {
+     "id": "ex0170",
+     "mes": 5,
+     "dia": 20,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 136.37
+    },
+    {
+     "id": "ex0171",
+     "mes": 5,
+     "dia": 2,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 176.83
+    },
+    {
+     "id": "ex0172",
+     "mes": 5,
+     "dia": 15,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 152
+    },
+    {
+     "id": "ex0173",
+     "mes": 5,
+     "dia": 23,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 34.41
+    },
+    {
+     "id": "ex0174",
+     "mes": 5,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 50.74
+    },
+    {
+     "id": "ex0175",
+     "mes": 5,
+     "dia": 8,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 85.41
+    },
+    {
+     "id": "ex0176",
+     "mes": 5,
+     "dia": 15,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 70.65
+    },
+    {
+     "id": "ex0177",
+     "mes": 5,
+     "dia": 10,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 87.19
+    },
+    {
+     "id": "ex0178",
+     "mes": 5,
+     "dia": 4,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 40.64
+    },
+    {
+     "id": "ex0179",
+     "mes": 5,
+     "dia": 21,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 109.53
+    },
+    {
+     "id": "ex0180",
+     "mes": 5,
+     "dia": 7,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 70.67
+    },
+    {
+     "id": "ex0181",
+     "mes": 5,
+     "dia": 26,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 74.59
+    },
+    {
+     "id": "ex0182",
+     "mes": 5,
+     "dia": 26,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 115.01
+    },
+    {
+     "id": "ex0183",
+     "mes": 5,
+     "dia": 15,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 137.19
+    },
+    {
+     "id": "ex0184",
+     "mes": 5,
+     "dia": 4,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 73.29
+    },
+    {
+     "id": "ex0185",
+     "mes": 5,
+     "dia": 16,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 73.12
+    },
+    {
+     "id": "ex0186",
+     "mes": 5,
+     "dia": 7,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 113.01
+    },
+    {
+     "id": "ex0187",
+     "mes": 5,
+     "dia": 26,
+     "categoriaId": "compras",
+     "descricao": "Casa",
+     "valor": 206.94
+    },
+    {
+     "id": "ex0188",
+     "mes": 5,
+     "dia": 6,
+     "categoriaId": "compras",
+     "descricao": "Presente",
+     "valor": 363.61
+    },
+    {
+     "id": "ex0189",
+     "mes": 5,
+     "dia": 15,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 71.53
+    },
+    {
+     "id": "ex0190",
+     "mes": 5,
+     "dia": 2,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 30.78
+    },
+    {
+     "id": "ex0191",
+     "mes": 5,
+     "dia": null,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 75.04
+    },
+    {
+     "id": "ex0192",
+     "mes": 5,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0193",
+     "mes": 6,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0194",
+     "mes": 6,
+     "dia": null,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 152.36
+    },
+    {
+     "id": "ex0195",
+     "mes": 6,
+     "dia": null,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 141.71
+    },
+    {
+     "id": "ex0196",
+     "mes": 6,
+     "dia": 18,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 148
+    },
+    {
+     "id": "ex0197",
+     "mes": 6,
+     "dia": 10,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 104.03
+    },
+    {
+     "id": "ex0198",
+     "mes": 6,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0199",
+     "mes": 6,
+     "dia": 24,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 44.35
+    },
+    {
+     "id": "ex0200",
+     "mes": 6,
+     "dia": 7,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 27.05
+    },
+    {
+     "id": "ex0201",
+     "mes": 6,
+     "dia": 12,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 162.63
+    },
+    {
+     "id": "ex0202",
+     "mes": 6,
+     "dia": 26,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 152.25
+    },
+    {
+     "id": "ex0203",
+     "mes": 6,
+     "dia": 12,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 145.26
+    },
+    {
+     "id": "ex0204",
+     "mes": 6,
+     "dia": 4,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 47.03
+    },
+    {
+     "id": "ex0205",
+     "mes": 6,
+     "dia": 17,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 208.43
+    },
+    {
+     "id": "ex0206",
+     "mes": 6,
+     "dia": 11,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 243.1
+    },
+    {
+     "id": "ex0207",
+     "mes": 6,
+     "dia": 19,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 151.89
+    },
+    {
+     "id": "ex0208",
+     "mes": 6,
+     "dia": 13,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 135.82
+    },
+    {
+     "id": "ex0209",
+     "mes": 6,
+     "dia": 22,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 105.97
+    },
+    {
+     "id": "ex0210",
+     "mes": 6,
+     "dia": 16,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 79.11
+    },
+    {
+     "id": "ex0211",
+     "mes": 6,
+     "dia": 24,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 65.78
+    },
+    {
+     "id": "ex0212",
+     "mes": 6,
+     "dia": 21,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 177.57
+    },
+    {
+     "id": "ex0213",
+     "mes": 6,
+     "dia": 26,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 45.1
+    },
+    {
+     "id": "ex0214",
+     "mes": 6,
+     "dia": 4,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 45.79
+    },
+    {
+     "id": "ex0215",
+     "mes": 6,
+     "dia": 17,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 60.03
+    },
+    {
+     "id": "ex0216",
+     "mes": 6,
+     "dia": 7,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 49.42
+    },
+    {
+     "id": "ex0217",
+     "mes": 6,
+     "dia": 27,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 96.09
+    },
+    {
+     "id": "ex0218",
+     "mes": 6,
+     "dia": 25,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 57.5
+    },
+    {
+     "id": "ex0219",
+     "mes": 6,
+     "dia": 2,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 69.58
+    },
+    {
+     "id": "ex0220",
+     "mes": 6,
+     "dia": 8,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 30.26
+    },
+    {
+     "id": "ex0221",
+     "mes": 6,
+     "dia": 21,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 114.47
+    },
+    {
+     "id": "ex0222",
+     "mes": 6,
+     "dia": 18,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 24.33
+    },
+    {
+     "id": "ex0223",
+     "mes": 6,
+     "dia": 16,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 201.1
+    },
+    {
+     "id": "ex0224",
+     "mes": 6,
+     "dia": 3,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 129.15
+    },
+    {
+     "id": "ex0225",
+     "mes": 6,
+     "dia": 3,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 49.95
+    },
+    {
+     "id": "ex0226",
+     "mes": 6,
+     "dia": 6,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 207.9
+    },
+    {
+     "id": "ex0227",
+     "mes": 6,
+     "dia": 19,
+     "categoriaId": "compras",
+     "descricao": "Roupas",
+     "valor": 121.77
+    },
+    {
+     "id": "ex0228",
+     "mes": 6,
+     "dia": 9,
+     "categoriaId": "compras",
+     "descricao": "Casa",
+     "valor": 310.01
+    },
+    {
+     "id": "ex0229",
+     "mes": 6,
+     "dia": 26,
+     "categoriaId": "compras",
+     "descricao": "Presente",
+     "valor": 376.33
+    },
+    {
+     "id": "ex0230",
+     "mes": 6,
+     "dia": 14,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 137.3
+    },
+    {
+     "id": "ex0231",
+     "mes": 6,
+     "dia": 24,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 118.6
+    },
+    {
+     "id": "ex0232",
+     "mes": 6,
+     "dia": 23,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 112.07
+    },
+    {
+     "id": "ex0233",
+     "mes": 6,
+     "dia": null,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0234",
+     "mes": 6,
+     "dia": 21,
+     "categoriaId": "renda-extra",
+     "descricao": "Freela",
+     "valor": 691.53
+    },
+    {
+     "id": "ex0235",
+     "mes": 7,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0236",
+     "mes": 7,
+     "dia": 27,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 171.95
+    },
+    {
+     "id": "ex0237",
+     "mes": 7,
+     "dia": 7,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 64.59
+    },
+    {
+     "id": "ex0238",
+     "mes": 7,
+     "dia": 6,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 203.31
+    },
+    {
+     "id": "ex0239",
+     "mes": 7,
+     "dia": 14,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 80.09
+    },
+    {
+     "id": "ex0240",
+     "mes": 7,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0241",
+     "mes": 7,
+     "dia": 7,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 24.1
+    },
+    {
+     "id": "ex0242",
+     "mes": 7,
+     "dia": 8,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 39.28
+    },
+    {
+     "id": "ex0243",
+     "mes": 7,
+     "dia": 16,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 85.6
+    },
+    {
+     "id": "ex0244",
+     "mes": 7,
+     "dia": 23,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 176.75
+    },
+    {
+     "id": "ex0245",
+     "mes": 7,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 53.6
+    },
+    {
+     "id": "ex0246",
+     "mes": 7,
+     "dia": 24,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 112.04
+    },
+    {
+     "id": "ex0247",
+     "mes": 7,
+     "dia": 3,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 107.62
+    },
+    {
+     "id": "ex0248",
+     "mes": 7,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 238.11
+    },
+    {
+     "id": "ex0249",
+     "mes": 7,
+     "dia": 1,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 89.34
+    },
+    {
+     "id": "ex0250",
+     "mes": 7,
+     "dia": 9,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 148.11
+    },
+    {
+     "id": "ex0251",
+     "mes": 7,
+     "dia": 3,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 119.46
+    },
+    {
+     "id": "ex0252",
+     "mes": 7,
+     "dia": 4,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 161.32
+    },
+    {
+     "id": "ex0253",
+     "mes": 7,
+     "dia": 11,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 77.5
+    },
+    {
+     "id": "ex0254",
+     "mes": 7,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 68.08
+    },
+    {
+     "id": "ex0255",
+     "mes": 7,
+     "dia": 19,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 42.5
+    },
+    {
+     "id": "ex0256",
+     "mes": 7,
+     "dia": 5,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 39.06
+    },
+    {
+     "id": "ex0257",
+     "mes": 7,
+     "dia": 25,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 63.04
+    },
+    {
+     "id": "ex0258",
+     "mes": 7,
+     "dia": 3,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 88.82
+    },
+    {
+     "id": "ex0259",
+     "mes": 7,
+     "dia": 6,
+     "categoriaId": "saude",
+     "descricao": "Farmácia",
+     "valor": 43.02
+    },
+    {
+     "id": "ex0260",
+     "mes": 7,
+     "dia": 16,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 60.78
+    },
+    {
+     "id": "ex0261",
+     "mes": 7,
+     "dia": 17,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 31.32
+    },
+    {
+     "id": "ex0262",
+     "mes": 7,
+     "dia": 3,
+     "categoriaId": "lazer",
+     "descricao": "Cinema",
+     "valor": 39.89
+    },
+    {
+     "id": "ex0263",
+     "mes": 7,
+     "dia": 6,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 167.57
+    },
+    {
+     "id": "ex0264",
+     "mes": 7,
+     "dia": 28,
+     "categoriaId": "lazer",
+     "descricao": "Show",
+     "valor": 52.99
+    },
+    {
+     "id": "ex0265",
+     "mes": 7,
+     "dia": 16,
+     "categoriaId": "compras",
+     "descricao": "",
+     "valor": 198.92
+    },
+    {
+     "id": "ex0266",
+     "mes": 7,
+     "dia": 28,
+     "categoriaId": "compras",
+     "descricao": "",
+     "valor": 63.38
+    },
+    {
+     "id": "ex0267",
+     "mes": 7,
+     "dia": 12,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 165.76
+    },
+    {
+     "id": "ex0268",
+     "mes": 7,
+     "dia": 6,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 173.33
+    },
+    {
+     "id": "ex0269",
+     "mes": 7,
+     "dia": null,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0270",
+     "mes": 8,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0271",
+     "mes": 8,
+     "dia": 7,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 85.51
+    },
+    {
+     "id": "ex0272",
+     "mes": 8,
+     "dia": 7,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 205.12
+    },
+    {
+     "id": "ex0273",
+     "mes": 8,
+     "dia": 2,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 105.07
+    },
+    {
+     "id": "ex0274",
+     "mes": 8,
+     "dia": 7,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 83.14
+    },
+    {
+     "id": "ex0275",
+     "mes": 8,
+     "dia": 13,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 97.91
+    },
+    {
+     "id": "ex0276",
+     "mes": 8,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0277",
+     "mes": 8,
+     "dia": 4,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 37.22
+    },
+    {
+     "id": "ex0278",
+     "mes": 8,
+     "dia": 9,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 21.24
+    },
+    {
+     "id": "ex0279",
+     "mes": 8,
+     "dia": 8,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 37.84
+    },
+    {
+     "id": "ex0280",
+     "mes": 8,
+     "dia": 15,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 207.87
+    },
+    {
+     "id": "ex0281",
+     "mes": 8,
+     "dia": 14,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 94.32
+    },
+    {
+     "id": "ex0282",
+     "mes": 8,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 163.51
+    },
+    {
+     "id": "ex0283",
+     "mes": 8,
+     "dia": 11,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 134.57
+    },
+    {
+     "id": "ex0284",
+     "mes": 8,
+     "dia": 28,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 111.63
+    },
+    {
+     "id": "ex0285",
+     "mes": 8,
+     "dia": 22,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 188.7
+    },
+    {
+     "id": "ex0286",
+     "mes": 8,
+     "dia": 17,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 52.09
+    },
+    {
+     "id": "ex0287",
+     "mes": 8,
+     "dia": 15,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 199.06
+    },
+    {
+     "id": "ex0288",
+     "mes": 8,
+     "dia": 3,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 209.24
+    },
+    {
+     "id": "ex0289",
+     "mes": 8,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 171.93
+    },
+    {
+     "id": "ex0290",
+     "mes": 8,
+     "dia": 19,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 69.55
+    },
+    {
+     "id": "ex0291",
+     "mes": 8,
+     "dia": 9,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 73.42
+    },
+    {
+     "id": "ex0292",
+     "mes": 8,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 115.26
+    },
+    {
+     "id": "ex0293",
+     "mes": 8,
+     "dia": 10,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 161.45
+    },
+    {
+     "id": "ex0294",
+     "mes": 8,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 43.25
+    },
+    {
+     "id": "ex0295",
+     "mes": 8,
+     "dia": 18,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 72.88
+    },
+    {
+     "id": "ex0296",
+     "mes": 8,
+     "dia": 17,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 109.75
+    },
+    {
+     "id": "ex0297",
+     "mes": 8,
+     "dia": 19,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 48.71
+    },
+    {
+     "id": "ex0298",
+     "mes": 8,
+     "dia": 24,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 52.36
+    },
+    {
+     "id": "ex0299",
+     "mes": 8,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 55.39
+    },
+    {
+     "id": "ex0300",
+     "mes": 8,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 86.38
+    },
+    {
+     "id": "ex0301",
+     "mes": 8,
+     "dia": 11,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 106.3
+    },
+    {
+     "id": "ex0302",
+     "mes": 8,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 35.09
+    },
+    {
+     "id": "ex0303",
+     "mes": 8,
+     "dia": 5,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 63.01
+    },
+    {
+     "id": "ex0304",
+     "mes": 8,
+     "dia": 12,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 31.5
+    },
+    {
+     "id": "ex0305",
+     "mes": 8,
+     "dia": 24,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 93.26
+    },
+    {
+     "id": "ex0306",
+     "mes": 8,
+     "dia": 28,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 173.25
+    },
+    {
+     "id": "ex0307",
+     "mes": 8,
+     "dia": 11,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 178.3
+    },
+    {
+     "id": "ex0308",
+     "mes": 8,
+     "dia": 8,
+     "categoriaId": "compras",
+     "descricao": "Roupas",
+     "valor": 195.79
+    },
+    {
+     "id": "ex0309",
+     "mes": 8,
+     "dia": 14,
+     "categoriaId": "pets",
+     "descricao": "Ração",
+     "valor": 118.83
+    },
+    {
+     "id": "ex0310",
+     "mes": 8,
+     "dia": null,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 10.03
+    },
+    {
+     "id": "ex0311",
+     "mes": 8,
+     "dia": 5,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 69.22
+    },
+    {
+     "id": "ex0312",
+     "mes": 8,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0313",
+     "mes": 9,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0314",
+     "mes": 9,
+     "dia": 16,
+     "categoriaId": "contas-casa",
+     "descricao": "Gás",
+     "valor": 125.79
+    },
+    {
+     "id": "ex0315",
+     "mes": 9,
+     "dia": 2,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 144.53
+    },
+    {
+     "id": "ex0316",
+     "mes": 9,
+     "dia": 22,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 215.41
+    },
+    {
+     "id": "ex0317",
+     "mes": 9,
+     "dia": 6,
+     "categoriaId": "internet-celular",
+     "descricao": "Internet",
+     "valor": 108.26
+    },
+    {
+     "id": "ex0318",
+     "mes": 9,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0319",
+     "mes": 9,
+     "dia": 4,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 42.51
+    },
+    {
+     "id": "ex0320",
+     "mes": 9,
+     "dia": 2,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 31.31
+    },
+    {
+     "id": "ex0321",
+     "mes": 9,
+     "dia": 12,
+     "categoriaId": "assinaturas",
+     "descricao": "Streaming",
+     "valor": 30.9
+    },
+    {
+     "id": "ex0322",
+     "mes": 9,
+     "dia": 12,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 99.96
+    },
+    {
+     "id": "ex0323",
+     "mes": 9,
+     "dia": 20,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 177.22
+    },
+    {
+     "id": "ex0324",
+     "mes": 9,
+     "dia": 14,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 132.94
+    },
+    {
+     "id": "ex0325",
+     "mes": 9,
+     "dia": 25,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 76.8
+    },
+    {
+     "id": "ex0326",
+     "mes": 9,
+     "dia": 4,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 164.14
+    },
+    {
+     "id": "ex0327",
+     "mes": 9,
+     "dia": 17,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 190.22
+    },
+    {
+     "id": "ex0328",
+     "mes": 9,
+     "dia": 28,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 120.38
+    },
+    {
+     "id": "ex0329",
+     "mes": 9,
+     "dia": 16,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 127.37
+    },
+    {
+     "id": "ex0330",
+     "mes": 9,
+     "dia": 9,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 156.23
+    },
+    {
+     "id": "ex0331",
+     "mes": 9,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 169.46
+    },
+    {
+     "id": "ex0332",
+     "mes": 9,
+     "dia": 13,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 66.54
+    },
+    {
+     "id": "ex0333",
+     "mes": 9,
+     "dia": 2,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 34.31
+    },
+    {
+     "id": "ex0334",
+     "mes": 9,
+     "dia": 18,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 70.33
+    },
+    {
+     "id": "ex0335",
+     "mes": 9,
+     "dia": 14,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 100.56
+    },
+    {
+     "id": "ex0336",
+     "mes": 9,
+     "dia": 5,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 99.06
+    },
+    {
+     "id": "ex0337",
+     "mes": 9,
+     "dia": null,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 35.92
+    },
+    {
+     "id": "ex0338",
+     "mes": 9,
+     "dia": 28,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 31.8
+    },
+    {
+     "id": "ex0339",
+     "mes": 9,
+     "dia": null,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 137.92
+    },
+    {
+     "id": "ex0340",
+     "mes": 9,
+     "dia": 4,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 72.81
+    },
+    {
+     "id": "ex0341",
+     "mes": 9,
+     "dia": 22,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 173.7
+    },
+    {
+     "id": "ex0342",
+     "mes": 9,
+     "dia": 3,
+     "categoriaId": "lazer",
+     "descricao": "Show",
+     "valor": 75.48
+    },
+    {
+     "id": "ex0343",
+     "mes": 9,
+     "dia": 9,
+     "categoriaId": "compras",
+     "descricao": "Casa",
+     "valor": 87.07
+    },
+    {
+     "id": "ex0344",
+     "mes": 9,
+     "dia": 5,
+     "categoriaId": "compras",
+     "descricao": "Presente",
+     "valor": 141.3
+    },
+    {
+     "id": "ex0345",
+     "mes": 9,
+     "dia": 24,
+     "categoriaId": "compras",
+     "descricao": "Casa",
+     "valor": 167.29
+    },
+    {
+     "id": "ex0346",
+     "mes": 9,
+     "dia": 14,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 171.04
+    },
+    {
+     "id": "ex0347",
+     "mes": 9,
+     "dia": 19,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 115.65
+    },
+    {
+     "id": "ex0348",
+     "mes": 9,
+     "dia": 15,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 43.48
+    },
+    {
+     "id": "ex0349",
+     "mes": 9,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0350",
+     "mes": 10,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0351",
+     "mes": 10,
+     "dia": null,
+     "categoriaId": "contas-casa",
+     "descricao": "Água",
+     "valor": 60.94
+    },
+    {
+     "id": "ex0352",
+     "mes": 10,
+     "dia": 6,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 87.68
+    },
+    {
+     "id": "ex0353",
+     "mes": 10,
+     "dia": 27,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 103.96
+    },
+    {
+     "id": "ex0354",
+     "mes": 10,
+     "dia": 20,
+     "categoriaId": "plano-saude",
+     "descricao": "Mensalidade",
+     "valor": 420
+    },
+    {
+     "id": "ex0355",
+     "mes": 10,
+     "dia": 20,
+     "categoriaId": "assinaturas",
+     "descricao": "Nuvem",
+     "valor": 39.87
+    },
+    {
+     "id": "ex0356",
+     "mes": 10,
+     "dia": 1,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 44.96
+    },
+    {
+     "id": "ex0357",
+     "mes": 10,
+     "dia": 9,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 52.42
+    },
+    {
+     "id": "ex0358",
+     "mes": 10,
+     "dia": 19,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 162.67
+    },
+    {
+     "id": "ex0359",
+     "mes": 10,
+     "dia": 18,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 129.72
+    },
+    {
+     "id": "ex0360",
+     "mes": 10,
+     "dia": 10,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 92.71
+    },
+    {
+     "id": "ex0361",
+     "mes": 10,
+     "dia": 3,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 88.02
+    },
+    {
+     "id": "ex0362",
+     "mes": 10,
+     "dia": 5,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 132.87
+    },
+    {
+     "id": "ex0363",
+     "mes": 10,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 246.64
+    },
+    {
+     "id": "ex0364",
+     "mes": 10,
+     "dia": 25,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 132.03
+    },
+    {
+     "id": "ex0365",
+     "mes": 10,
+     "dia": 13,
+     "categoriaId": "mercado",
+     "descricao": "Mercado do bairro",
+     "valor": 243.85
+    },
+    {
+     "id": "ex0366",
+     "mes": 10,
+     "dia": 21,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 155.66
+    },
+    {
+     "id": "ex0367",
+     "mes": 10,
+     "dia": 22,
+     "categoriaId": "transporte",
+     "descricao": "Ônibus",
+     "valor": 173.74
+    },
+    {
+     "id": "ex0368",
+     "mes": 10,
+     "dia": 17,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 144.5
+    },
+    {
+     "id": "ex0369",
+     "mes": 10,
+     "dia": 4,
+     "categoriaId": "transporte",
+     "descricao": "Estacionamento",
+     "valor": 40.17
+    },
+    {
+     "id": "ex0370",
+     "mes": 10,
+     "dia": 21,
+     "categoriaId": "transporte",
+     "descricao": "Combustível",
+     "valor": 142.32
+    },
+    {
+     "id": "ex0371",
+     "mes": 10,
+     "dia": 16,
+     "categoriaId": "restaurantes",
+     "descricao": "Almoço",
+     "valor": 51.21
+    },
+    {
+     "id": "ex0372",
+     "mes": 10,
+     "dia": 12,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 51.75
+    },
+    {
+     "id": "ex0373",
+     "mes": 10,
+     "dia": 1,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 63.73
+    },
+    {
+     "id": "ex0374",
+     "mes": 10,
+     "dia": 15,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 63.54
+    },
+    {
+     "id": "ex0375",
+     "mes": 10,
+     "dia": 15,
+     "categoriaId": "saude",
+     "descricao": "Farmácia",
+     "valor": 112.72
+    },
+    {
+     "id": "ex0376",
+     "mes": 10,
+     "dia": 6,
+     "categoriaId": "saude",
+     "descricao": "",
+     "valor": 58.08
+    },
+    {
+     "id": "ex0377",
+     "mes": 10,
+     "dia": null,
+     "categoriaId": "saude",
+     "descricao": "Consulta",
+     "valor": 127.93
+    },
+    {
+     "id": "ex0378",
+     "mes": 10,
+     "dia": 22,
+     "categoriaId": "lazer",
+     "descricao": "Passeio",
+     "valor": 51.99
+    },
+    {
+     "id": "ex0379",
+     "mes": 10,
+     "dia": null,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 175.96
+    },
+    {
+     "id": "ex0380",
+     "mes": 10,
+     "dia": 28,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 103.89
+    },
+    {
+     "id": "ex0381",
+     "mes": 10,
+     "dia": 26,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 218.17
+    },
+    {
+     "id": "ex0382",
+     "mes": 10,
+     "dia": 27,
+     "categoriaId": "compras",
+     "descricao": "Roupas",
+     "valor": 90.99
+    },
+    {
+     "id": "ex0383",
+     "mes": 10,
+     "dia": 20,
+     "categoriaId": "compras",
+     "descricao": "",
+     "valor": 364.77
+    },
+    {
+     "id": "ex0384",
+     "mes": 10,
+     "dia": 7,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 154.95
+    },
+    {
+     "id": "ex0385",
+     "mes": 10,
+     "dia": 22,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 65.16
+    },
+    {
+     "id": "ex0386",
+     "mes": 10,
+     "dia": null,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 84.33
+    },
+    {
+     "id": "ex0387",
+     "mes": 10,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    },
+    {
+     "id": "ex0388",
+     "mes": 11,
+     "dia": 5,
+     "categoriaId": "moradia",
+     "descricao": "Aluguel",
+     "valor": 1850
+    },
+    {
+     "id": "ex0389",
+     "mes": 11,
+     "dia": 17,
+     "categoriaId": "contas-casa",
+     "descricao": "Luz",
+     "valor": 209.36
+    },
+    {
+     "id": "ex0390",
+     "mes": 11,
+     "dia": 4,
+     "categoriaId": "internet-celular",
+     "descricao": "Celular",
+     "valor": 108.02
+    },
+    {
+     "id": "ex0391",
+     "mes": 11,
+     "dia": 13,
+     "categoriaId": "assinaturas",
+     "descricao": "Música",
+     "valor": 22.14
+    },
+    {
+     "id": "ex0392",
+     "mes": 11,
+     "dia": null,
+     "categoriaId": "mercado",
+     "descricao": "Atacado",
+     "valor": 241
+    },
+    {
+     "id": "ex0393",
+     "mes": 11,
+     "dia": 18,
+     "categoriaId": "mercado",
+     "descricao": "Padaria",
+     "valor": 97.27
+    },
+    {
+     "id": "ex0394",
+     "mes": 11,
+     "dia": 1,
+     "categoriaId": "mercado",
+     "descricao": "",
+     "valor": 145.32
+    },
+    {
+     "id": "ex0395",
+     "mes": 11,
+     "dia": 6,
+     "categoriaId": "mercado",
+     "descricao": "Feira",
+     "valor": 180.56
+    },
+    {
+     "id": "ex0396",
+     "mes": 11,
+     "dia": 14,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 77.7
+    },
+    {
+     "id": "ex0397",
+     "mes": 11,
+     "dia": 12,
+     "categoriaId": "transporte",
+     "descricao": "App de transporte",
+     "valor": 61.49
+    },
+    {
+     "id": "ex0398",
+     "mes": 11,
+     "dia": 16,
+     "categoriaId": "restaurantes",
+     "descricao": "Jantar",
+     "valor": 46.24
+    },
+    {
+     "id": "ex0399",
+     "mes": 11,
+     "dia": 11,
+     "categoriaId": "restaurantes",
+     "descricao": "Lanche",
+     "valor": 39.19
+    },
+    {
+     "id": "ex0400",
+     "mes": 11,
+     "dia": 15,
+     "categoriaId": "restaurantes",
+     "descricao": "Delivery",
+     "valor": 74.72
+    },
+    {
+     "id": "ex0401",
+     "mes": 11,
+     "dia": 7,
+     "categoriaId": "saude",
+     "descricao": "Farmácia",
+     "valor": 22.97
+    },
+    {
+     "id": "ex0402",
+     "mes": 11,
+     "dia": 3,
+     "categoriaId": "lazer",
+     "descricao": "",
+     "valor": 126.04
+    },
+    {
+     "id": "ex0403",
+     "mes": 11,
+     "dia": 14,
+     "categoriaId": "pets",
+     "descricao": "Veterinário",
+     "valor": 134.71
+    },
+    {
+     "id": "ex0404",
+     "mes": 11,
+     "dia": 6,
+     "categoriaId": "outros",
+     "descricao": "",
+     "valor": 73.24
+    },
+    {
+     "id": "ex0405",
+     "mes": 11,
+     "dia": 5,
+     "categoriaId": "salario",
+     "descricao": "Salário",
+     "valor": 7900
+    }
+   ],
+   "orcamento": {
+    "moradia": {
+     "11": 1850,
+     "12": 1850
+    },
+    "contas-casa": {
+     "11": 350,
+     "12": 350
+    },
+    "internet-celular": {
+     "11": 127.5,
+     "12": 127.5
+    },
+    "plano-saude": {
+     "11": 420,
+     "12": 420
+    },
+    "assinaturas": {
+     "11": 81.25,
+     "12": 81.25
+    },
+    "mercado": {
+     "11": 1200,
+     "12": 1200
+    },
+    "transporte": {
+     "11": 577.5,
+     "12": 577.5
+    },
+    "restaurantes": {
+     "11": 405,
+     "12": 405
+    },
+    "saude": {
+     "11": 180,
+     "12": 180
+    },
+    "lazer": {
+     "11": 312.5,
+     "12": 312.5
+    },
+    "compras": {
+     "11": 420,
+     "12": 420
+    },
+    "pets": {
+     "11": 187.5,
+     "12": 187.5
+    },
+    "outros": {
+     "11": 65,
+     "12": 65
+    },
+    "salario": {
+     "11": 7900,
+     "12": 7900
+    }
+   }
+  }
+ }
+}

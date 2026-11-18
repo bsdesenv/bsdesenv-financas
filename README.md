@@ -31,20 +31,20 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 |---|---|
 | <img src="docs/img/celular-extrato.png" alt="Extrato agrupado por dia, com busca e filtros" width="300"> | <img src="docs/img/primeiro-acesso.png" alt="Primeiro acesso: escolha de um modelo de categorias" width="300"> |
 
-## Instalar
+## Começar
 
-São uns 10 minutos, tudo no navegador e sem instalar nada:
+Não precisa saber programar. Você precisa de uma conta Google pessoal (Gmail), de um computador para a instalação e de uns 10 minutos.
 
-1. Crie uma planilha em <https://sheets.new>.
-2. Em **Extensões › Apps Script**, cole os arquivos da pasta [`src/`](src).
-3. Faça **Implantar › Nova implantação › App da Web**, com *Executar como: Eu* e *Quem pode acessar: Somente eu*.
-4. Abra o endereço que termina em `/exec`. No celular, use **Adicionar à tela inicial**.
+| Sua situação | Siga |
+|---|---|
+| Vou instalar pela primeira vez | **[docs/INSTALAR.md](docs/INSTALAR.md)**: passo a passo com os nomes exatos de cada menu e arquivo |
+| Já instalei e quero entender as telas | **[docs/USAR.md](docs/USAR.md)**: livre para gastar, plano, backup e atalhos |
+| Já uso a versão 1 | **[docs/ATUALIZAR.md](docs/ATUALIZAR.md)**: troca só o código, sem migrar dados |
+| Deu algum erro | **[Problemas comuns](docs/INSTALAR.md#problemas-comuns)** |
 
-O passo a passo completo, com os nomes exatos dos arquivos, está em **[docs/INSTALAR.md](docs/INSTALAR.md)**.
+> **Acesso ao repositório.** Este repositório não é público. Para ver os arquivos, entre na sua conta do GitHub e aceite o convite que chegou por e-mail. Sem isso, os links mostram "Page not found".
 
-**Já usa a versão 1?** A versão 2 lê as mesmas abas, com as mesmas colunas, sem migração nenhuma. Veja **[docs/ATUALIZAR.md](docs/ATUALIZAR.md)**.
-
-**Quer só experimentar?** Depois de instalar, vá em **Ajustes › Importar backup** e escolha [`exemplos/dados-exemplo.json`](exemplos/dados-exemplo.json): um ano de dados fictícios.
+Resumo da instalação, para quem já conhece o Apps Script: crie uma planilha, cole os arquivos de [`src/`](src) em **Extensões › Apps Script** e publique como **App da Web**, com *Executar como: Eu* e *Quem pode acessar: Somente eu*.
 
 ## Como funciona
 
@@ -64,7 +64,7 @@ O app nunca regrava a base inteira. Ele envia **operações** (salvar ou apagar 
 - O app roda **na sua conta**, com acesso **somente seu**. Ninguém mais abre o endereço.
 - A permissão pedida ao Google é **"somente esta planilha"** (`@OnlyCurrentDoc`), não todas as suas planilhas.
 - O Google mostra o aviso "app não verificado" porque o script é seu e não foi publicado na loja. O código é o deste repositório.
-- Requisições externas: só a fonte Inter (Google Fonts) e o ícone da aba (este repositório no GitHub).
+- Requisições externas: só a fonte Inter (Google Fonts) e o ícone da aba (este repositório no GitHub). Os seus dados nunca vão para o GitHub.
 - Texto que viraria fórmula na planilha (começando com `=`, `+`, `-` ou `@`) é gravado como texto.
 
 ## Desenvolvimento
@@ -75,6 +75,8 @@ testes/       servidor rodando no Node sobre uma planilha falsa, e testes no nav
 exemplos/     dados fictícios para experimentar e para os testes
 docs/         guias e imagens
 ```
+
+As versões ficam marcadas como tags (`v2.0.0`...) e o que mudou em cada uma está no [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 npm test             # testes do servidor (Node 20+, sem dependências)

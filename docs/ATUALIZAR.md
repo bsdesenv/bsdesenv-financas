@@ -32,7 +32,7 @@ A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`
 | `Estilos` (novo) | **+ › HTML**, nome `Estilos`, cole [`src/Estilos.html`](../src/Estilos.html) |
 | `App` (novo) | **+ › HTML**, nome `App`, cole [`src/App.html`](../src/App.html) |
 
-Salve com `Ctrl+S`. O manifesto [`src/appsscript.json`](../src/appsscript.json) é opcional (veja o passo 3 de [INSTALAR.md](INSTALAR.md)).
+Para copiar cada arquivo inteiro, use o botão **Copy raw file** do GitHub (veja [Como copiar um arquivo do GitHub](INSTALAR.md#como-copiar-um-arquivo-do-github)). Salve com `Ctrl+S`. O manifesto [`src/appsscript.json`](../src/appsscript.json) é opcional (veja o passo 3 de [INSTALAR.md](INSTALAR.md)).
 
 **4. Publique uma nova versão no mesmo endereço:** **Implantar › Gerenciar implantações › ✏️ › Versão: Nova versão › Implantar**.
 
@@ -40,7 +40,9 @@ Não use *Nova implantação*: ela gera outro endereço.
 
 **5. Autorize de novo, se o Google pedir.** A versão 2 pede menos permissão ("somente esta planilha"), e o Google pode querer confirmar.
 
-**6. Abra o app.** Seus dados aparecem como estavam. Confira um mês fechado na **Planilha** contra o que você via antes.
+**6. Abra o app.** Seus dados aparecem como estavam. Confira um mês fechado na **Planilha** contra o que você via antes. Se algo der erro, veja os [problemas comuns](INSTALAR.md#problemas-comuns).
+
+As telas novas estão explicadas em [USAR.md](USAR.md).
 
 ## Voltar atrás
 

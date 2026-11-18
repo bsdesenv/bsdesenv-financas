@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2 — 2026-11-18
+
+### Corrigido
+- **A sobra não reagia ao que você lançava ou apagava.** No mês atual, cada categoria entrava na conta pelo maior valor entre o lançado e o plano, e categoria sem plano ganhava a média dos 3 meses anteriores, que não dava para apagar. Agora vale a regra da versão 1 em todos os meses: o lançado; sem lançamento, o plano que você gravou. Apagar um lançamento ou um plano muda a sobra na hora.
+- A média dos 3 meses virou só sugestão (no campo do plano e no botão "Usar as médias"). O botão "Confirmar" não lança mais média como se fosse gasto.
+- Início: "Projeção de gastos" e "Fechamento previsto" viraram **Previsto a lançar** e **Sobra do mês**, e o texto diz quanto da sobra vem de planos ainda sem lançamento.
+
 ## 2.0.1 — 2026-11-18
 
 ### Corrigido

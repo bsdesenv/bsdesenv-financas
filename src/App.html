@@ -240,7 +240,7 @@ async function verificarNovidades(forcar = false) {
 }
 
 /* =====================================================================
-   6. Cálculos: realizado, plano, projeção e ritmo
+   6. Cálculos: realizado, plano, previsto e ritmo
    ===================================================================== */
 let memo = { v: -1 };
 function M() { if (memo.v !== S.versao) memo = { v: S.versao, anos: new Map(), inicio: null, uso: null }; return memo; }
@@ -271,40 +271,26 @@ function inicioDados() {
   m.inicio = min;
   return min;
 }
-/** Mês fechado: o realizado; se nada foi lançado, o plano (igual à versão 1). */
+/** O realizado; se nada foi lançado, o plano (igual à versão 1). */
 function valorFechado(cid, ano, mes) { const c = celReal(cid, ano, mes); return c.qtd ? c.soma : planoExp(cid, ano, mes); }
+/** Média dos 3 meses anteriores. Só sugestão: nunca entra nas contas sem você gravar como plano. */
 function media3(cid, ano, mes) {
   const alvo = chaveMes(ano, mes); const ini = inicioDados();
   let soma = 0; let n = 0;
   for (let k = alvo - 1; k >= alvo - 3 && k >= ini; k--) { const d = deChave(k); soma += valorFechado(cid, d.ano, d.mes); n++; }
   return n ? arred(soma / n) : 0;
 }
-/** Plano do mês: o definido; no mês corrente, sem plano definido, a média dos 3 meses anteriores. */
-function plano(cid, ano, mes) {
-  const e = planoExp(cid, ano, mes);
-  if (e) return { valor: e, implicito: false };
-  if (fase(ano, mes) === 'atual') { const m = media3(cid, ano, mes); return { valor: m, implicito: m > 0 }; }
-  return { valor: 0, implicito: false };
-}
 /**
- * Valor de uma categoria num mês.
- *  passado: realizado (ou o plano, se nada foi lançado — marcado como previsto)
- *  atual:   projeção = o maior entre o realizado e o plano
- *  futuro:  plano
+ * Valor de uma categoria num mês, com a mesma regra em todos os meses (a da versão 1):
+ *  - teve lançamento: vale o que foi lançado;
+ *  - não teve: vale o plano que você gravou, marcado como previsto.
+ * Nada é calculado por conta própria. Apagar um lançamento muda o total na hora, e
+ * apagar o plano tira o previsto das contas.
  */
 function celula(cid, ano, mes) {
-  const f = fase(ano, mes); const c = celReal(cid, ano, mes);
-  if (f === 'passado') {
-    if (c.qtd) return { valor: c.soma, real: c.soma, qtd: c.qtd, plano: planoExp(cid, ano, mes), tipo: 'real', fase: f };
-    const p = planoExp(cid, ano, mes);
-    return { valor: p, real: 0, qtd: 0, plano: p, tipo: p ? 'previsto' : 'vazio', fase: f };
-  }
-  if (f === 'futuro') {
-    const p = planoExp(cid, ano, mes);
-    return { valor: Math.max(c.soma, p), real: c.soma, qtd: c.qtd, plano: p, tipo: c.qtd ? 'parcial' : p ? 'previsto' : 'vazio', fase: f };
-  }
-  const p = plano(cid, ano, mes);
-  return { valor: Math.max(c.soma, p.valor), real: c.soma, qtd: c.qtd, plano: p.valor, implicito: p.implicito, tipo: c.qtd ? 'parcial' : p.valor ? 'previsto' : 'vazio', fase: f };
+  const f = fase(ano, mes); const c = celReal(cid, ano, mes); const p = planoExp(cid, ano, mes);
+  if (c.qtd) return { valor: c.soma, real: c.soma, qtd: c.qtd, plano: p, tipo: 'real', fase: f };
+  return { valor: p, real: 0, qtd: 0, plano: p, tipo: p ? 'previsto' : 'vazio', fase: f };
 }
 function resumo(ano, mes) {
   const f = fase(ano, mes); const h = hoje();
@@ -317,7 +303,8 @@ function resumo(ano, mes) {
     if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; }
     else {
       gastos += v.valor; gastoReal += v.real; planoGastos += v.plano || 0;
-      if (c.grupo === 'fixo' && f === 'atual') aVencer += Math.max(0, (v.plano || 0) - v.real);
+      // A vencer = conta fixa com plano e ainda sem lançamento: o mesmo valor que entra na sobra.
+      if (c.grupo === 'fixo' && f === 'atual' && v.tipo === 'previsto') aVencer += v.plano;
     }
   }
   const dias = diasNoMes(ano, mes);
@@ -325,7 +312,7 @@ function resumo(ano, mes) {
   const livre = renda - gastoReal - aVencer;
   return {
     fase: f, qtd, dias, restantes, porCat,
-    renda: arred(renda), gastos: arred(gastos), sobra: arred(renda - gastos),
+    renda: arred(renda), gastos: arred(gastos), sobra: arred(renda - gastos), previsto: arred(gastos - gastoReal),
     rendaReal: arred(rendaReal), gastoReal: arred(gastoReal), aVencer: arred(aVencer), planoGastos: arred(planoGastos),
     livre: arred(livre), porDia: restantes ? arred(livre / restantes) : 0,
     ritmo: f === 'atual' ? h.dia / dias : f === 'passado' ? 1 : 0,
@@ -421,17 +408,18 @@ function notaCategoria(c, v, est) {
   if (c.grupo === 'renda') {
     if (v.real > 0 && v.real >= v.plano) return 'Recebido';
     if (v.real > 0) return `Recebido ${moeda(v.real)} de ${moeda(v.plano)}`;
-    return v.plano ? `Previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}` : 'Nada recebido';
+    return v.plano ? `Previsto ${moeda(v.plano)}` : 'Nada recebido';
   }
   if (!v.plano) return v.real ? 'Sem plano' : 'Nada lançado';
   if (est === 'acima') return `${moeda(v.real - v.plano)} acima do plano`;
   if (c.grupo === 'fixo') {
     if (v.real >= v.plano) return 'Pago';
-    if (!v.real) return `A vencer · previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}`;
+    if (!v.real) return `A vencer · previsto ${moeda(v.plano)}`;
     return `Faltam ${moeda(v.plano - v.real)}`;
   }
+  if (!v.real) return `Previsto ${moeda(v.plano)} · nada lançado ainda`;
   const resta = moeda(v.plano - v.real);
-  return est === 'atencao' ? `Acima do ritmo · restam ${resta}` : `Restam ${resta}${v.implicito ? ' · plano pela média' : ''}`;
+  return est === 'atencao' ? `Acima do ritmo · restam ${resta}` : `Restam ${resta}`;
 }
 function linhaCat(c, v, ritmo, ano, mes, extra = false) {
   const est = estadoCategoria(c, v, ritmo);
@@ -566,8 +554,8 @@ function cartaoHeroi(r) {
         + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div></div>`
       : '<p class="sub" style="margin-top:12px">Defina um plano em <button type="button" class="link" data-acao="planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p>';
     const negativo = r.sobra < 0;
-    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-ok'}">${ic(negativo ? 'alerta' : 'check', 18)}<p><strong>No ritmo do plano, ${m} fecha ${negativo ? 'em ' + moeda(r.sobra) : 'com sobra de ' + moeda(r.sobra)}.</strong>`
-      + (r.aVencer > 0 ? ` Ainda há ${moeda(r.aVencer)} em contas fixas a vencer.` : '') + '</p></div>';
+    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-ok'}">${ic(negativo ? 'alerta' : 'check', 18)}<p><strong>${Mes(S.mes)} fecha ${negativo ? 'em ' + moeda(r.sobra) : 'com sobra de ' + moeda(r.sobra)}.</strong>`
+      + (r.previsto > 0 ? ` Conta o que já foi lançado e ${moeda(r.previsto)} de planos ainda sem lançamento; apagar o plano tira o previsto.` : ' Conta só o que já foi lançado.') + '</p></div>';
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Livre para gastar até ${r.dias}/${dois(S.mes)}</h2>`
       + `<p class="numero-heroi${r.livre < 0 ? ' negativo' : ''}">${moeda(r.livre)}</p><p class="sub">${sub}</p>${ritmo}${nota}</section>`;
   }
@@ -590,8 +578,8 @@ function cartaoKpis(r) {
     tiles = [
       ['Renda do mês', moeda(r.renda), r.rendaReal > 0 && r.rendaReal >= r.renda ? 'recebida' : r.rendaReal > 0 ? `${moeda(r.rendaReal)} recebidos` : 'prevista', 'ok'],
       ['Gasto até hoje', moeda(r.gastoReal), `${r.qtd} lançamento${r.qtd === 1 ? '' : 's'}`, ''],
-      ['Projeção de gastos', moeda(r.gastos), r.planoGastos ? `plano de ${moeda(r.planoGastos)}` : 'sem plano definido', ''],
-      ['Fechamento previsto', moeda(r.sobra), `${Mes(ant.mes)} fechou em ${moeda(rAnt.sobra)}`, r.sobra < 0 ? 'acima' : 'ok'],
+      ['Previsto a lançar', moeda(r.previsto), r.previsto ? 'planos ainda sem lançamento' : 'nenhum plano pendente', ''],
+      ['Sobra do mês', moeda(r.sobra), `${Mes(ant.mes)} fechou em ${moeda(rAnt.sobra)}`, r.sobra < 0 ? 'acima' : 'ok'],
     ];
   } else if (r.fase === 'passado') {
     tiles = [
@@ -614,7 +602,7 @@ function cartaoAVencer(r) {
   const itens = r.porCat.filter(({ c, v }) => c.grupo === 'fixo' && v.plano > 0 && v.real === 0);
   if (!itens.length) return '';
   return `<section class="cartao" aria-labelledby="h-vencer"><div class="cartao-topo"><h2 id="h-vencer">A vencer este mês</h2></div>`
-    + itens.map(({ c, v }) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}</span></div>`
+    + itens.map(({ c, v }) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>previsto ${moeda(v.plano)}</span></div>`
       + `<button type="button" class="botao pequeno" data-acao="confirmar" data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="conf-${esc(c.id)}">Confirmar</button></div>`).join('')
     + '</section>';
 }
@@ -691,12 +679,12 @@ function cartaoAno() {
   const barras = meses.map((m) => {
     const hPos = m.sobra > 0 && mp ? Math.max(2, Math.round((m.sobra / mp) * hp)) : 0;
     const hNeg = m.sobra < 0 && mn ? Math.max(2, Math.round((-m.sobra / mn) * hn)) : 0;
-    const extra = m.fase === 'atual' ? ' (projeção)' : m.fase === 'futuro' ? ' (previsto)' : '';
+    const extra = m.fase === 'atual' ? ' (lançado até agora + planos sem lançamento)' : m.fase === 'futuro' ? ' (previsto)' : '';
     return `<button type="button" class="ga-mes ${m.fase}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
       + `<span class="ga-pos"><i style="height:${hPos}px"></i></span><span class="ga-neg"><i style="height:${hNeg}px"></i></span><span class="ga-rot">${MesC(m.mes)}</span></button>`;
   }).join('');
   return `<section class="cartao g-ano" aria-labelledby="h-ano"><div class="cartao-topo"><h2 id="h-ano">Sobra mês a mês · ${S.ano}</h2></div>`
-    + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>projeção</span></div>'
+    + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>mês atual e futuros</span></div>'
     + `<figure class="grafico-ano"><div class="ga-barras" style="--hp:${hp}px;--hn:${hn}px">${barras}</div>`
     + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong></figcaption></figure></section>`;
 }
@@ -768,7 +756,7 @@ function telaMes() {
 function kpisMes(r) {
   if (S.modoMes === 'planejar') {
     let renda = 0; let gastos = 0;
-    for (const c of cats()) { const p = plano(c.id, S.ano, S.mes).valor; if (c.grupo === 'renda') renda += p; else gastos += p; }
+    for (const c of cats()) { const p = planoExp(c.id, S.ano, S.mes); if (c.grupo === 'renda') renda += p; else gastos += p; }
     const sobra = renda - gastos;
     return `<div class="kpis-mes"><div><span>Renda planejada</span><strong class="txt-ok">${num(renda)}</strong></div><div><span>Gastos planejados</span><strong>${num(gastos)}</strong></div>`
       + `<div class="${sobra < 0 ? 'alerta' : ''}"><span>Sobra planejada</span><strong>${num(sobra)}</strong></div></div>`;
@@ -776,7 +764,7 @@ function kpisMes(r) {
   const atual = r.fase === 'atual';
   return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(r.renda)}</strong></div>`
     + `<div><span>${atual ? 'Gasto até hoje' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(atual ? r.gastoReal : r.gastos)}</strong></div>`
-    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Fecha em' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
+    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Sobra do mês' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
 }
 function telaAcompanhar(r) {
   const blocos = ORDEM_GRUPOS.map((g) => {
@@ -801,7 +789,7 @@ function telaPlanejar() {
         + `<input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="${med ? num(med) : '0,00'}"></div>`;
     }).join('')}</div></section>`;
   }).join('');
-  return `<p class="sub" style="margin-top:12px">O plano guia a projeção, o ritmo e o “livre para gastar”. Campo vazio no mês atual usa a média dos últimos 3 meses.</p>`
+  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média dos 3 meses aparece só como sugestão.</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
     + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Usar as médias</button>'
     + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
@@ -854,7 +842,7 @@ function telaPlanilha() {
     const cor = (v) => (sinal ? (v < 0 ? ' txt-acima' : ' txt-ok') : '');
     return `<tr><th scope="row">${nome}</th>${serie.map((v, i) => {
       const f = fase(ano, i + 1);
-      return `<td class="${f !== 'passado' ? 'proj' : ''}${cor(v)}" title="${esc(nome + ' · ' + Mes(i + 1) + (f === 'atual' ? ' (projeção)' : f === 'futuro' ? ' (previsto)' : ''))}">${num(v)}</td>`;
+      return `<td class="${f !== 'passado' ? 'proj' : ''}${cor(v)}" title="${esc(nome + ' · ' + Mes(i + 1) + (f === 'atual' ? ' (lançado + planos sem lançamento)' : f === 'futuro' ? ' (previsto)' : ''))}">${num(v)}</td>`;
     }).join('')}<td class="total${cor(tot)}">${num(tot)}</td></tr>`;
   };
   const sobra = totR.map((v, i) => v - totG[i]);
@@ -863,12 +851,12 @@ function telaPlanilha() {
   if (!cats().length) return vazio('Crie categorias em Ajustes para ver a planilha.', false);
   return '<div class="planilha-ferramentas">'
     + `<div class="segmentado" role="group" aria-label="Visualização">${seg(false, 'Valores')}${seg(true, 'Mapa de calor')}</div>`
-    + '<div class="legenda"><span><i style="background:rgba(234,88,12,.3)"></i>acima da média da categoria</span><span><i style="background:rgba(79,70,229,.2)"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto ou projeção</span></div>'
+    + '<div class="legenda"><span><i style="background:rgba(234,88,12,.3)"></i>acima da média da categoria</span><span><i style="background:rgba(79,70,229,.2)"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto (plano sem lançamento)</span></div>'
     + `<button type="button" class="botao pequeno" data-acao="exportar-csv" data-foco="exp-csv" style="margin-left:auto">${ic('baixar', 16)}Exportar CSV</button></div>`
     + `<div class="planilha-caixa"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
     + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
     + `<tfoot>${rodape('Total de gastos', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
-    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. No mês atual aparece o realizado com a barra do plano; o rodapé do mês atual em diante é projeção.</p>';
+    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado como previsto e entra no total. Apague o plano para tirá-lo.</p>';
 }
 function posPlanilha() {
   if (!S.rolarPlanilha) return;
@@ -1217,7 +1205,7 @@ function abrirCategoria(cid, ano, mes) {
         const pct = v.plano > 0 ? (v.real / v.plano) * 100 : v.real > 0 ? 100 : 0;
         const conf = v.tipo === 'previsto' && v.fase !== 'futuro'
           ? `<div class="acoes"><button type="button" class="botao" data-f="confirmar">${ic('check', 18)}Confirmar ${moeda(v.plano)} como lançado</button></div>` : '';
-        $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) + (v.implicito ? ' (média)' : '') : 'sem plano'}</span></div>`
+        $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) : 'sem plano'}</span></div>`
           + barra({ pct, ritmo: v.fase === 'atual' && c.grupo === 'variavel' && v.plano ? resumo(ano, mes).ritmo : null, estado: est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok', alta: true })
           + `<p class="lc-nota ${est === 'acima' ? 'txt-acima' : ''}" style="margin-top:6px">${esc(notaCategoria(c, v, est))}</p>${conf}`;
         const itens = celReal(cid, ano, mes).itens.slice().sort((a, b) => (a.dia ?? 99) - (b.dia ?? 99));
@@ -1228,7 +1216,7 @@ function abrirCategoria(cid, ano, mes) {
         if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
         const med = media3(cid, ano, mes);
         inp.placeholder = med ? num(med) : '0,00';
-        $('#fc-plano-dica', el).textContent = med ? `Média dos 3 meses anteriores: ${moeda(med)}.` : '';
+        $('#fc-plano-dica', el).textContent = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. ` : '') + 'Campo vazio = sem previsto nas contas.';
       };
       const adicionar = () => {
         const msg = $('#fc-msg', el);

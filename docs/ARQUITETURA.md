@@ -52,13 +52,16 @@ A gravação de cada aba é uma escrita única. As linhas que sobram são limpas
 
 Para uma categoria num mês:
 
-| Mês | Valor |
+| Situação | Valor (qualquer mês: passado, corrente ou futuro) |
 |---|---|
-| já passou | o lançado; sem lançamento, o plano (marcado como "previsto") |
-| corrente | o maior entre o lançado e o plano (sem plano: média dos 3 meses anteriores) |
-| futuro | o plano |
+| teve lançamento | a soma do lançado |
+| sem lançamento, com plano | o plano, marcado como "previsto" |
+| sem lançamento, sem plano | zero |
 
-- **Livre para gastar** = renda do mês − gasto até hoje − contas fixas ainda a vencer (plano − lançado, nos fixos).
+É a regra da versão 1. Nada é estimado por conta própria: a média dos 3 meses anteriores só aparece como sugestão e só vira plano quando a pessoa grava ("Usar as médias"). Assim, apagar um lançamento ou um plano muda o total na hora.
+
+- **Sobra do mês** = renda − gastos, somando o valor de cada categoria pela tabela acima. **Previsto a lançar** é a parte dos gastos que vem de planos sem lançamento.
+- **Livre para gastar** = renda do mês − gasto até hoje − contas fixas ainda a vencer (fixos com plano e sem lançamento).
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.
 

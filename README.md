@@ -16,7 +16,7 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 
 - **Seus dados, sua planilha.** Tudo fica numa planilha do seu Google Drive, em abas comuns que dá para abrir e ler. Sem servidor de terceiros, sem mensalidade, sem anúncio e sem senha de banco.
 - **Lançar em três toques.** O botão **+** fica sempre à mão. O valor se digita como no app do banco (6430 vira R$ 64,30), as categorias mais usadas vêm primeiro e a data já começa em "hoje".
-- **Previsão honesta.** "Livre para gastar até o fim do mês", ritmo do mês e uma projeção que não fica otimista só porque o mês ainda não acabou.
+- **Previsão honesta.** "Livre para gastar até o fim do mês" e ritmo do mês. Só entra na conta o que você lançou ou planejou: o app não inventa previsão, e apagar um plano tira o previsto da soma.
 - **Planilha no computador.** O ano inteiro numa matriz com mapa de calor (onde cada categoria fugiu da própria média), atalhos de teclado e lançamento direto na célula.
 - **Não perde nada.** Celular e computador podem ser usados ao mesmo tempo sem um apagar o outro. Sem conexão, o app guarda no aparelho e envia depois. Toda exclusão tem "Desfazer".
 - **Acessível.** Contraste AA nos temas claro e escuro, alvos de toque de 44 px e navegação completa pelo teclado.
@@ -25,7 +25,7 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 
 | Planilha com mapa de calor | Modo escuro |
 |---|---|
-| ![Planilha do ano com mapa de calor e projeção do mês atual](docs/img/computador-planilha.png) | ![Início no computador em modo escuro](docs/img/computador-escuro.png) |
+| ![Planilha do ano com mapa de calor e o mês atual com o lançado e o previsto](docs/img/computador-planilha.png) | ![Início no computador em modo escuro](docs/img/computador-escuro.png) |
 
 | Extrato | Primeiro acesso |
 |---|---|

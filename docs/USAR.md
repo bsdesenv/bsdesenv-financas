@@ -44,9 +44,10 @@ Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque n
 ### Início
 
 - **Livre para gastar até o fim do mês:** quanto ainda dá para gastar sem fechar no vermelho, e quanto isso dá por dia.
-  A conta é: renda do mês − o que já foi gasto − contas fixas que ainda vão vencer.
+  A conta é: renda do mês − o que já foi gasto − contas fixas que ainda vão vencer (as que têm plano e nenhum lançamento).
 - **Barra de ritmo:** quanto do plano de gastos você já usou, comparado com quanto do mês já passou. Se no dia 10 você já gastou 60% do plano, a barra avisa.
-- **A vencer este mês:** contas fixas com plano e sem lançamento ainda. O botão **Confirmar** lança o valor previsto com a data de hoje.
+- **Números do mês:** renda, gasto até hoje, **previsto a lançar** (planos de categorias que ainda não tiveram lançamento) e a **sobra do mês**.
+- **A vencer este mês:** contas fixas com plano e sem lançamento ainda. O botão **Confirmar** lança o valor do plano com a data de hoje.
 - **Avisos:** categorias que passaram do plano ou que estão gastando rápido demais.
 
 ### Extrato
@@ -58,9 +59,9 @@ Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e
 Cada categoria com o que foi gasto, o plano e o ritmo. É aqui que você **planeja**:
 
 - **Copiar de** (nome do mês anterior)**:** repete o plano do mês passado.
-- **Usar as médias:** preenche com a média dos últimos 3 meses.
+- **Usar as médias:** grava como plano a média dos últimos 3 meses. Só acontece se você tocar no botão.
 
-Categoria sem plano no mês atual usa automaticamente a média dos 3 meses anteriores.
+O app nunca inventa previsão: categoria sem plano conta só o que foi lançado. A média aparece como sugestão no campo, e apagar o campo tira o previsto das contas.
 
 ### Planilha (melhor no computador)
 
@@ -68,8 +69,8 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas.
 
 - As cores mostram onde cada categoria fugiu da própria média.
 - Clique numa célula para ver os lançamentos dela e lançar direto ali. Use as setas do teclado para andar e `Enter` para abrir.
-- Os meses passados mostram o que foi lançado. Numa categoria sem lançamento, vale o plano, marcado como previsto.
-- O mês atual mostra uma projeção: o maior valor entre o que já foi gasto e o plano. Assim o mês não parece melhor do que vai ser só porque ainda não acabou.
+- Em todos os meses vale a mesma regra da versão 1: a célula mostra o que foi lançado. Numa categoria sem lançamento, vale o plano, marcado como previsto (tracejado). Os totais e a sobra somam exatamente o que aparece nas células.
+- Para tirar um previsto da soma, apague o plano daquele mês.
 
 ### Ajustes
 

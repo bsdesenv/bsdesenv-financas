@@ -11,8 +11,7 @@ A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`
 ## O que muda
 
 - O **titular** vira o **nome do controle** (dá para trocar em Ajustes).
-- O **orçamento** passa a se chamar **plano**. No mês corrente, ele guia o "livre para gastar", o ritmo e a projeção. Categoria sem plano no mês corrente usa a média dos 3 meses anteriores.
-- O **mês corrente** não fica mais otimista: cada categoria conta o maior valor entre o que já foi gasto e o planejado.
+- O **orçamento** passa a se chamar **plano**. A regra das contas é a mesma da versão 1 em todos os meses: vale o que foi lançado e, numa categoria sem lançamento, o plano (previsto).
 - Editar a planilha à mão passa a ser seguro: o app grava operações sobre o que está na planilha e percebe as edições.
 
 ## Passo a passo

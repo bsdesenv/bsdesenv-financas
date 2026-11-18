@@ -107,15 +107,17 @@ async function substituir(p, seletor, texto) {
   await p.type(seletor, texto);
 }
 
+/** Regra da versão 1: teve lançamento, vale o lançado; não teve, vale o plano gravado. */
 function livreEsperado(d, ano, mes) {
   const b = d.anos[ano];
-  const real = (cid) => arred(b.lancamentos.filter((l) => l.mes === mes && l.categoriaId === cid).reduce((a, l) => a + l.valor, 0));
+  const doMes = (cid) => b.lancamentos.filter((l) => l.mes === mes && l.categoriaId === cid);
+  const real = (cid) => arred(doMes(cid).reduce((a, l) => a + l.valor, 0));
   const plano = (cid) => (b.orcamento[cid] || {})[mes] || 0;
   let renda = 0; let gasto = 0; let aVencer = 0;
   for (const c of d.categorias) {
-    const r = real(c.id); const p = plano(c.id);
-    if (c.grupo === 'renda') renda += Math.max(r, p);
-    else { gasto += r; if (c.grupo === 'fixo') aVencer += Math.max(0, p - r); }
+    const teve = doMes(c.id).length > 0; const r = real(c.id); const p = plano(c.id);
+    if (c.grupo === 'renda') renda += teve ? r : p;
+    else { gasto += r; if (c.grupo === 'fixo' && !teve) aVencer += p; }
   }
   return arred(renda - gasto - aVencer);
 }
@@ -261,6 +263,49 @@ await caso('computador: célula da planilha abre o painel e lança ali mesmo; se
   await pc.keyboard.press('ArrowRight');
   const foco = await pc.evaluate(() => document.activeElement.dataset.mes);
   assert.equal(foco, '12');
+});
+
+await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento ou plano muda a sobra', async () => {
+  const dados = {
+    nome: 'Sobra', categorias: [
+      { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+      { id: 'carro', nome: 'Carro', grupo: 'variavel', ordem: 3 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 4 },
+    ],
+    anos: { 2026: { lancamentos: [], orcamento: { aluguel: { 11: 1000 }, salario: { 11: 10000 } } } },
+  };
+  let n = 0;
+  const lanc = (mes, categoriaId, valor) => dados.anos[2026].lancamentos.push({ id: 's' + ++n, mes, dia: 5, categoriaId, descricao: '', valor });
+  // Carro em ago/set/out tem média de 1.155,04, mas nenhum plano em novembro.
+  for (const [mes, carro] of [[8, 1950], [9, 1316.13], [10, 199]]) { lanc(mes, 'carro', carro); lanc(mes, 'mercado', 1500); lanc(mes, 'aluguel', 1000); lanc(mes, 'salario', 10000); }
+  lanc(11, 'mercado', 500); lanc(11, 'mercado', 300);
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'sobra'));
+  await pronto(p);
+  const kpi = (rot) => p.$$eval('.kpi', (els, r) => els.find((e) => e.querySelector('.rotulo').textContent === r)?.querySelector('.kpi-valor').textContent, rot);
+  // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
+  assert.equal(await kpi('Sobra do mês'), moeda(8200));
+  assert.equal(await kpi('Previsto a lançar'), moeda(1000));
+  await irPara(p, 'planilha');
+  assert.equal(await p.$eval('td.cel[data-cat="carro"][data-mes="11"]', (e) => e.textContent), '–', 'sem plano, sem média inventada');
+  assert.equal(await p.$eval('td.cel[data-cat="mercado"][data-mes="11"]', (e) => e.textContent), '800,00', 'a célula mostra o lançado');
+
+  await irPara(p, 'extrato');
+  await p.click('#extrato-lista .linha-lanc[data-id="s13"]'); await folhaAberta(p);
+  await p.click('.folha [data-f="apagar"]'); await semFolha(p); await sincronizado(p);
+  await irPara(p, 'inicio');
+  assert.equal(await kpi('Sobra do mês'), moeda(8700), 'apagar 500 do mercado devolve 500 à sobra');
+
+  await irPara(p, 'mes');
+  await p.click('[data-modo="planejar"]'); await sleep(100);
+  await substituir(p, '#pl-aluguel', '');
+  await p.keyboard.press('Backspace'); await p.keyboard.press('Tab'); await sleep(250); await sincronizado(p);
+  assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'aluguel' && l[2] === 11), 'plano apagado na planilha');
+  await p.click('[data-modo="acompanhar"]'); await irPara(p, 'inicio');
+  assert.equal(await kpi('Sobra do mês'), moeda(9700), 'sem o plano, o aluguel previsto sai da sobra');
+  assert.equal(await kpi('Previsto a lançar'), moeda(0));
+  await p.close();
 });
 
 await caso('computador: busca do extrato não recria o campo; Tab em Ajustes mantém o foco', async () => {

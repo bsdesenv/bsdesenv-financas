@@ -1,0 +1,13 @@
+# --- Dados pessoais e versão antiga local: NUNCA versionar ---
+/apps-script/
+/dados-financeiro*.json
+*.zip
+/_privado/
+
+# --- Ferramentas ---
+node_modules/
+.clasp.json
+.clasprc.json
+/testes/saida/
+.DS_Store
+Thumbs.db

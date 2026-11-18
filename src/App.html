@@ -295,6 +295,7 @@ function celula(cid, ano, mes) {
 function resumo(ano, mes) {
   const f = fase(ano, mes); const h = hoje();
   let renda = 0; let gastos = 0; let rendaReal = 0; let gastoReal = 0; let aVencer = 0; let planoGastos = 0; let qtd = 0;
+  let gastoComPlano = 0; let semPlano = 0; let semPlanoQtd = 0;
   const porCat = [];
   for (const c of cats()) {
     const v = celula(c.id, ano, mes);
@@ -303,6 +304,9 @@ function resumo(ano, mes) {
     if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; }
     else {
       gastos += v.valor; gastoReal += v.real; planoGastos += v.plano || 0;
+      // A barra do plano compara só as categorias que têm plano; o resto aparece à parte.
+      if (v.plano) gastoComPlano += v.real;
+      else if (v.real) { semPlano += v.real; semPlanoQtd++; }
       // A vencer = conta fixa com plano e ainda sem lançamento: o mesmo valor que entra na sobra.
       if (c.grupo === 'fixo' && f === 'atual' && v.tipo === 'previsto') aVencer += v.plano;
     }
@@ -313,6 +317,7 @@ function resumo(ano, mes) {
   return {
     fase: f, qtd, dias, restantes, porCat,
     renda: arred(renda), gastos: arred(gastos), sobra: arred(renda - gastos), previsto: arred(gastos - gastoReal),
+    gastoComPlano: arred(gastoComPlano), semPlano: arred(semPlano), semPlanoQtd,
     rendaReal: arred(rendaReal), gastoReal: arred(gastoReal), aVencer: arred(aVencer), planoGastos: arred(planoGastos),
     livre: arred(livre), porDia: restantes ? arred(livre / restantes) : 0,
     ritmo: f === 'atual' ? h.dia / dias : f === 'passado' ? 1 : 0,
@@ -543,15 +548,16 @@ function telaInicio() {
 function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
-    const pct = r.planoGastos > 0 ? (r.gastoReal / r.planoGastos) * 100 : 0;
-    const estado = r.planoGastos > 0 && r.gastoReal > r.planoGastos ? 'acima' : 'ok';
+    const pct = r.planoGastos > 0 ? (r.gastoComPlano / r.planoGastos) * 100 : 0;
+    const estado = r.planoGastos > 0 && r.gastoComPlano > r.planoGastos ? 'acima' : 'ok';
     const sub = r.livre > 0
       ? `≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dia${r.restantes > 1 ? 's' : ''}`
       : 'Os gastos e as contas a vencer já passam da renda do mês.';
     const ritmo = r.planoGastos > 0
-      ? `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoReal)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
+      ? `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
         + barra({ pct, ritmo: r.ritmo, estado, alta: true })
-        + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div></div>`
+        + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
+        + (r.semPlano > 0 ? `<p class="sub" style="margin-top:6px">Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} (fora da barra).</p>` : '') + '</div>'
       : '<p class="sub" style="margin-top:12px">Defina um plano em <button type="button" class="link" data-acao="planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p>';
     const negativo = r.sobra < 0;
     const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-ok'}">${ic(negativo ? 'alerta' : 'check', 18)}<p><strong>${Mes(S.mes)} fecha ${negativo ? 'em ' + moeda(r.sobra) : 'com sobra de ' + moeda(r.sobra)}.</strong>`

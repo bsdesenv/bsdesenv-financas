@@ -45,7 +45,7 @@ Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque n
 
 - **Livre para gastar até o fim do mês:** quanto ainda dá para gastar sem fechar no vermelho, e quanto isso dá por dia.
   A conta é: renda do mês − o que já foi gasto − contas fixas que ainda vão vencer (as que têm plano e nenhum lançamento).
-- **Barra de ritmo:** quanto do plano de gastos você já usou, comparado com quanto do mês já passou. Se no dia 10 você já gastou 60% do plano, a barra avisa.
+- **Barra de ritmo:** quanto do plano de gastos você já usou, comparado com quanto do mês já passou. Se no dia 10 você já gastou 60% do plano, a barra avisa. Só entram as categorias que têm plano; o que foi gasto em categorias sem plano aparece como "Sem plano", à parte.
 - **Números do mês:** renda, gasto até hoje, **previsto a lançar** (planos de categorias que ainda não tiveram lançamento) e a **sobra do mês**.
 - **A vencer este mês:** contas fixas com plano e sem lançamento ainda. O botão **Confirmar** lança o valor do plano com a data de hoje.
 - **Avisos:** categorias que passaram do plano ou que estão gastando rápido demais.

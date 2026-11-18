@@ -287,6 +287,9 @@ await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento 
   // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
   assert.equal(await kpi('Sobra do mês'), moeda(8200));
   assert.equal(await kpi('Previsto a lançar'), moeda(1000));
+  const barra = await p.$eval('.ritmo-bloco', (e) => e.textContent);
+  assert.ok(barra.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
+  assert.ok(barra.includes('Sem plano: ' + moeda(800) + ' em 1 categoria'), 'o mercado sem plano aparece à parte');
   await irPara(p, 'planilha');
   assert.equal(await p.$eval('td.cel[data-cat="carro"][data-mes="11"]', (e) => e.textContent), '–', 'sem plano, sem média inventada');
   assert.equal(await p.$eval('td.cel[data-cat="mercado"][data-mes="11"]', (e) => e.textContent), '800,00', 'a célula mostra o lançado');

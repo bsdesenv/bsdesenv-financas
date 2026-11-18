@@ -291,6 +291,34 @@ await caso('celular: nenhuma tela passa da largura da tela', async () => {
   }
 });
 
+await caso('celular: com a barra do navegador, o lançamento mostra categorias, teclado e Salvar inteiros', async () => {
+  // Alturas reais com a barra do navegador: Android comum (~715) e pequeno (~640).
+  for (const [width, height] of [[411, 715], [360, 640]]) {
+    const p = await abrir(amb, { ...CEL, width, height }, url);
+    await pronto(p);
+    await p.tap('.inf-mais'); await folhaAberta(p);
+    for (const modo of ['hoje', 'outra']) {
+      await p.tap(`[data-f="data"][data-v="${modo}"]`); await sleep(120);
+      const r = await p.evaluate(() => {
+        const f = document.querySelector('.folha');
+        const dentro = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight + 0.5; };
+        const fimCats = document.querySelector('#nv-cats').getBoundingClientRect().bottom;
+        const topoTeclado = document.querySelector('.nv-teclado-area').getBoundingClientRect().top;
+        return {
+          rola: f.scrollHeight - f.clientHeight, cats: dentro('#nv-cats') && fimCats <= topoTeclado, valor: dentro('#nv-valor'),
+          teclas: dentro('.teclado [data-v="apagar"]'), salvar: dentro('#nv-salvar'),
+          tecla: document.querySelector('.teclado button').getBoundingClientRect().height,
+        };
+      });
+      const onde = `${width}×${height}, data ${modo}`;
+      assert.ok(r.rola <= 1, `${onde}: a folha rola ${r.rola}px`);
+      assert.ok(r.cats && r.valor && r.teclas && r.salvar, `${onde}: algo ficou fora da tela ${JSON.stringify(r)}`);
+      assert.ok(r.tecla >= 38, `${onde}: tecla de ${r.tecla}px`);
+    }
+    await p.close();
+  }
+});
+
 await caso('primeiro acesso: planilha vazia vira um controle pronto em 2 passos', async () => {
   const vazio = criarAmbiente({});
   const p = await abrir(vazio, CEL, montarPagina(vazio, 'vazio'));

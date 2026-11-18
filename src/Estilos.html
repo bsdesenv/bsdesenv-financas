@@ -423,7 +423,8 @@ table.planilha { border-collapse: separate; border-spacing: 0; width: 100%; font
 .folha-rodape { padding: 10px 16px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--linha); display: flex; flex-direction: column; gap: 6px; background: var(--cartao); border-radius: 0 0 0 0; }
 .folha-rodape.linha { flex-direction: row; justify-content: space-between; align-items: center; }
 .nv-fixo { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--linha-2); }
-.nv-teclado-area { padding: 10px 16px 0; border-top: 1px solid var(--linha-2); }
+.nv-cats-area { border: 0; margin: 0; padding: 0; min-width: 0; }
+.nv-cats-area legend { padding: 0; margin-bottom: 6px; }
 .folha-novo .folha-rodape { border-top: 0; }
 .chip.todas { border-style: dashed; color: var(--tinta-2); }
 /* No celular, as categorias viram uma faixa de duas linhas que rola para o lado */
@@ -435,8 +436,49 @@ table.planilha { border-collapse: separate; border-spacing: 0; width: 100%; font
 .valor-grande { display: block; text-align: center; font-size: 44px; font-weight: 650; letter-spacing: -.025em; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .valor-grande.renda { color: var(--ok); }
 .teclado { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.teclado button { min-height: 50px; border-radius: 12px; background: var(--chip); font-size: 22px; font-weight: 500; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.teclado button { border-radius: 12px; background: var(--chip); font-size: 22px; font-weight: 500; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 .teclado button:active { background: var(--chip-borda); }
+
+/* Novo lançamento no celular. Com a barra do navegador, sobram uns 650–720 px de altura.
+   Prioridade: Salvar, teclado, valor e categorias sempre à vista e inteiros. Só a descrição
+   rola; quando falta altura, as teclas encolhem de 50 até 42 px. Em telas muito baixas, as
+   categorias ficam numa linha e, se ainda faltar, a folha inteira rola com o Salvar preso embaixo. */
+.nv-toque { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.nv-topo .segmentado { flex: 1; min-width: 0; }
+.nv-toque .nv-fixo { padding-top: 6px; }
+.nv-valor { text-align: center; }
+.nv-toque .nv-cats-area { flex: none; margin-top: 10px; padding: 0 16px 2px; } /* em fieldset, o padding de cima ficaria abaixo da legenda */
+/* A descrição cede altura antes do teclado (fator de encolher bem maior), mas mostra tudo quando cabe */
+.nv-toque .folha-corpo { flex: 1 1000 auto; min-height: 60px; padding: 8px 16px 10px; }
+.nv-teclado-area {
+  flex: 0 1 229px; min-height: 197px; display: flex; flex-direction: column;
+  padding: 10px 16px 0; border-top: 1px solid var(--linha-2);
+}
+.nv-teclado-area .teclado { flex: 1 1 0; min-height: 0; grid-template-rows: repeat(4, minmax(0, 1fr)); }
+.nv-toque .folha-rodape { position: sticky; bottom: 0; flex-direction: row; gap: 8px; }
+.nv-toque .folha-rodape .grande { flex: 1 1 auto; width: auto; min-width: 0; }
+.nv-toque .folha-rodape .fantasma { flex: none; min-height: 52px; border-radius: 14px; background: var(--acento-fraco); }
+.nv-toque .chip { min-height: var(--nv-chip, 44px); }
+.nv-toque .valor-grande { font-size: var(--nv-valor, 44px); }
+.nv-toque .segmentado button { min-height: var(--nv-seg, 40px); }
+.nv-toque .nv-teclado-area { min-height: var(--nv-teclas, 197px); }
+.nv-toque::before { display: var(--nv-alca, block); }
+@media (max-height: 700px) {
+  .nv-toque #nv-rot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+/* Categorias numa linha só quando "Outra data" abre uma linha a mais */
+@media (max-height: 780px) {
+  .nv-toque:has(#nv-dt) .chips-faixa { grid-template-rows: auto; }
+}
+/* Telas baixas (celular pequeno com a barra do navegador): uma linha de categorias e tudo mais justo */
+@media (max-height: 670px) {
+  .nv-toque { --nv-chip: 38px; --nv-valor: 36px; --nv-seg: 34px; --nv-teclas: 181px; }
+  .nv-toque .chips-faixa { grid-template-rows: auto; }
+  .nv-toque .nv-cats-area legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-height: 600px) {
+  .nv-toque { --nv-alca: none; }
+}
 .entendi { font-size: 13px; color: var(--tinta-3); min-height: 19px; }
 .entendi.erro { color: var(--perigo); }
 .sugestoes { display: flex; gap: 6px; flex-wrap: wrap; }

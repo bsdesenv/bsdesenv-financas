@@ -998,24 +998,28 @@ function abrirNovo(opc = {}) {
     return { ano: p[0], mes: p[1], dia: st.data.semDia ? null : p[2] || null };
   };
   abrirFolha({
-    tipo: 'novo', classe: 'folha-novo',
+    tipo: 'novo', classe: teclado ? 'folha-novo nv-toque' : 'folha-novo',
     montar(el) {
-      // Três faixas: valor fixo em cima, escolhas no meio (rola), teclado fixo embaixo.
-      // Assim o valor digitado nunca sai da vista.
-      el.innerHTML = topoFolha('Novo lançamento')
-        + '<div class="nv-fixo">'
-        + '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>'
-        + (teclado
-          ? '<div style="text-align:center"><span class="rotulo" id="nv-rot">Valor</span><output class="valor-grande" id="nv-valor" aria-labelledby="nv-rot" aria-live="polite">R$ 0,00</output></div><div class="datas" id="nv-datas"></div>'
-          : '<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>')
-        + '</div><div class="folha-corpo">'
-        + `<fieldset style="border:0;margin:0;padding:0;min-width:0"><legend class="rotulo" style="padding:0;margin-bottom:6px">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`
-        + (teclado ? '' : '<div class="datas" id="nv-datas"></div>')
-        + `<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>`
-        + '</div>'
-        + (teclado ? '<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div></div>' : '')
-        + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
-        + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
+      const segmento = '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>';
+      const categorias = `<fieldset class="nv-cats-area"><legend class="rotulo">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`;
+      const descricao = '<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>';
+      el.innerHTML = teclado
+        // Celular: valor e categorias sempre à vista, teclado e Salvar sempre embaixo.
+        // Só a descrição rola; quando falta altura, as teclas encolhem (ver .nv-toque no CSS).
+        ? '<header class="folha-topo nv-topo"><div class="sr"><h2>Novo lançamento</h2></div>' + segmento
+          + `<button type="button" class="icone" data-f="fechar" aria-label="Fechar">${ic('fechar')}</button></header>`
+          + '<div class="nv-fixo"><div class="nv-valor"><span class="rotulo" id="nv-rot">Valor</span><output class="valor-grande" id="nv-valor" aria-labelledby="nv-rot" aria-live="polite">R$ 0,00</output></div><div class="datas" id="nv-datas"></div></div>'
+          + categorias
+          + `<div class="folha-corpo">${descricao}</div>`
+          + '<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div></div>'
+          + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
+          + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e novo</button></footer>'
+        : topoFolha('Novo lançamento')
+          + '<div class="nv-fixo">' + segmento
+          + '<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>'
+          + '</div><div class="folha-corpo">' + categorias + '<div class="datas" id="nv-datas"></div>' + descricao + '</div>'
+          + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
+          + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
       if (teclado) {
         $('#nv-teclado', el).innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'].map((d) => `<button type="button" data-f="tecla" data-v="${d}" aria-label="${d}">${d}</button>`).join('')
           + `<button type="button" data-f="tecla" data-v="apagar" aria-label="Apagar dígito">${ic('apagarDigito', 24)}</button>`;

@@ -1,0 +1,1688 @@
+<script>
+'use strict';
+/* bsdesenv-financas — app que roda no navegador, servido pelo Apps Script. */
+
+/* =====================================================================
+   1. Utilidades
+   ===================================================================== */
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const Mes = (m) => cap(MESES[m - 1]);
+const MesC = (m) => cap(MESES_C[m - 1]);
+const GRUPOS = { fixo: 'Fixos', variavel: 'Variáveis', renda: 'Rendas' };
+const ORDEM_GRUPOS = ['fixo', 'variavel', 'renda'];
+const URL_PROJETO = 'https://github.com/bsdesenv/bsdesenv-financas';
+const _moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const _num = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const arred = (v) => Math.round((Number(v) || 0) * 100) / 100;
+const moeda = (v) => _moeda.format(arred(v)).replace('-', '−');
+const num = (v) => _num.format(arred(v)).replace('-', '−');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const normal = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const novoId = () => 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const diasNoMes = (a, m) => new Date(a, m, 0).getDate();
+const chaveMes = (a, m) => a * 12 + (m - 1);
+const deChave = (k) => ({ ano: Math.floor(k / 12), mes: (k % 12) + 1 });
+const dois = (n) => String(n).padStart(2, '0');
+const isoData = (a, m, d) => `${a}-${dois(m)}-${dois(d || 1)}`;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function hoje() { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1, dia: d.getDate() }; }
+function fase(ano, mes) {
+  const h = hoje(); const a = chaveMes(ano, mes); const b = chaveMes(h.ano, h.mes);
+  return a < b ? 'passado' : a > b ? 'futuro' : 'atual';
+}
+function hora(ts) { return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+function corDe(id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 10; }
+
+/** "1.234,56" | "1.500" | "12.5" | "R$ 89,90" → número. Texto inválido → null. */
+function paraNumero(txt) {
+  let t = String(txt ?? '').trim().replace(/^r\$\s*/i, '').replace(/\s/g, '');
+  if (!t || !/^[-+]?[\d.,]+$/.test(t)) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^[-+]?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  const v = Number(t);
+  return Number.isFinite(v) ? arred(v) : null;
+}
+/** Vários valores: "217,93 176,15+64,86" → três; "36*4" → quatro de 36. Pedaço inválido → null. */
+function paraNumeros(txt) {
+  // "+" entre números separa valores (sem lookbehind: quebraria o Safari antigo)
+  const partes = String(txt ?? '').replace(/([\d,.])\+(?=\d)/g, '$1 ').trim().split(/[\s;]+/).filter(Boolean);
+  const out = [];
+  for (const p of partes) {
+    const m = p.match(/^(.+?)[*x×](\d{1,3})$/i);
+    const v = paraNumero(m ? m[1] : p);
+    if (v === null) return null;
+    for (let i = 0, n = m ? Math.min(Number(m[2]), 120) : 1; i < n; i++) out.push(v);
+  }
+  return out;
+}
+
+const ICONES = {
+  inicio: '<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
+  extrato: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+  mais: '<path d="M12 5v14M5 12h14"/>',
+  mes: '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>',
+  planilha: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/>',
+  ajustes: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  esq: '<path d="m15 18-6-6 6-6"/>',
+  dir: '<path d="m9 18 6-6-6-6"/>',
+  fechar: '<path d="M18 6 6 18M6 6l12 12"/>',
+  nuvemOk: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/><path d="m9.5 13.6 1.9 1.9 3.6-3.6"/>',
+  nuvem: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/>',
+  nuvemOff: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/><path d="M12 10.5v3M12 16h.01"/>',
+  alerta: '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2h.01"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  apagarDigito: '<path d="M21 5H9.5L3 12l6.5 7H21a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m12.5 9 5 6M17.5 9l-5 6"/>',
+  busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>',
+  sobe: '<path d="m6 15 6-6 6 6"/>',
+  desce: '<path d="m6 9 6 6 6-6"/>',
+  lixeira: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  externo: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  baixar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  enviar: '<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',
+  setaSobe: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  setaDesce: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  calendario: '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17"/>',
+  cadeado: '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+};
+const ic = (nome, t = 22) => `<svg class="ic" width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[nome] || ''}</svg>`;
+
+/* =====================================================================
+   2. Ponte com o servidor (google.script.run)
+   ===================================================================== */
+const PONTE = typeof google !== 'undefined' && google.script && google.script.run;
+function chamar(fn, ...args) {
+  return new Promise((ok, falha) => {
+    if (!PONTE) { falha(new Error('Abra o app pelo endereço publicado no Apps Script.')); return; }
+    let feito = false;
+    const t = setTimeout(() => { if (!feito) { feito = true; falha(new Error('A planilha demorou demais para responder.')); } }, 45000);
+    google.script.run
+      .withSuccessHandler((r) => { if (feito) return; feito = true; clearTimeout(t); ok(r); })
+      .withFailureHandler((e) => { if (feito) return; feito = true; clearTimeout(t); falha(new Error((e && e.message) || String(e))); })[fn](...args);
+  });
+}
+
+/* =====================================================================
+   3. Estado e armazenamento local
+   ===================================================================== */
+const S = {
+  dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
+  montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
+  busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true,
+};
+/* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
+   navegador: é só um reforço. A garantia é a planilha. */
+const LS = {
+  ler(k) { try { return JSON.parse(localStorage.getItem('bf:' + k)); } catch (e) { return null; } },
+  gravar(k, v) { try { localStorage.setItem('bf:' + k, JSON.stringify(v)); } catch (e) { /* cheio ou bloqueado */ } },
+};
+function persistirFila() { LS.gravar('fila', { planilha: S.dados && S.dados.planilha ? S.dados.planilha.id : null, ops: S.fila }); }
+let tCache = 0;
+function salvarCache() { clearTimeout(tCache); tCache = setTimeout(() => LS.gravar('cache', S.dados), 300); }
+
+const cats = () => (S.dados ? S.dados.categorias.slice().sort((a, b) => a.ordem - b.ordem) : []);
+const catsDoGrupo = (g) => cats().filter((c) => c.grupo === g);
+function mapaCats() { const m = {}; for (const c of S.dados.categorias) m[c.id] = c; return m; }
+const catPorId = (id) => S.dados.categorias.find((c) => c.id === id);
+
+/* =====================================================================
+   4. Operações — espelho do que o servidor faz, para a tela responder na hora
+   ===================================================================== */
+function blocoAno(d, ano) { return d.anos[ano] || (d.anos[ano] = { lancamentos: [], orcamento: {} }); }
+function tirarLanc(d, id) {
+  for (const b of Object.values(d.anos)) {
+    const i = b.lancamentos.findIndex((x) => x.id === id);
+    if (i >= 0) { b.lancamentos.splice(i, 1); return; }
+  }
+}
+function aplicarOp(d, op) {
+  switch (op.t) {
+    case 'lanc': {
+      const l = op.l;
+      tirarLanc(d, l.id);
+      blocoAno(d, String(l.ano)).lancamentos.push({ id: l.id, mes: l.mes, dia: l.dia, categoriaId: l.categoriaId, descricao: l.descricao, valor: l.valor });
+      break;
+    }
+    case 'lanc-': tirarLanc(d, op.id); break;
+    case 'cat': {
+      const i = d.categorias.findIndex((c) => c.id === op.c.id);
+      if (i >= 0) d.categorias[i] = { ...op.c }; else d.categorias.push({ ...op.c });
+      break;
+    }
+    case 'cat-':
+      d.categorias = d.categorias.filter((c) => c.id !== op.id);
+      for (const b of Object.values(d.anos)) delete b.orcamento[op.id];
+      break;
+    case 'orc': {
+      const o = blocoAno(d, String(op.ano)).orcamento;
+      if (!op.valor) {
+        if (o[op.categoriaId]) { delete o[op.categoriaId][op.mes]; if (!Object.keys(o[op.categoriaId]).length) delete o[op.categoriaId]; }
+      } else {
+        (o[op.categoriaId] = o[op.categoriaId] || {})[op.mes] = op.valor;
+      }
+      break;
+    }
+    case 'cfg': d[op.k] = op.v; break;
+    default: break;
+  }
+}
+
+/* =====================================================================
+   5. Sincronização: fila de operações, reenvio e realinhamento
+   ===================================================================== */
+let tEnvio = 0;
+let tRetentativa = 0;
+function registrar(op) {
+  aplicarOp(S.dados, op);
+  S.versao++;
+  S.fila.push(op);
+  persistirFila();
+  salvarCache();
+  agendarEnvio();
+  agendarRender();
+}
+function agendarEnvio(ms = 500) { clearTimeout(tEnvio); tEnvio = setTimeout(enviar, ms); }
+async function enviar() {
+  if (S.enviando || !S.fila.length || !S.dados) return;
+  S.enviando = true;
+  renderSinc();
+  const lote = S.fila.slice(0, 200);
+  try {
+    const r = JSON.parse(await chamar('sincronizar', S.dados.revisao, JSON.stringify(lote)));
+    S.fila.splice(0, lote.length);
+    S.falhas = 0; S.offline = false; S.ultimaSync = Date.now();
+    if (r.dados) {
+      const novo = JSON.parse(r.dados);
+      for (const op of S.fila) aplicarOp(novo, op);
+      S.dados = novo;
+    } else {
+      S.dados.revisao = r.revisao;
+    }
+    S.versao++;
+    if (r.rejeitadas && r.rejeitadas.length) {
+      aviso(`A planilha recusou ${r.rejeitadas.length === 1 ? 'uma alteração' : r.rejeitadas.length + ' alterações'}: ${r.rejeitadas[0].motivo}.`, { tipo: 'erro' });
+    }
+    persistirFila(); salvarCache(); agendarRender();
+  } catch (e) {
+    S.falhas++; S.offline = true;
+    clearTimeout(tRetentativa);
+    tRetentativa = setTimeout(enviar, [2, 5, 10, 30, 60][Math.min(S.falhas - 1, 4)] * 1000);
+  } finally {
+    S.enviando = false;
+    renderSinc();
+    if (S.fila.length && !S.offline) agendarEnvio(200);
+  }
+}
+async function esvaziarFila() {
+  for (let i = 0; i < 20 && (S.fila.length || S.enviando); i++) {
+    if (!S.enviando) await enviar(); else await sleep(250);
+    if (S.offline) break;
+  }
+  if (S.fila.length) throw new Error('há alterações ainda não gravadas; tente de novo com conexão');
+}
+let ultimaVerificacao = 0;
+async function verificarNovidades(forcar = false) {
+  if (!S.dados || S.enviando) return;
+  if (!forcar && Date.now() - ultimaVerificacao < 20000) return;
+  ultimaVerificacao = Date.now();
+  if (S.fila.length) { enviar(); return; }
+  try {
+    const r = await chamar('estado');
+    S.offline = false; S.falhas = 0;
+    if (r.revisao !== S.dados.revisao && !S.fila.length) await carregarDoServidor();
+    else { S.ultimaSync = Date.now(); renderSinc(); }
+  } catch (e) {
+    S.offline = true; renderSinc();
+  }
+}
+
+/* =====================================================================
+   6. Cálculos: realizado, plano, projeção e ritmo
+   ===================================================================== */
+let memo = { v: -1 };
+function M() { if (memo.v !== S.versao) memo = { v: S.versao, anos: new Map(), inicio: null, uso: null }; return memo; }
+function idxAno(ano) {
+  const m = M(); const k = String(ano);
+  if (m.anos.has(k)) return m.anos.get(k);
+  const b = S.dados.anos[k] || { lancamentos: [], orcamento: {} };
+  const cel = new Map();
+  for (const l of b.lancamentos) {
+    const kk = l.categoriaId + '|' + l.mes;
+    let c = cel.get(kk);
+    if (!c) cel.set(kk, (c = { soma: 0, qtd: 0, itens: [] }));
+    c.soma += l.valor; c.qtd++; c.itens.push(l);
+  }
+  for (const c of cel.values()) c.soma = arred(c.soma);
+  const r = { cel, orc: b.orcamento || {}, lanc: b.lancamentos };
+  m.anos.set(k, r);
+  return r;
+}
+const VAZIA = { soma: 0, qtd: 0, itens: [] };
+const celReal = (cid, ano, mes) => idxAno(ano).cel.get(cid + '|' + mes) || VAZIA;
+function planoExp(cid, ano, mes) { const o = idxAno(ano).orc[cid]; return o ? Number(o[mes]) || 0 : 0; }
+function inicioDados() {
+  const m = M();
+  if (m.inicio !== null) return m.inicio;
+  let min = Infinity;
+  for (const [a, b] of Object.entries(S.dados.anos)) for (const l of b.lancamentos) min = Math.min(min, chaveMes(Number(a), l.mes));
+  m.inicio = min;
+  return min;
+}
+/** Mês fechado: o realizado; se nada foi lançado, o plano (igual à versão 1). */
+function valorFechado(cid, ano, mes) { const c = celReal(cid, ano, mes); return c.qtd ? c.soma : planoExp(cid, ano, mes); }
+function media3(cid, ano, mes) {
+  const alvo = chaveMes(ano, mes); const ini = inicioDados();
+  let soma = 0; let n = 0;
+  for (let k = alvo - 1; k >= alvo - 3 && k >= ini; k--) { const d = deChave(k); soma += valorFechado(cid, d.ano, d.mes); n++; }
+  return n ? arred(soma / n) : 0;
+}
+/** Plano do mês: o definido; no mês corrente, sem plano definido, a média dos 3 meses anteriores. */
+function plano(cid, ano, mes) {
+  const e = planoExp(cid, ano, mes);
+  if (e) return { valor: e, implicito: false };
+  if (fase(ano, mes) === 'atual') { const m = media3(cid, ano, mes); return { valor: m, implicito: m > 0 }; }
+  return { valor: 0, implicito: false };
+}
+/**
+ * Valor de uma categoria num mês.
+ *  passado: realizado (ou o plano, se nada foi lançado — marcado como previsto)
+ *  atual:   projeção = o maior entre o realizado e o plano
+ *  futuro:  plano
+ */
+function celula(cid, ano, mes) {
+  const f = fase(ano, mes); const c = celReal(cid, ano, mes);
+  if (f === 'passado') {
+    if (c.qtd) return { valor: c.soma, real: c.soma, qtd: c.qtd, plano: planoExp(cid, ano, mes), tipo: 'real', fase: f };
+    const p = planoExp(cid, ano, mes);
+    return { valor: p, real: 0, qtd: 0, plano: p, tipo: p ? 'previsto' : 'vazio', fase: f };
+  }
+  if (f === 'futuro') {
+    const p = planoExp(cid, ano, mes);
+    return { valor: Math.max(c.soma, p), real: c.soma, qtd: c.qtd, plano: p, tipo: c.qtd ? 'parcial' : p ? 'previsto' : 'vazio', fase: f };
+  }
+  const p = plano(cid, ano, mes);
+  return { valor: Math.max(c.soma, p.valor), real: c.soma, qtd: c.qtd, plano: p.valor, implicito: p.implicito, tipo: c.qtd ? 'parcial' : p.valor ? 'previsto' : 'vazio', fase: f };
+}
+function resumo(ano, mes) {
+  const f = fase(ano, mes); const h = hoje();
+  let renda = 0; let gastos = 0; let rendaReal = 0; let gastoReal = 0; let aVencer = 0; let planoGastos = 0; let qtd = 0;
+  const porCat = [];
+  for (const c of cats()) {
+    const v = celula(c.id, ano, mes);
+    porCat.push({ c, v });
+    qtd += v.qtd;
+    if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; }
+    else {
+      gastos += v.valor; gastoReal += v.real; planoGastos += v.plano || 0;
+      if (c.grupo === 'fixo' && f === 'atual') aVencer += Math.max(0, (v.plano || 0) - v.real);
+    }
+  }
+  const dias = diasNoMes(ano, mes);
+  const restantes = f === 'atual' ? dias - h.dia + 1 : 0;
+  const livre = renda - gastoReal - aVencer;
+  return {
+    fase: f, qtd, dias, restantes, porCat,
+    renda: arred(renda), gastos: arred(gastos), sobra: arred(renda - gastos),
+    rendaReal: arred(rendaReal), gastoReal: arred(gastoReal), aVencer: arred(aVencer), planoGastos: arred(planoGastos),
+    livre: arred(livre), porDia: restantes ? arred(livre / restantes) : 0,
+    ritmo: f === 'atual' ? h.dia / dias : f === 'passado' ? 1 : 0,
+  };
+}
+function estadoCategoria(c, v, ritmo) {
+  if (c.grupo === 'renda' || !v.plano) return 'neutro';
+  if (v.real > v.plano + 0.004) return 'acima';
+  if (c.grupo === 'variavel' && v.fase === 'atual' && v.real / v.plano > ritmo + 0.12) return 'atencao';
+  return 'ok';
+}
+function usoCategorias() {
+  const m = M();
+  if (m.uso) return m.uso;
+  const h = hoje(); const alvo = chaveMes(h.ano, h.mes); const uso = {};
+  for (const [a, b] of Object.entries(S.dados.anos)) {
+    for (const l of b.lancamentos) {
+      const dist = alvo - chaveMes(Number(a), l.mes);
+      if (dist >= 0 && dist <= 3) uso[l.categoriaId] = (uso[l.categoriaId] || 0) + 1;
+    }
+  }
+  m.uso = uso;
+  return uso;
+}
+function categoriasPorUso(renda) {
+  const uso = usoCategorias();
+  return cats().filter((c) => (c.grupo === 'renda') === renda).sort((a, b) => (uso[b.id] || 0) - (uso[a.id] || 0) || a.ordem - b.ordem);
+}
+function sugestoes(cid, n = 4) {
+  const cont = new Map();
+  for (const b of Object.values(S.dados.anos)) for (const l of b.lancamentos) {
+    if (l.categoriaId === cid && l.descricao) { const k = l.descricao.trim(); cont.set(k, (cont.get(k) || 0) + 1); }
+  }
+  return [...cont.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map((x) => x[0]);
+}
+function acharLanc(id) {
+  for (const [ano, b] of Object.entries(S.dados.anos)) {
+    const l = b.lancamentos.find((x) => x.id === id);
+    if (l) return { l, ano: Number(ano) };
+  }
+  return null;
+}
+/** "32,90 mercado padaria" → valor(es), categoria e descrição. */
+function interpretarLinha(txt, renda) {
+  const tokens = String(txt).trim().split(/\s+/).filter(Boolean);
+  const valores = [];
+  while (tokens.length) {
+    const vs = paraNumeros(tokens[0]);
+    if (!vs || !vs.length) break;
+    valores.push(...vs); tokens.shift();
+  }
+  let categoriaId = null;
+  if (tokens.length) {
+    const w = normal(tokens[0]);
+    if (w.length >= 2) {
+      const c = categoriasPorUso(renda).find((x) => normal(x.nome).split(/[^a-z0-9]+/).some((p) => p.startsWith(w)));
+      if (c) { categoriaId = c.id; tokens.shift(); }
+    }
+  }
+  return { valores, categoriaId, descricao: tokens.join(' '), invalido: !valores.length && String(txt).trim().length > 0 && /^[\d.,R$]/i.test(String(txt).trim()) };
+}
+
+/* =====================================================================
+   7. Pedaços de HTML
+   ===================================================================== */
+const mono = (c, p = false) => `<span class="mono${p ? ' p' : ''} cor-${corDe(c.id)}" aria-hidden="true">${esc((c.nome || '?').trim().charAt(0).toUpperCase())}</span>`;
+function barra({ pct, ritmo = null, estado = 'ok', tracejada = false, alta = false }) {
+  const w = Math.max(0, Math.min(100, pct || 0));
+  return `<span class="barra${alta ? ' alta' : ''}${tracejada ? ' tracejada' : ''}" aria-hidden="true">`
+    + `<span class="enchido ${estado}" style="width:${w.toFixed(1)}%"></span>`
+    + (ritmo !== null ? `<span class="ritmo" style="left:${(ritmo * 100).toFixed(1)}%"></span>` : '') + '</span>';
+}
+function valorLanc(l, c) {
+  const renda = c && c.grupo === 'renda';
+  const entra = renda ? l.valor > 0 : l.valor < 0;
+  return `<span class="ll-valor${entra ? ' renda' : ''}">${entra ? '+' : '−'}${esc(moeda(Math.abs(l.valor)))}</span>`;
+}
+function linhaLanc(l, ano, mapa) {
+  const c = mapa[l.categoriaId];
+  const titulo = l.descricao || (c ? c.nome : 'Sem categoria');
+  const sub = l.descricao ? (c ? c.nome : '') : l.dia ? '' : 'sem dia definido';
+  return `<button type="button" class="linha-lanc" data-acao="editar" data-id="${esc(l.id)}" data-foco="ll-${esc(l.id)}">`
+    + (c ? mono(c) : '<span class="mono" aria-hidden="true">?</span>')
+    + `<span class="ll-txt"><span class="ll-tit">${esc(titulo)}</span>${sub ? `<span class="ll-sub">${esc(sub)}</span>` : ''}</span>`
+    + valorLanc(l, c) + '</button>';
+}
+function notaCategoria(c, v, est) {
+  if (v.fase === 'futuro') return v.plano ? (c.grupo === 'renda' ? 'Renda prevista' : 'Planejado') : 'Sem plano';
+  if (v.fase === 'passado') {
+    if (v.tipo === 'previsto') return `Não lançado · previsto ${moeda(v.plano)}`;
+    return v.qtd ? `${v.qtd} lançamento${v.qtd > 1 ? 's' : ''}` : 'Nada lançado';
+  }
+  if (c.grupo === 'renda') {
+    if (v.real > 0 && v.real >= v.plano) return 'Recebido';
+    if (v.real > 0) return `Recebido ${moeda(v.real)} de ${moeda(v.plano)}`;
+    return v.plano ? `Previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}` : 'Nada recebido';
+  }
+  if (!v.plano) return v.real ? 'Sem plano' : 'Nada lançado';
+  if (est === 'acima') return `${moeda(v.real - v.plano)} acima do plano`;
+  if (c.grupo === 'fixo') {
+    if (v.real >= v.plano) return 'Pago';
+    if (!v.real) return `A vencer · previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}`;
+    return `Faltam ${moeda(v.plano - v.real)}`;
+  }
+  const resta = moeda(v.plano - v.real);
+  return est === 'atencao' ? `Acima do ritmo · restam ${resta}` : `Restam ${resta}${v.implicito ? ' · plano pela média' : ''}`;
+}
+function linhaCat(c, v, ritmo, ano, mes, extra = false) {
+  const est = estadoCategoria(c, v, ritmo);
+  const mostrado = v.fase === 'atual' ? v.real : v.valor;
+  const pct = v.plano > 0 ? (v.real / v.plano) * 100 : mostrado > 0 ? 100 : 0;
+  const corBarra = est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok';
+  const marca = v.fase === 'atual' && c.grupo === 'variavel' && v.plano > 0 ? ritmo : null;
+  const nota = notaCategoria(c, v, est);
+  return `<button type="button" class="linha-cat${extra ? ' cats-extra' : ''}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${mes}" data-foco="lc-${esc(c.id)}">`
+    + mono(c)
+    + `<span class="lc-corpo"><span class="lc-topo"><span class="lc-nome">${esc(c.nome)}</span>`
+    + `<span class="lc-valores"><strong class="${est === 'acima' ? 'txt-acima' : ''}">${num(mostrado)}</strong>${v.plano && v.fase !== 'futuro' ? ' / ' + num(v.plano) : ''}</span></span>`
+    + barra({ pct, ritmo: marca, estado: corBarra, tracejada: v.tipo === 'previsto' })
+    + `<span class="lc-nota ${est === 'acima' ? 'txt-acima' : est === 'atencao' ? 'txt-atencao' : ''}">${esc(nota)}</span></span></button>`;
+}
+function vazio(txt, botao = true) {
+  return `<div class="vazio"><p>${esc(txt)}</p>${botao ? `<button type="button" class="botao primario" data-acao="novo">${ic('mais', 18)}Lançar agora</button>` : ''}</div>`;
+}
+
+/* =====================================================================
+   8. Telas
+   ===================================================================== */
+const TELAS = {
+  inicio: { nome: 'Início', icone: 'inicio', html: () => telaInicio() },
+  extrato: { nome: 'Extrato', icone: 'extrato', html: null },
+  planilha: { nome: 'Planilha', icone: 'planilha', html: () => telaPlanilha() },
+  mes: { nome: 'Mês', icone: 'mes', html: () => telaMes() },
+  ajustes: { nome: 'Ajustes', icone: 'ajustes', html: () => telaAjustes() },
+};
+
+let rafRender = 0;
+function agendarRender() {
+  if (rafRender) return;
+  rafRender = requestAnimationFrame(() => { rafRender = 0; render(); });
+}
+function render() {
+  if (!S.dados || !S.montado) return;
+  const ativo = document.activeElement;
+  const chave = ativo && ativo.dataset ? ativo.dataset.foco : null;
+  const sel = chave && typeof ativo.selectionStart === 'number' ? [ativo.selectionStart, ativo.selectionEnd] : null;
+  renderLateral(); renderTopo(); renderInferior();
+  const tela = $('#tela');
+  if (S.tela === 'extrato') renderExtrato(tela);
+  else { tela.dataset.tela = S.tela; tela.innerHTML = TELAS[S.tela].html(); }
+  if (S.tela === 'planilha') posPlanilha();
+  for (const f of pilha) if (f.atualizar) f.atualizar();
+  renderSinc();
+  if (chave) {
+    const novo = document.querySelector(`[data-foco="${CSS.escape(chave)}"]`);
+    if (novo && novo !== document.activeElement && !pilha.length) {
+      novo.focus({ preventScroll: true });
+      if (sel && novo.setSelectionRange) { try { novo.setSelectionRange(sel[0], sel[1]); } catch (e) { /* tipo sem seleção */ } }
+    }
+  }
+}
+
+function renderLateral() {
+  const d = S.dados;
+  const itens = ['inicio', 'extrato', 'planilha', 'mes', 'ajustes'];
+  $('#lateral').innerHTML = `<div class="lateral-marca"><span class="logo" aria-hidden="true"><i></i><i></i><i></i></span><span style="min-width:0"><strong>${esc(d.nome || 'Minhas finanças')}</strong><small>Controle financeiro</small></span></div>`
+    + `<nav aria-label="Seções">${itens.map((t) => `<button type="button" class="lat-item" data-acao="tela" data-tela="${t}" data-foco="lat-${t}"${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 20)}${t === 'mes' ? 'Planejar mês' : TELAS[t].nome}</button>`).join('')}</nav>`
+    + `<div class="lat-rodape"><button type="button" class="sinc sinc-lateral" id="sinc-lateral" data-acao="sincronizar"></button>`
+    + (d.planilha && d.planilha.url ? `<a class="link" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">Abrir a planilha ${ic('externo', 14)}</a>` : '') + '</div>';
+}
+function renderTopo() {
+  let esq;
+  if (S.tela === 'ajustes') esq = '<h1 class="titulo-tela">Ajustes</h1>';
+  else if (S.tela === 'planilha') {
+    esq = `<div class="navmes"><button type="button" class="icone" data-acao="ano-ant" data-foco="ano-ant" aria-label="Ano anterior">${ic('esq')}</button>`
+      + `<div class="navmes-txt"><span class="navmes-nome">Planilha</span><h1>${S.ano}</h1></div>`
+      + `<button type="button" class="icone" data-acao="ano-prox" data-foco="ano-prox" aria-label="Próximo ano">${ic('dir')}</button></div>`;
+  } else {
+    const h = hoje();
+    const foraDoMes = S.ano !== h.ano || S.mes !== h.mes;
+    esq = `<div class="navmes"><button type="button" class="icone" data-acao="mes-ant" data-foco="mes-ant" aria-label="Mês anterior">${ic('esq')}</button>`
+      + `<div class="navmes-txt"><span class="navmes-nome">${esc(S.dados.nome || 'Minhas finanças')}</span><h1>${Mes(S.mes)} ${S.ano}</h1></div>`
+      + `<button type="button" class="icone" data-acao="mes-prox" data-foco="mes-prox" aria-label="Próximo mês">${ic('dir')}</button>`
+      + (foraDoMes ? '<button type="button" class="botao fantasma pequeno" data-acao="mes-hoje" data-foco="mes-hoje">Hoje</button>' : '') + '</div>';
+  }
+  $('#topo').innerHTML = `<div class="topo-esq">${esq}</div><div class="topo-dir">`
+    + `<button type="button" class="busca-rapida so-desktop" data-acao="novo" data-foco="busca-rapida">${ic('busca', 18)}<span>Lançar: “32,90 mercado padaria”</span><kbd>N</kbd></button>`
+    + `<button type="button" class="botao primario so-desktop" data-acao="novo" data-foco="novo-topo">${ic('mais', 18)}Novo lançamento</button>`
+    + '<button type="button" class="sinc so-celular" id="sinc-topo" data-acao="sincronizar"></button></div>';
+}
+function renderInferior() {
+  const item = (t) => `<button type="button" class="inf-item" data-acao="tela" data-tela="${t}" data-foco="inf-${t}"${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 24)}<span>${TELAS[t].nome}</span></button>`;
+  $('#inferior').innerHTML = item('inicio') + item('extrato')
+    + `<button type="button" class="inf-mais" data-acao="novo" data-foco="inf-novo" aria-label="Novo lançamento">${ic('mais', 26)}</button>`
+    + item('mes') + item('ajustes');
+}
+function renderSinc() {
+  const pend = S.fila.length;
+  let cls; let txt; let titulo; let icone;
+  if (S.offline) {
+    cls = 'off'; icone = 'nuvemOff';
+    txt = pend ? `${pend} pendente${pend > 1 ? 's' : ''}` : 'Sem conexão';
+    titulo = 'Sem conexão com a planilha. As alterações ficam guardadas neste aparelho e são enviadas assim que der. Toque para tentar agora.';
+  } else if (pend || S.enviando || S.atualizando) {
+    cls = 'enviando'; icone = 'nuvem'; txt = S.atualizando && !pend ? 'Atualizando…' : 'Salvando…'; titulo = 'Gravando na planilha';
+  } else {
+    cls = 'ok'; icone = 'nuvemOk'; txt = 'Salvo';
+    titulo = S.ultimaSync ? 'Tudo gravado na planilha. Última conferência às ' + hora(S.ultimaSync) : 'Tudo gravado na planilha';
+  }
+  for (const el of [$('#sinc-topo'), $('#sinc-lateral')]) {
+    if (!el) continue;
+    el.className = 'sinc ' + cls + (el.id === 'sinc-topo' ? ' so-celular' : ' sinc-lateral');
+    el.innerHTML = ic(icone, 18) + `<span>${txt}</span>`;
+    el.title = titulo;
+    el.setAttribute('aria-label', `${txt}. ${titulo}`);
+  }
+}
+
+/* ---------- Início ---------- */
+function telaInicio() {
+  const r = resumo(S.ano, S.mes);
+  const lado = r.fase === 'atual' ? cartaoAVencer(r) + cartaoAvisos(r) : '';
+  return `<div class="grade-inicio${lado ? '' : ' sem-lado'}">${cartaoHeroi(r)}${cartaoKpis(r)}`
+    + (lado ? `<div class="g-lado lado">${lado}</div>` : '')
+    + cartaoCategorias(r) + cartaoUltimos() + cartaoAno() + '</div>';
+}
+function cartaoHeroi(r) {
+  const m = MESES[S.mes - 1];
+  if (r.fase === 'atual') {
+    const pct = r.planoGastos > 0 ? (r.gastoReal / r.planoGastos) * 100 : 0;
+    const estado = r.planoGastos > 0 && r.gastoReal > r.planoGastos ? 'acima' : 'ok';
+    const sub = r.livre > 0
+      ? `≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dia${r.restantes > 1 ? 's' : ''}`
+      : 'Os gastos e as contas a vencer já passam da renda do mês.';
+    const ritmo = r.planoGastos > 0
+      ? `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoReal)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
+        + barra({ pct, ritmo: r.ritmo, estado, alta: true })
+        + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div></div>`
+      : '<p class="sub" style="margin-top:12px">Defina um plano em <button type="button" class="link" data-acao="planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p>';
+    const negativo = r.sobra < 0;
+    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-ok'}">${ic(negativo ? 'alerta' : 'check', 18)}<p><strong>No ritmo do plano, ${m} fecha ${negativo ? 'em ' + moeda(r.sobra) : 'com sobra de ' + moeda(r.sobra)}.</strong>`
+      + (r.aVencer > 0 ? ` Ainda há ${moeda(r.aVencer)} em contas fixas a vencer.` : '') + '</p></div>';
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Livre para gastar até ${r.dias}/${dois(S.mes)}</h2>`
+      + `<p class="numero-heroi${r.livre < 0 ? ' negativo' : ''}">${moeda(r.livre)}</p><p class="sub">${sub}</p>${ritmo}${nota}</section>`;
+  }
+  if (r.fase === 'passado') {
+    const pct = r.renda > 0 ? Math.round((r.sobra / r.renda) * 100) : 0;
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${r.sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
+      + `<p class="numero-heroi${r.sobra < 0 ? ' negativo' : ''}">${moeda(r.sobra)}</p>`
+      + `<p class="sub">Renda de ${moeda(r.renda)} e gastos de ${moeda(r.gastos)}${r.renda > 0 ? ` · ${pct}% da renda ${pct >= 0 ? 'guardados' : 'a mais nos gastos'}` : ''}.</p></section>`;
+  }
+  return `<section class="cartao g-heroi heroi" aria-labelledby="h-plano"><h2 id="h-plano" class="rotulo">Plano de ${m} de ${S.ano}</h2>`
+    + `<p class="numero-heroi${r.sobra < 0 ? ' negativo' : ''}">${moeda(r.sobra)}</p>`
+    + `<p class="sub">${r.renda || r.gastos ? `Sobra prevista: renda de ${moeda(r.renda)} e gastos de ${moeda(r.gastos)}.` : 'Ainda não há plano para este mês.'}</p>`
+    + `<div class="acoes"><button type="button" class="botao" data-acao="planejar">${ic('mes', 18)}Planejar ${m}</button></div></section>`;
+}
+function cartaoKpis(r) {
+  let tiles;
+  if (r.fase === 'atual') {
+    const ant = deChave(chaveMes(S.ano, S.mes) - 1);
+    const rAnt = resumo(ant.ano, ant.mes);
+    tiles = [
+      ['Renda do mês', moeda(r.renda), r.rendaReal > 0 && r.rendaReal >= r.renda ? 'recebida' : r.rendaReal > 0 ? `${moeda(r.rendaReal)} recebidos` : 'prevista', 'ok'],
+      ['Gasto até hoje', moeda(r.gastoReal), `${r.qtd} lançamento${r.qtd === 1 ? '' : 's'}`, ''],
+      ['Projeção de gastos', moeda(r.gastos), r.planoGastos ? `plano de ${moeda(r.planoGastos)}` : 'sem plano definido', ''],
+      ['Fechamento previsto', moeda(r.sobra), `${Mes(ant.mes)} fechou em ${moeda(rAnt.sobra)}`, r.sobra < 0 ? 'acima' : 'ok'],
+    ];
+  } else if (r.fase === 'passado') {
+    tiles = [
+      ['Renda', moeda(r.renda), '', 'ok'],
+      ['Gastos', moeda(r.gastos), `${r.qtd} lançamento${r.qtd === 1 ? '' : 's'}`, ''],
+      ['Sobra', moeda(r.sobra), '', r.sobra < 0 ? 'acima' : 'ok'],
+      ['Da renda, guardou', r.renda > 0 ? Math.round((r.sobra / r.renda) * 100) + '%' : '—', '', ''],
+    ];
+  } else {
+    tiles = [
+      ['Renda prevista', moeda(r.renda), '', 'ok'],
+      ['Gastos previstos', moeda(r.gastos), '', ''],
+      ['Sobra prevista', moeda(r.sobra), '', r.sobra < 0 ? 'acima' : 'ok'],
+      ['Lançado até agora', moeda(r.gastoReal), 'compras já lançadas para este mês', ''],
+    ];
+  }
+  return `<section class="g-kpis kpis" aria-label="Números do mês">${tiles.map(([rot, v, s, cls]) => `<div class="cartao kpi"><span class="rotulo">${esc(rot)}</span><strong class="kpi-valor ${cls}">${esc(v)}</strong>${s ? `<span class="sub">${esc(s)}</span>` : ''}</div>`).join('')}</section>`;
+}
+function cartaoAVencer(r) {
+  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'fixo' && v.plano > 0 && v.real === 0);
+  if (!itens.length) return '';
+  return `<section class="cartao" aria-labelledby="h-vencer"><div class="cartao-topo"><h2 id="h-vencer">A vencer este mês</h2></div>`
+    + itens.map(({ c, v }) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>previsto ${moeda(v.plano)}${v.implicito ? ' (média)' : ''}</span></div>`
+      + `<button type="button" class="botao pequeno" data-acao="confirmar" data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="conf-${esc(c.id)}">Confirmar</button></div>`).join('')
+    + '</section>';
+}
+function calcularAvisos(r) {
+  const lista = [];
+  for (const { c, v } of r.porCat) {
+    if (c.grupo !== 'renda' && v.plano > 0 && v.real > v.plano + 0.004) {
+      lista.push({ tipo: 'acima', icone: 'setaSobe', html: `<strong>${esc(c.nome)} passou ${moeda(v.real - v.plano)} do plano.</strong> <span>${moeda(v.real)} gastos para ${moeda(v.plano)} planejados.</span>` });
+    }
+  }
+  if (r.ritmo >= 0.25) {
+    let melhor = null;
+    for (const { c, v } of r.porCat) {
+      if (c.grupo !== 'variavel' || v.qtd < 2) continue;
+      // Projeção pelo ritmo só faz sentido para gasto frequente (mercado, transporte...),
+      // não para o esporádico (farmácia, compras).
+      let freq = 0;
+      for (let k = 1; k <= 3; k++) { const d = deChave(chaveMes(S.ano, S.mes) - k); freq += celReal(c.id, d.ano, d.mes).qtd; }
+      if (freq / 3 < 4) continue;
+      const med = media3(c.id, S.ano, S.mes);
+      if (med < 50) continue;
+      const proj = v.real / r.ritmo; const dif = proj / med - 1;
+      if (Math.abs(dif) >= 0.2 && (!melhor || Math.abs(dif) > Math.abs(melhor.dif))) melhor = { c, proj, dif };
+    }
+    if (melhor) {
+      lista.push({
+        tipo: melhor.dif > 0 ? 'atencao' : 'info', icone: melhor.dif > 0 ? 'setaSobe' : 'setaDesce',
+        html: `<strong>${esc(melhor.c.nome)} vai fechar perto de ${moeda(melhor.proj)}.</strong> <span>No ritmo atual, ${Math.round(Math.abs(melhor.dif) * 100)}% ${melhor.dif > 0 ? 'acima' : 'abaixo'} da média dos últimos 3 meses.</span>`,
+      });
+    }
+  }
+  return lista.slice(0, 4);
+}
+function cartaoAvisos(r) {
+  const lista = calcularAvisos(r);
+  if (!lista.length) return '';
+  return `<section class="cartao" aria-labelledby="h-avisos"><div class="cartao-topo"><h2 id="h-avisos">Avisos</h2></div>`
+    + lista.map((a) => `<div class="aviso-item ${a.tipo}"><span class="marca-aviso" aria-hidden="true">${ic(a.icone, 16)}</span><p>${a.html}</p></div>`).join('') + '</section>';
+}
+function cartaoCategorias(r) {
+  let itens; let titulo;
+  if (r.fase === 'atual') {
+    titulo = 'Variáveis do mês';
+    const peso = { acima: 0, atencao: 1, ok: 2, neutro: 3 };
+    itens = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && (v.plano > 0 || v.real > 0))
+      .map((x) => ({ ...x, est: estadoCategoria(x.c, x.v, r.ritmo), pct: x.v.plano ? x.v.real / x.v.plano : 1 }))
+      .sort((a, b) => peso[a.est] - peso[b.est] || b.pct - a.pct);
+  } else {
+    titulo = r.fase === 'passado' ? 'Para onde foi o dinheiro' : 'Plano por categoria';
+    itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.valor > 0).sort((a, b) => b.v.valor - a.v.valor);
+  }
+  const corpo = itens.length
+    ? `<div class="lista-cats">${itens.slice(0, 8).map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4)).join('')}</div>`
+    : vazio(r.fase === 'futuro' ? 'Nenhum gasto planejado para este mês.' : 'Nada lançado neste mês ainda.', r.fase !== 'futuro');
+  return `<section class="cartao g-cats" aria-labelledby="h-cats"><div class="cartao-topo"><h2 id="h-cats">${titulo}</h2>`
+    + `<button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-todas">Ver todas</button></div>${corpo}</section>`;
+}
+function cartaoUltimos() {
+  const b = S.dados.anos[S.ano];
+  const lista = b ? b.lancamentos.filter((l) => l.mes === S.mes) : [];
+  const ord = lista.slice().sort((a, c) => (c.dia ?? 0) - (a.dia ?? 0) || (c.id > a.id ? 1 : -1)).slice(0, 6);
+  const mapa = mapaCats();
+  return `<section class="cartao g-ultimos" aria-labelledby="h-ult"><div class="cartao-topo"><h2 id="h-ult">Últimos lançamentos</h2>`
+    + `<button type="button" class="link" data-acao="tela" data-tela="extrato" data-foco="ver-extrato">Ver extrato</button></div>`
+    + (ord.length ? `<div>${ord.map((l) => linhaLanc(l, S.ano, mapa)).join('')}</div>` : vazio(`Nada lançado em ${MESES[S.mes - 1]} ainda.`)) + '</section>';
+}
+function cartaoAno() {
+  const meses = Array.from({ length: 12 }, (_, i) => { const rr = resumo(S.ano, i + 1); return { mes: i + 1, sobra: rr.sobra, fase: rr.fase }; });
+  const mp = Math.max(0, ...meses.map((m) => m.sobra)); const mn = Math.max(0, ...meses.map((m) => -m.sobra));
+  const total = mp + mn || 1;
+  let hp = Math.round((150 * mp) / total); let hn = 150 - hp;
+  if (mp && hp < 30) { hp = 30; hn = 120; } if (mn && hn < 30) { hn = 30; hp = 120; }
+  const acumulado = meses.reduce((a, m) => a + m.sobra, 0);
+  const barras = meses.map((m) => {
+    const hPos = m.sobra > 0 && mp ? Math.max(2, Math.round((m.sobra / mp) * hp)) : 0;
+    const hNeg = m.sobra < 0 && mn ? Math.max(2, Math.round((-m.sobra / mn) * hn)) : 0;
+    const extra = m.fase === 'atual' ? ' (projeção)' : m.fase === 'futuro' ? ' (previsto)' : '';
+    return `<button type="button" class="ga-mes ${m.fase}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
+      + `<span class="ga-pos"><i style="height:${hPos}px"></i></span><span class="ga-neg"><i style="height:${hNeg}px"></i></span><span class="ga-rot">${MesC(m.mes)}</span></button>`;
+  }).join('');
+  return `<section class="cartao g-ano" aria-labelledby="h-ano"><div class="cartao-topo"><h2 id="h-ano">Sobra mês a mês · ${S.ano}</h2></div>`
+    + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>projeção</span></div>'
+    + `<figure class="grafico-ano"><div class="ga-barras" style="--hp:${hp}px;--hn:${hn}px">${barras}</div>`
+    + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong></figcaption></figure></section>`;
+}
+
+/* ---------- Extrato ---------- */
+function filtrarExtrato() {
+  const q = normal(S.busca.trim());
+  const doAno = Boolean(q);
+  const b = S.dados.anos[S.ano];
+  const mapa = mapaCats();
+  let itens = b ? b.lancamentos.filter((l) => doAno || l.mes === S.mes) : [];
+  if (S.filtro !== 'tudo') itens = itens.filter((l) => ((mapa[l.categoriaId] || {}).grupo === 'renda') === (S.filtro === 'rendas'));
+  if (S.filtroCat) itens = itens.filter((l) => l.categoriaId === S.filtroCat);
+  if (q) {
+    itens = itens.filter((l) => normal(l.descricao).includes(q) || normal((mapa[l.categoriaId] || {}).nome).includes(q) || num(Math.abs(l.valor)).includes(S.busca.trim()));
+  }
+  itens.sort((a, c) => c.mes - a.mes || (c.dia ?? 0) - (a.dia ?? 0) || (c.id > a.id ? 1 : -1));
+  let gastos = 0; let rendas = 0;
+  for (const l of itens) { if ((mapa[l.categoriaId] || {}).grupo === 'renda') rendas += l.valor; else gastos += l.valor; }
+  return { itens, doAno, gastos: arred(gastos), rendas: arred(rendas), mapa };
+}
+function tituloDia(ano, mes, dia) {
+  if (!dia) return `Sem dia · ${MESES[mes - 1]}`;
+  const h = hoje(); const d = new Date(ano, mes - 1, dia);
+  const sem = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const base = `${sem}, ${dia} ${MESES_C[mes - 1]}`;
+  if (ano === h.ano && mes === h.mes && dia === h.dia) return 'Hoje · ' + base;
+  const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+  if (ano === ontem.getFullYear() && mes === ontem.getMonth() + 1 && dia === ontem.getDate()) return 'Ontem · ' + base;
+  return cap(base);
+}
+function renderExtrato(tela) {
+  if (tela.dataset.tela !== 'extrato') {
+    tela.dataset.tela = 'extrato';
+    tela.innerHTML = '<div class="extrato"><div class="extrato-ferramentas">'
+      + `<label class="campo-busca">${ic('busca', 18)}<span class="sr">Buscar no extrato</span><input type="search" id="busca" data-digitar="busca" data-foco="busca" placeholder="Buscar descrição, categoria ou valor" autocomplete="off" value="${esc(S.busca)}"></label>`
+      + '<div class="chips" id="extrato-filtros"></div></div><div id="extrato-resumo"></div><div id="extrato-lista"></div></div>';
+  }
+  const f = (id, txt) => `<button type="button" class="chip" data-acao="filtro" data-filtro="${id}" data-foco="filtro-${id}" aria-pressed="${S.filtro === id}">${txt}</button>`;
+  const opcoes = cats().map((c) => `<option value="${esc(c.id)}"${S.filtroCat === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('');
+  $('#extrato-filtros').innerHTML = f('tudo', 'Tudo') + f('gastos', 'Gastos') + f('rendas', 'Rendas')
+    + `<label class="chip chip-select"><span class="sr">Categoria</span><select data-mudar="filtro-cat" data-foco="filtro-cat"><option value="">Todas as categorias</option>${opcoes}</select></label>`;
+  const r = filtrarExtrato();
+  $('#extrato-resumo').innerHTML = `<div class="resumo-faixa"><div><span class="sub">${r.itens.length} lançamento${r.itens.length === 1 ? '' : 's'}${r.doAno ? ' em ' + S.ano : ''}</span><strong>${moeda(r.gastos)}</strong><span class="sub">em gastos</span></div>`
+    + `<div style="text-align:right"><span class="sub">&nbsp;</span><strong class="txt-ok">${moeda(r.rendas)}</strong><span class="sub">em rendas</span></div></div>`;
+  if (!r.itens.length) {
+    $('#extrato-lista').innerHTML = r.doAno ? vazio(`Nada encontrado para “${S.busca.trim()}” em ${S.ano}.`, false) : vazio(`Nada lançado em ${MESES[S.mes - 1]} com esses filtros.`);
+    return;
+  }
+  const grupos = [];
+  for (const l of r.itens) {
+    const k = l.mes + '|' + (l.dia || 0);
+    let g = grupos[grupos.length - 1];
+    if (!g || g.k !== k) grupos.push((g = { k, mes: l.mes, dia: l.dia, itens: [], liquido: 0 }));
+    g.itens.push(l);
+    g.liquido += ((r.mapa[l.categoriaId] || {}).grupo === 'renda' ? 1 : -1) * l.valor;
+  }
+  $('#extrato-lista').innerHTML = grupos.map((g) => `<section><h2 class="dia-titulo"><span>${esc(tituloDia(S.ano, g.mes, g.dia))}</span><span>${g.liquido > 0 ? '+' : ''}${moeda(g.liquido)}</span></h2>`
+    + `<div class="lista">${g.itens.map((l) => linhaLanc(l, S.ano, r.mapa)).join('')}</div></section>`).join('');
+}
+
+/* ---------- Mês (acompanhar e planejar) ---------- */
+function telaMes() {
+  const r = resumo(S.ano, S.mes);
+  const seg = (id, txt) => `<button type="button" data-acao="modo-mes" data-modo="${id}" data-foco="modo-${id}" aria-pressed="${S.modoMes === id}">${txt}</button>`;
+  return `<div class="mes"><div class="mes-cab"><div class="segmentado" role="group" aria-label="Modo">${seg('acompanhar', 'Acompanhar')}${seg('planejar', 'Planejar')}</div>`
+    + kpisMes(r) + '</div>' + (S.modoMes === 'planejar' ? telaPlanejar() : telaAcompanhar(r)) + '</div>';
+}
+function kpisMes(r) {
+  if (S.modoMes === 'planejar') {
+    let renda = 0; let gastos = 0;
+    for (const c of cats()) { const p = plano(c.id, S.ano, S.mes).valor; if (c.grupo === 'renda') renda += p; else gastos += p; }
+    const sobra = renda - gastos;
+    return `<div class="kpis-mes"><div><span>Renda planejada</span><strong class="txt-ok">${num(renda)}</strong></div><div><span>Gastos planejados</span><strong>${num(gastos)}</strong></div>`
+      + `<div class="${sobra < 0 ? 'alerta' : ''}"><span>Sobra planejada</span><strong>${num(sobra)}</strong></div></div>`;
+  }
+  const atual = r.fase === 'atual';
+  return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(r.renda)}</strong></div>`
+    + `<div><span>${atual ? 'Gasto até hoje' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(atual ? r.gastoReal : r.gastos)}</strong></div>`
+    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Fecha em' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
+}
+function telaAcompanhar(r) {
+  const blocos = ORDEM_GRUPOS.map((g) => {
+    const itens = r.porCat.filter((x) => x.c.grupo === g);
+    if (!itens.length) return '';
+    const feito = itens.reduce((a, x) => a + (r.fase === 'atual' ? x.v.real : x.v.valor), 0);
+    const previsto = itens.reduce((a, x) => a + (x.v.plano || 0), 0);
+    return `<section><h2 class="grupo-titulo"><span>${GRUPOS[g]}</span><span>${num(feito)}${previsto ? ' de ' + num(previsto) : ''}</span></h2>`
+      + `<div class="lista">${itens.map(({ c, v }) => linhaCat(c, v, r.ritmo, S.ano, S.mes)).join('')}</div></section>`;
+  }).join('');
+  const legenda = r.fase === 'atual' ? `<p class="dica-ritmo"><i aria-hidden="true"></i>A marca nas barras dos variáveis é o dia de hoje (${Math.round(r.ritmo * 100)}% do mês).</p>` : '';
+  return legenda + blocos + `<div class="acoes"><button type="button" class="botao fantasma" data-acao="tela" data-tela="planilha" data-foco="ver-planilha">${ic('planilha', 18)}Ver o ano inteiro na planilha</button></div>`;
+}
+function telaPlanejar() {
+  const ant = deChave(chaveMes(S.ano, S.mes) - 1);
+  const blocos = ORDEM_GRUPOS.map((g) => {
+    const lista = catsDoGrupo(g);
+    if (!lista.length) return '';
+    return `<section><h2 class="grupo-titulo"><span>${GRUPOS[g]}</span><span></span></h2><div class="lista">${lista.map((c) => {
+      const e = planoExp(c.id, S.ano, S.mes); const med = media3(c.id, S.ano, S.mes);
+      return `<div class="linha-plano">${mono(c, true)}<label class="lp-nome" for="pl-${esc(c.id)}">${esc(c.nome)}<span>${med ? 'média de 3 meses: ' + moeda(med) : 'sem histórico'}</span></label>`
+        + `<input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="${med ? num(med) : '0,00'}"></div>`;
+    }).join('')}</div></section>`;
+  }).join('');
+  return `<p class="sub" style="margin-top:12px">O plano guia a projeção, o ritmo e o “livre para gastar”. Campo vazio no mês atual usa a média dos últimos 3 meses.</p>`
+    + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
+    + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Usar as médias</button>'
+    + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
+}
+
+/* ---------- Planilha ---------- */
+function telaPlanilha() {
+  const ano = S.ano; const h = hoje();
+  const meses = Array.from({ length: 12 }, (_, i) => i + 1);
+  const totG = Array(12).fill(0); const totR = Array(12).fill(0);
+  let corpo = ''; let r = 0;
+  const colInicial = ano === h.ano ? h.mes - 1 : 0;
+  for (const g of ORDEM_GRUPOS) {
+    const lista = catsDoGrupo(g);
+    if (!lista.length) continue;
+    // O rótulo fica na primeira coluna (fixa): continua visível quando a tabela rola para o lado.
+    corpo += `<tr class="grupo"><th class="cat" scope="rowgroup">${GRUPOS[g]}</th><td colspan="13"></td></tr>`;
+    for (const c of lista) {
+      const vals = meses.map((m) => celula(c.id, ano, m));
+      const reais = vals.filter((v) => v.fase === 'passado' && v.qtd > 0).map((v) => v.real);
+      const media = reais.length >= 3 ? reais.reduce((a, b) => a + b, 0) / reais.length : 0;
+      let total = 0;
+      let linha = `<tr><th scope="row" class="cat" title="${esc(c.nome)}">${esc(c.nome)}</th>`;
+      vals.forEach((v, i) => {
+        const m = i + 1;
+        total += v.valor;
+        (g === 'renda' ? totR : totG)[i] += v.valor;
+        const cls = ['cel'];
+        if (v.fase === 'atual') cls.push('atual');
+        if (v.tipo === 'previsto') cls.push('prev');
+        const mostrado = v.fase === 'atual' && v.qtd ? v.real : v.valor;
+        if (!mostrado) cls.push('zero');
+        let estilo = '';
+        if (S.calor && media && v.fase === 'passado' && v.qtd > 0) {
+          const q = v.real / media;
+          if (q >= 1.15) estilo = `background-color:rgba(234,88,12,${Math.min(0.32, (q - 1) * 0.45).toFixed(2)})`;
+          else if (q <= 0.85) estilo = `background-color:rgba(79,70,229,${Math.min(0.22, (1 - q) * 0.4).toFixed(2)})`;
+        }
+        const mini = v.fase === 'atual' && v.qtd && v.plano > 0 && g !== 'renda'
+          ? `<span class="mini"><i class="${v.real > v.plano ? 'acima' : ''}" style="width:${Math.min(100, (v.real / v.plano) * 100).toFixed(0)}%"></i></span>` : '';
+        const dica = `${c.nome} · ${Mes(m)}: ${moeda(mostrado)}${v.tipo === 'previsto' ? ' (previsto, não lançado)' : ''}${v.fase === 'atual' && v.plano ? ` de ${moeda(v.plano)} planejados` : ''}${media && v.fase === 'passado' && v.qtd ? ` · média ${moeda(media)}` : ''}`;
+        linha += `<td class="${cls.join(' ')}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${m}" data-r="${r}" data-c="${i}" tabindex="${r === 0 && i === colInicial ? 0 : -1}" title="${esc(dica)}"${estilo ? ` style="${estilo}"` : ''}>${mostrado ? num(mostrado) : '–'}${mini}</td>`;
+      });
+      corpo += linha + `<td class="total">${num(total)}</td></tr>`;
+      r++;
+    }
+  }
+  const rodape = (nome, serie, sinal) => {
+    const tot = serie.reduce((a, b) => a + b, 0);
+    const cor = (v) => (sinal ? (v < 0 ? ' txt-acima' : ' txt-ok') : '');
+    return `<tr><th scope="row">${nome}</th>${serie.map((v, i) => {
+      const f = fase(ano, i + 1);
+      return `<td class="${f !== 'passado' ? 'proj' : ''}${cor(v)}" title="${esc(nome + ' · ' + Mes(i + 1) + (f === 'atual' ? ' (projeção)' : f === 'futuro' ? ' (previsto)' : ''))}">${num(v)}</td>`;
+    }).join('')}<td class="total${cor(tot)}">${num(tot)}</td></tr>`;
+  };
+  const sobra = totR.map((v, i) => v - totG[i]);
+  const cab = meses.map((m) => { const f = fase(ano, m); return `<th scope="col" class="${f === 'atual' ? 'atual' : ''}">${MesC(m)}${f === 'atual' ? '<small>hoje</small>' : ''}</th>`; }).join('');
+  const seg = (on, txt) => `<button type="button" data-acao="calor" data-calor="${on ? 1 : 0}" data-foco="calor-${on ? 1 : 0}" aria-pressed="${S.calor === on}">${txt}</button>`;
+  if (!cats().length) return vazio('Crie categorias em Ajustes para ver a planilha.', false);
+  return '<div class="planilha-ferramentas">'
+    + `<div class="segmentado" role="group" aria-label="Visualização">${seg(false, 'Valores')}${seg(true, 'Mapa de calor')}</div>`
+    + '<div class="legenda"><span><i style="background:rgba(234,88,12,.3)"></i>acima da média da categoria</span><span><i style="background:rgba(79,70,229,.2)"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto ou projeção</span></div>'
+    + `<button type="button" class="botao pequeno" data-acao="exportar-csv" data-foco="exp-csv" style="margin-left:auto">${ic('baixar', 16)}Exportar CSV</button></div>`
+    + `<div class="planilha-caixa"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
+    + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
+    + `<tfoot>${rodape('Total de gastos', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
+    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. No mês atual aparece o realizado com a barra do plano; o rodapé do mês atual em diante é projeção.</p>';
+}
+function posPlanilha() {
+  if (!S.rolarPlanilha) return;
+  S.rolarPlanilha = false;
+  const caixa = $('.planilha-caixa');
+  const th = caixa && caixa.querySelector('thead th.atual');
+  const cat = caixa && caixa.querySelector('thead th.cat');
+  if (th && cat) caixa.scrollLeft = Math.max(0, th.offsetLeft - cat.offsetWidth - 24);
+}
+
+/* ---------- Ajustes ---------- */
+function contagemPorCategoria() {
+  const n = {};
+  for (const b of Object.values(S.dados.anos)) for (const l of b.lancamentos) n[l.categoriaId] = (n[l.categoriaId] || 0) + 1;
+  return n;
+}
+function telaAjustes() {
+  const d = S.dados; const usos = contagemPorCategoria();
+  const temas = { auto: 'Automático', claro: 'Claro', escuro: 'Escuro' };
+  const linhas = ORDEM_GRUPOS.map((g) => {
+    const lista = catsDoGrupo(g);
+    if (!lista.length) return '';
+    return `<h3 class="grupo-titulo"><span>${GRUPOS[g]}</span><span></span></h3>` + lista.map((c, i) => {
+      const n = usos[c.id] || 0;
+      return `<div class="linha-ajuste">`
+        + `<button type="button" class="icone" data-acao="cat-mover" data-cat="${esc(c.id)}" data-dir="-1" data-foco="sobe-${esc(c.id)}" aria-label="Subir ${esc(c.nome)}"${i === 0 ? ' disabled' : ''}>${ic('sobe', 18)}</button>`
+        + `<button type="button" class="icone" data-acao="cat-mover" data-cat="${esc(c.id)}" data-dir="1" data-foco="desce-${esc(c.id)}" aria-label="Descer ${esc(c.nome)}"${i === lista.length - 1 ? ' disabled' : ''}>${ic('desce', 18)}</button>`
+        + `<label class="sr" for="cn-${esc(c.id)}">Nome da categoria</label><input class="entrada" id="cn-${esc(c.id)}" data-mudar="cat-nome" data-cat="${esc(c.id)}" data-foco="cn-${esc(c.id)}" value="${esc(c.nome)}" maxlength="60">`
+        + `<label class="sr" for="cg-${esc(c.id)}">Grupo</label><select class="entrada" id="cg-${esc(c.id)}" data-mudar="cat-grupo" data-cat="${esc(c.id)}" data-foco="cg-${esc(c.id)}">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === c.grupo ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
+        + `<span class="qtd">${n} lanç.</span>`
+        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : 'Apagar'}"${n ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
+    }).join('');
+  }).join('');
+  return '<div class="ajustes">'
+    + '<section class="cartao"><h2>Geral</h2>'
+    + `<label class="campo">Nome do controle<input data-mudar="nome" data-foco="aj-nome" value="${esc(d.nome)}" maxlength="60" placeholder="Ex.: Casa, Pessoal"></label>`
+    + `<div class="campo"><span>Aparência</span><div class="segmentado" role="group" aria-label="Tema">${Object.entries(temas).map(([k, v]) => `<button type="button" data-acao="tema" data-tema="${k}" data-foco="tema-${k}" aria-pressed="${(d.tema || 'auto') === k}">${v}</button>`).join('')}</div></div></section>`
+    + '<section class="cartao"><h2>Categorias</h2><p class="sub">A ordem daqui é a das listas e da planilha.</p>' + linhas
+    + '<div class="nova-cat"><label class="sr" for="nova-cat-nome">Nome da nova categoria</label><input class="entrada" id="nova-cat-nome" data-foco="nova-cat-nome" placeholder="Nova categoria" maxlength="60">'
+    + `<label class="sr" for="nova-cat-grupo">Grupo da nova categoria</label><select class="entrada" id="nova-cat-grupo" data-foco="nova-cat-grupo">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === 'variavel' ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
+    + `<button type="button" class="botao" data-acao="cat-nova" data-foco="cat-nova">${ic('mais', 18)}Adicionar</button></div></section>`
+    + `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que dá para abrir e ler.</p><div class="acoes">`
+    + (d.planilha && d.planilha.url ? `<a class="botao" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir a planilha</a>` : '')
+    + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
+    + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}Exportar CSV</button>`
+    + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button></div></section>`
+    + `<section class="cartao"><h2>Sobre</h2><p class="sub">bsdesenv-financas ${esc(d.versaoApp || '')} · código aberto (licença MIT). Seus dados não passam por nenhum servidor além do Google. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`
+    + '</div>';
+}
+
+/* =====================================================================
+   9. Folhas: painel de baixo no celular, painel lateral no computador
+   ===================================================================== */
+const pilha = [];
+function atualizarVeu() {
+  let veu = $('#camada .veu');
+  if (pilha.length && !veu) {
+    veu = document.createElement('div'); veu.className = 'veu';
+    veu.addEventListener('click', () => fecharFolha());
+    $('#camada').prepend(veu);
+    requestAnimationFrame(() => veu.classList.add('visivel'));
+  } else if (!pilha.length && veu) {
+    veu.classList.remove('visivel'); setTimeout(() => veu.remove(), 200);
+  }
+}
+function abrirFolha(f) {
+  const el = document.createElement('section');
+  el.className = 'folha ' + (f.classe || '');
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.tabIndex = -1;
+  f.el = el;
+  f.origem = document.activeElement;
+  pilha.push(f);
+  $('#camada').appendChild(el);
+  f.montar(el);
+  const t = el.querySelector('h2');
+  if (t) { t.id = t.id || 'folha-titulo-' + pilha.length; el.setAttribute('aria-labelledby', t.id); }
+  atualizarVeu();
+  requestAnimationFrame(() => {
+    el.classList.add('aberta');
+    const alvo = el.querySelector('[data-autofoco]') || el;
+    alvo.focus({ preventScroll: true });
+  });
+  hist.push({ tela: S.tela, n: pilha.length });
+}
+function fecharFolha(porHistorico = false) {
+  const f = pilha.pop();
+  if (!f) return;
+  f.el.classList.remove('aberta');
+  setTimeout(() => f.el.remove(), 260);
+  atualizarVeu();
+  if (f.aoFechar) f.aoFechar();
+  if (f.origem && document.contains(f.origem) && f.origem.focus) f.origem.focus({ preventScroll: true });
+  if (!porHistorico) agendarRender();
+}
+function topoFolha(titulo, rotulo = '') {
+  return `<header class="folha-topo"><div class="titulos">${rotulo ? `<div class="rotulo">${esc(rotulo)}</div>` : ''}<h2>${esc(titulo)}</h2></div>`
+    + `<button type="button" class="icone" data-f="fechar" aria-label="Fechar">${ic('fechar')}</button></header>`;
+}
+
+/* ---------- Novo lançamento ---------- */
+function abrirNovo(opc = {}) {
+  if (!S.dados || !cats().length) return;
+  const h = hoje();
+  const teclado = window.matchMedia('(pointer: coarse)').matches;
+  const catIni = opc.cat && catPorId(opc.cat);
+  const st = {
+    tipo: catIni && catIni.grupo === 'renda' ? 'renda' : 'gasto',
+    cents: '', texto: '', desc: '', descManual: false, cat: catIni ? catIni.id : null,
+    data: (S.ano === h.ano && S.mes === h.mes) || opc.hoje ? { modo: 'hoje' } : { modo: 'outra', iso: isoData(opc.ano || S.ano, opc.mes || S.mes, 1), semDia: true },
+  };
+  const garantirCat = () => {
+    const lista = categoriasPorUso(st.tipo === 'renda');
+    if (!st.cat || !lista.some((c) => c.id === st.cat)) st.cat = lista.length ? lista[0].id : null;
+  };
+  garantirCat();
+  const valores = () => {
+    if (teclado) { const v = Number(st.cents || '0') / 100; return v > 0 ? [v] : []; }
+    return interpretarLinha(st.texto, st.tipo === 'renda').valores;
+  };
+  const dataEscolhida = () => {
+    if (st.data.modo === 'hoje') return { ano: h.ano, mes: h.mes, dia: h.dia };
+    if (st.data.modo === 'ontem') { const d = new Date(); d.setDate(d.getDate() - 1); return { ano: d.getFullYear(), mes: d.getMonth() + 1, dia: d.getDate() }; }
+    const p = String(st.data.iso || '').split('-').map(Number);
+    if (!p[0] || !p[1]) return null;
+    return { ano: p[0], mes: p[1], dia: st.data.semDia ? null : p[2] || null };
+  };
+  abrirFolha({
+    tipo: 'novo', classe: 'folha-novo',
+    montar(el) {
+      // Três faixas: valor fixo em cima, escolhas no meio (rola), teclado fixo embaixo.
+      // Assim o valor digitado nunca sai da vista.
+      el.innerHTML = topoFolha('Novo lançamento')
+        + '<div class="nv-fixo">'
+        + '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>'
+        + (teclado
+          ? '<div style="text-align:center"><span class="rotulo" id="nv-rot">Valor</span><output class="valor-grande" id="nv-valor" aria-labelledby="nv-rot" aria-live="polite">R$ 0,00</output></div><div class="datas" id="nv-datas"></div>'
+          : '<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>')
+        + '</div><div class="folha-corpo">'
+        + `<fieldset style="border:0;margin:0;padding:0;min-width:0"><legend class="rotulo" style="padding:0;margin-bottom:6px">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`
+        + (teclado ? '' : '<div class="datas" id="nv-datas"></div>')
+        + `<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>`
+        + '</div>'
+        + (teclado ? '<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div></div>' : '')
+        + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
+        + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
+      if (teclado) {
+        $('#nv-teclado', el).innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'].map((d) => `<button type="button" data-f="tecla" data-v="${d}" aria-label="${d}">${d}</button>`).join('')
+          + `<button type="button" data-f="tecla" data-v="apagar" aria-label="Apagar dígito">${ic('apagarDigito', 24)}</button>`;
+      }
+      const desenhar = () => {
+        $$('[data-f="tipo"]', el).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.tipo)));
+        // Mais usadas primeiro. No celular, numa faixa de duas linhas que rola para o lado;
+        // no computador, as 8 primeiras e um "Todas" que abre o resto. A escolhida sempre aparece.
+        const todas = categoriasPorUso(st.tipo === 'renda');
+        let lista = teclado || st.todas ? todas : todas.slice(0, 8);
+        if (!lista.some((c) => c.id === st.cat)) { const sel = todas.find((c) => c.id === st.cat); if (sel) lista = lista.concat(sel); }
+        $('#nv-cats', el).innerHTML = todas.length
+          ? lista.map((c) => `<button type="button" class="chip cor-${corDe(c.id)}" data-f="cat" data-v="${esc(c.id)}" aria-pressed="${c.id === st.cat}"><span class="ponto"></span>${esc(c.nome)}</button>`).join('')
+            + (!teclado && todas.length > 8 ? `<button type="button" class="chip todas" data-f="todas" aria-expanded="${Boolean(st.todas)}">${st.todas ? 'Menos' : `Todas (${todas.length})`}</button>` : '')
+          : `<p class="sub">Nenhuma categoria de ${st.tipo === 'renda' ? 'renda' : 'gasto'}. Crie em Ajustes.</p>`;
+        const datas = [['hoje', 'Hoje'], ['ontem', 'Ontem'], ['outra', 'Outra data']];
+        $('#nv-datas', el).innerHTML = datas.map(([k, t]) => `<button type="button" class="chip" data-f="data" data-v="${k}" aria-pressed="${st.data.modo === k}">${t}</button>`).join('')
+          + (st.data.modo === 'outra'
+            ? `<label class="sr" for="nv-dt">Data</label><input type="date" id="nv-dt" value="${esc(st.data.iso || isoData(h.ano, h.mes, h.dia))}"><label class="marcar"><input type="checkbox" id="nv-semdia"${st.data.semDia ? ' checked' : ''}>Sem dia definido</label>` : '');
+        const dt = $('#nv-dt', el);
+        if (dt) dt.addEventListener('change', () => { st.data.iso = dt.value; atualizarBotao(); });
+        const sd = $('#nv-semdia', el);
+        if (sd) sd.addEventListener('change', () => { st.data.semDia = sd.checked; });
+        desenharSugestoes();
+        atualizarValor();
+      };
+      const desenharSugestoes = () => {
+        const sug = st.cat ? sugestoes(st.cat) : [];
+        $('#nv-sug', el).innerHTML = sug.map((s) => `<button type="button" data-f="sug" data-v="${esc(s)}">${esc(s)}</button>`).join('');
+      };
+      const atualizarValor = () => {
+        if (teclado) {
+          const out = $('#nv-valor', el);
+          out.textContent = moeda(Number(st.cents || '0') / 100);
+          out.classList.toggle('renda', st.tipo === 'renda');
+        } else {
+          const r = interpretarLinha(st.texto, st.tipo === 'renda');
+          const p = $('#nv-entendi', el);
+          if (!st.texto.trim()) { p.textContent = 'Dica: Enter salva, Esc fecha.'; p.className = 'entendi'; }
+          else if (!r.valores.length) { p.textContent = r.invalido ? 'Não entendi o valor. Use, por exemplo, 32,90 ou 1.500.' : 'Comece pelo valor.'; p.className = 'entendi erro'; }
+          else {
+            const total = r.valores.reduce((a, b) => a + b, 0);
+            const c = catPorId(st.cat);
+            p.textContent = `Entendi: ${r.valores.length > 1 ? r.valores.length + ' lançamentos, total ' : ''}${moeda(total)}${c ? ' em ' + c.nome : ''}${st.desc ? ' · “' + st.desc + '”' : ''}`;
+            p.className = 'entendi';
+          }
+        }
+        atualizarBotao();
+      };
+      const atualizarBotao = () => {
+        const vs = valores(); const total = vs.reduce((a, b) => a + b, 0);
+        const b = $('#nv-salvar', el);
+        b.textContent = !vs.length ? 'Digite o valor' : vs.length > 1 ? `Salvar ${vs.length} lançamentos · ${moeda(total)}` : 'Salvar ' + moeda(total);
+        b.disabled = !vs.length || !st.cat || !dataEscolhida();
+      };
+      const salvar = (continuar) => {
+        const vs = valores(); const d = dataEscolhida();
+        if (!vs.length || !st.cat || !d) { atualizarBotao(); return; }
+        const desc = $('#nv-desc', el).value.trim();
+        const ids = vs.map((v) => {
+          const id = novoId();
+          registrar({ t: 'lanc', l: { id, ano: d.ano, mes: d.mes, dia: d.dia, categoriaId: st.cat, descricao: desc, valor: v } });
+          return id;
+        });
+        const c = catPorId(st.cat); const total = vs.reduce((a, b) => a + b, 0);
+        aviso(`Lançado em ${c ? c.nome : ''}: ${moeda(total)}${ids.length > 1 ? ` (${ids.length} lançamentos)` : ''}`, {
+          acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); aviso('Lançamento desfeito.'); },
+        });
+        if (continuar) {
+          st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false;
+          $('#nv-desc', el).value = '';
+          const tx = $('#nv-texto', el); if (tx) { tx.value = ''; tx.focus(); }
+          atualizarValor();
+        } else {
+          fecharFolha();
+        }
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'tipo') { st.tipo = b.dataset.v; garantirCat(); desenhar(); }
+        else if (f === 'cat') { st.cat = b.dataset.v; desenhar(); }
+        else if (f === 'todas') { st.todas = !st.todas; desenhar(); }
+        else if (f === 'data') { st.data.modo = b.dataset.v; if (b.dataset.v === 'outra' && !st.data.iso) { st.data.iso = isoData(h.ano, h.mes, h.dia); st.data.semDia = false; } desenhar(); }
+        else if (f === 'sug') { $('#nv-desc', el).value = b.dataset.v; st.desc = b.dataset.v; st.descManual = true; atualizarValor(); }
+        else if (f === 'tecla') {
+          if (b.dataset.v === 'apagar') st.cents = st.cents.slice(0, -1);
+          else st.cents = (st.cents + b.dataset.v).replace(/^0+/, '').slice(0, 9);
+          atualizarValor();
+        } else if (f === 'salvar') salvar(false);
+        else if (f === 'salvar-outro') salvar(true);
+      });
+      const tx = $('#nv-texto', el);
+      if (tx) {
+        tx.addEventListener('input', () => {
+          st.texto = tx.value;
+          const r = interpretarLinha(st.texto, st.tipo === 'renda');
+          if (r.categoriaId && r.categoriaId !== st.cat) { st.cat = r.categoriaId; desenhar(); }
+          if (!st.descManual) { st.desc = r.descricao; $('#nv-desc', el).value = r.descricao; }
+          atualizarValor();
+        });
+      }
+      const ds = $('#nv-desc', el);
+      ds.addEventListener('input', () => { st.desc = ds.value; st.descManual = true; atualizarValor(); });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); salvar(e.shiftKey); return; }
+        if (teclado && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
+          if (/^\d$/.test(e.key)) { st.cents = (st.cents + e.key).replace(/^0+/, '').slice(0, 9); atualizarValor(); e.preventDefault(); }
+          else if (e.key === 'Backspace') { st.cents = st.cents.slice(0, -1); atualizarValor(); e.preventDefault(); }
+        }
+      });
+      desenhar();
+    },
+  });
+}
+
+/* ---------- Editar lançamento ---------- */
+function abrirEditar(id) {
+  const achado = acharLanc(id);
+  if (!achado) { aviso('Esse lançamento não existe mais.'); return; }
+  const { l, ano } = achado;
+  const original = { ...l, ano };
+  abrirFolha({
+    tipo: 'editar',
+    montar(el) {
+      const c = catPorId(l.categoriaId);
+      const opcoes = ORDEM_GRUPOS.map((g) => {
+        const lista = catsDoGrupo(g);
+        return lista.length ? `<optgroup label="${GRUPOS[g]}">${lista.map((x) => `<option value="${esc(x.id)}"${x.id === l.categoriaId ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>` : '';
+      }).join('');
+      el.innerHTML = topoFolha('Editar lançamento', c ? c.nome : '')
+        + '<div class="folha-corpo">'
+        + `<label class="campo">Valor<input class="entrada valor" id="ed-valor" inputmode="decimal" autocomplete="off" value="${num(l.valor)}" data-autofoco></label>`
+        + `<label class="campo">Categoria<select class="entrada" id="ed-cat">${opcoes}</select></label>`
+        + `<div class="campo"><label for="ed-data">Data</label><div class="datas"><input type="date" id="ed-data" value="${isoData(ano, l.mes, l.dia || 1)}"><label class="marcar"><input type="checkbox" id="ed-semdia"${l.dia ? '' : ' checked'}>Sem dia definido</label></div></div>`
+        + `<label class="campo">Descrição<input class="entrada" id="ed-desc" value="${esc(l.descricao)}" maxlength="300" autocomplete="off"></label>`
+        + '<p class="entendi" id="ed-erro" aria-live="polite"></p></div>'
+        + '<footer class="folha-rodape linha"><button type="button" class="botao perigo" data-f="apagar">' + ic('lixeira', 18) + 'Apagar</button><button type="button" class="botao primario" data-f="salvar" style="flex:1;margin-left:8px">Salvar</button></footer>';
+      const salvar = () => {
+        const v = paraNumero($('#ed-valor', el).value);
+        const erro = $('#ed-erro', el);
+        if (v === null || v === 0) { erro.textContent = 'Valor inválido. Para tirar o lançamento, use Apagar.'; erro.className = 'entendi erro'; return; }
+        const p = $('#ed-data', el).value.split('-').map(Number);
+        if (!p[0] || !p[1]) { erro.textContent = 'Escolha uma data.'; erro.className = 'entendi erro'; return; }
+        const novo = { id: l.id, ano: p[0], mes: p[1], dia: $('#ed-semdia', el).checked ? null : p[2], categoriaId: $('#ed-cat', el).value, descricao: $('#ed-desc', el).value.trim(), valor: v };
+        const mudou = ['ano', 'mes', 'dia', 'categoriaId', 'descricao', 'valor'].some((k) => novo[k] !== original[k]);
+        if (mudou) {
+          registrar({ t: 'lanc', l: novo });
+          aviso('Lançamento alterado.', { acao: 'Desfazer', fn: () => registrar({ t: 'lanc', l: original }) });
+        }
+        fecharFolha();
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        if (b.dataset.f === 'fechar') fecharFolha();
+        else if (b.dataset.f === 'salvar') salvar();
+        else if (b.dataset.f === 'apagar') {
+          registrar({ t: 'lanc-', id: l.id });
+          fecharFolha();
+          aviso('Lançamento apagado.', { acao: 'Desfazer', fn: () => registrar({ t: 'lanc', l: original }) });
+        }
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'date') { e.preventDefault(); salvar(); }
+      });
+    },
+  });
+}
+
+/* ---------- Categoria num mês (o antigo "clicar na célula") ---------- */
+function abrirCategoria(cid, ano, mes) {
+  const c = catPorId(cid);
+  if (!c) return;
+  abrirFolha({
+    tipo: 'categoria',
+    montar(el) {
+      el.innerHTML = topoFolha(c.nome, `${GRUPOS[c.grupo]} · ${Mes(mes)} de ${ano}`)
+        + '<div class="folha-corpo"><div id="fc-resumo"></div><div class="lista fc-lista" id="fc-lista"></div>'
+        + '<div><div class="rotulo" style="margin-bottom:6px">Lançar aqui</div><div class="fc-novo">'
+        + '<label class="sr" for="fc-valor">Valor</label><input class="entrada valor" id="fc-valor" inputmode="decimal" placeholder="Valor" autocomplete="off" data-autofoco>'
+        + '<label class="sr" for="fc-desc">Descrição</label><input class="entrada" id="fc-desc" placeholder="Descrição" autocomplete="off" maxlength="300">'
+        + '<label class="sr" for="fc-dia">Dia</label><input class="entrada" id="fc-dia" inputmode="numeric" placeholder="dia" autocomplete="off" maxlength="2">'
+        + `<button type="button" class="botao" data-f="adicionar">${ic('mais', 18)}Adicionar</button></div>`
+        + '<p class="entendi" id="fc-msg" aria-live="polite">Aceita vários valores: “217,93 176,15” ou “36*4”.</p></div>'
+        + `<div class="fc-plano"><label class="campo">Plano de ${MESES[mes - 1]}<input class="entrada valor" id="fc-plano" inputmode="decimal" autocomplete="off"></label>`
+        + `<button type="button" class="botao" data-f="repetir">Repetir até dezembro</button></div><p class="sub" id="fc-plano-dica"></p></div>`
+        + '<footer class="folha-rodape linha"><span class="rotulo">Total do mês</span><span class="total-rodape" id="fc-total"></span></footer>';
+      const atualizar = () => {
+        if (!catPorId(cid)) { fecharFolha(); return; }
+        const v = celula(cid, ano, mes);
+        const est = estadoCategoria(c, v, resumo(ano, mes).ritmo);
+        const pct = v.plano > 0 ? (v.real / v.plano) * 100 : v.real > 0 ? 100 : 0;
+        const conf = v.tipo === 'previsto' && v.fase !== 'futuro'
+          ? `<div class="acoes"><button type="button" class="botao" data-f="confirmar">${ic('check', 18)}Confirmar ${moeda(v.plano)} como lançado</button></div>` : '';
+        $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) + (v.implicito ? ' (média)' : '') : 'sem plano'}</span></div>`
+          + barra({ pct, ritmo: v.fase === 'atual' && c.grupo === 'variavel' && v.plano ? resumo(ano, mes).ritmo : null, estado: est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok', alta: true })
+          + `<p class="lc-nota ${est === 'acima' ? 'txt-acima' : ''}" style="margin-top:6px">${esc(notaCategoria(c, v, est))}</p>${conf}`;
+        const itens = celReal(cid, ano, mes).itens.slice().sort((a, b) => (a.dia ?? 99) - (b.dia ?? 99));
+        const mapa = mapaCats();
+        $('#fc-lista', el).innerHTML = itens.length ? itens.map((l) => linhaLanc(l, ano, mapa)).join('') : '<p class="sub" style="padding:14px">Nada lançado ainda.</p>';
+        $('#fc-total', el).textContent = moeda(v.real);
+        const inp = $('#fc-plano', el);
+        if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
+        const med = media3(cid, ano, mes);
+        inp.placeholder = med ? num(med) : '0,00';
+        $('#fc-plano-dica', el).textContent = med ? `Média dos 3 meses anteriores: ${moeda(med)}.` : '';
+      };
+      const adicionar = () => {
+        const msg = $('#fc-msg', el);
+        const vs = paraNumeros($('#fc-valor', el).value);
+        if (!vs || !vs.length) { msg.textContent = 'Digite um valor válido, como 32,90 ou 1.500.'; msg.className = 'entendi erro'; $('#fc-valor', el).focus(); return; }
+        const diaTxt = $('#fc-dia', el).value.trim();
+        const dia = diaTxt ? Number(diaTxt) : (fase(ano, mes) === 'atual' ? hoje().dia : null);
+        if (diaTxt && (!Number.isInteger(dia) || dia < 1 || dia > diasNoMes(ano, mes))) { msg.textContent = 'Dia inválido para este mês.'; msg.className = 'entendi erro'; return; }
+        const desc = $('#fc-desc', el).value.trim();
+        const ids = vs.map((v) => { const id = novoId(); registrar({ t: 'lanc', l: { id, ano, mes, dia, categoriaId: cid, descricao: desc, valor: v } }); return id; });
+        $('#fc-valor', el).value = ''; $('#fc-desc', el).value = '';
+        msg.textContent = `${ids.length > 1 ? ids.length + ' lançamentos adicionados' : 'Adicionado'}: ${moeda(vs.reduce((a, b) => a + b, 0))}.`; msg.className = 'entendi';
+        aviso(`Lançado em ${c.nome}: ${moeda(vs.reduce((a, b) => a + b, 0))}`, { acao: 'Desfazer', fn: () => ids.forEach((id) => registrar({ t: 'lanc-', id })) });
+        $('#fc-valor', el).focus();
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'adicionar') adicionar();
+        else if (f === 'confirmar') confirmarPrevisto(cid, ano, mes);
+        else if (f === 'repetir') {
+          const v = paraNumero($('#fc-plano', el).value);
+          if (!v) { aviso('Digite o valor do plano antes de repetir.'); return; }
+          for (let m = mes; m <= 12; m++) registrar({ t: 'orc', ano, categoriaId: cid, mes: m, valor: v });
+          aviso(`Plano de ${moeda(v)} aplicado de ${MESES[mes - 1]} a dezembro.`);
+        }
+      });
+      $('#fc-plano', el).addEventListener('change', (e) => {
+        const txt = e.target.value.trim();
+        const v = txt ? paraNumero(txt) : null;
+        if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido.', { tipo: 'erro' }); return; }
+        registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing && ['fc-valor', 'fc-desc', 'fc-dia'].includes(e.target.id)) { e.preventDefault(); adicionar(); }
+      });
+      this.atualizar = atualizar;
+      atualizar();
+    },
+  });
+}
+function confirmarPrevisto(cid, ano, mes) {
+  const v = celula(cid, ano, mes);
+  const c = catPorId(cid);
+  if (!c || !v.plano) return;
+  const id = novoId();
+  registrar({ t: 'lanc', l: { id, ano, mes, dia: fase(ano, mes) === 'atual' ? hoje().dia : null, categoriaId: cid, descricao: '', valor: v.plano } });
+  aviso(`${c.nome}: ${moeda(v.plano)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
+}
+
+/* ---------- Importar backup ---------- */
+function abrirImportar() {
+  abrirFolha({
+    tipo: 'importar',
+    montar(el) {
+      el.innerHTML = topoFolha('Importar backup')
+        + '<div class="folha-corpo"><p class="sub">Arquivo JSON baixado em Ajustes › Baixar backup (desta versão ou da anterior).</p>'
+        + '<label class="campo">Arquivo<input type="file" id="im-arquivo" accept=".json,application/json" data-autofoco></label><div id="im-previa"></div></div>'
+        + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="importar" id="im-botao" disabled>Importar</button></footer>';
+      let dados = null;
+      $('#im-arquivo', el).addEventListener('change', async (e) => {
+        const arq = e.target.files[0];
+        const prev = $('#im-previa', el);
+        dados = null; $('#im-botao', el).disabled = true;
+        if (!arq) { prev.innerHTML = ''; return; }
+        try {
+          const d = JSON.parse(await arq.text());
+          if (!d || !Array.isArray(d.categorias) || !d.anos) throw new Error('não parece um backup deste app');
+          let n = 0; for (const b of Object.values(d.anos)) n += (b.lancamentos || []).length;
+          dados = d;
+          prev.innerHTML = `<div class="previa"><div><span class="sub">Categorias</span><strong>${d.categorias.length}</strong></div><div><span class="sub">Lançamentos</span><strong>${n}</strong></div><div><span class="sub">Anos</span><strong>${esc(Object.keys(d.anos).join(', ') || '—')}</strong></div></div>`
+            + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
+            + '<label class="opcao"><input type="radio" name="im-modo" value="mesclar" checked><span><strong>Juntar com o que já existe</strong>O que tiver o mesmo identificador é atualizado; o resto é acrescentado.</span></label>'
+            + '<label class="opcao"><input type="radio" name="im-modo" value="substituir"><span><strong>Substituir tudo</strong>Apaga o que está na planilha e coloca o conteúdo do arquivo. O Google guarda versões antigas em Arquivo › Histórico de versões.</span></label></div>';
+          $('#im-botao', el).disabled = false;
+        } catch (err) {
+          prev.innerHTML = `<p class="entendi erro">Não consegui ler esse arquivo: ${esc(err.message)}.</p>`;
+        }
+      });
+      el.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        if (b.dataset.f === 'fechar') { fecharFolha(); return; }
+        if (b.dataset.f !== 'importar' || !dados) return;
+        const modo = ($('input[name="im-modo"]:checked', el) || {}).value || 'mesclar';
+        b.disabled = true; b.textContent = 'Importando…';
+        try {
+          await esvaziarFila();
+          const r = JSON.parse(await chamar('sincronizar', S.dados.revisao, JSON.stringify([{ t: 'importar', dados, modo, confirmado: true }])));
+          if (r.rejeitadas && r.rejeitadas.length) throw new Error(r.rejeitadas[0].motivo);
+          S.dados = JSON.parse(r.dados); S.versao++;
+          salvarCache(); persistirFila();
+          let n = 0; for (const x of Object.values(S.dados.anos)) n += x.lancamentos.length;
+          fecharFolha();
+          if (!S.montado) montarApp(); else render();
+          aviso(`Importação concluída. A planilha tem agora ${n} lançamentos.`);
+        } catch (err) {
+          aviso('Não deu para importar: ' + err.message, { tipo: 'erro' });
+          b.disabled = false; b.textContent = 'Importar';
+        }
+      });
+    },
+  });
+}
+
+/* ---------- Avisos rápidos (com Desfazer) ---------- */
+function aviso(msg, { acao, fn, tipo = 'info', tempo = 6500 } = {}) {
+  const box = $('#avisos');
+  const el = document.createElement('div');
+  el.className = 'aviso ' + tipo;
+  el.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
+  el.innerHTML = `<span class="aviso-txt">${esc(msg)}</span>${acao ? `<button type="button" class="aviso-acao">${esc(acao)}</button>` : ''}`
+    + `<button type="button" class="aviso-fechar" aria-label="Fechar aviso">${ic('fechar', 16)}</button>`;
+  let fechado = false;
+  const fechar = () => { if (fechado) return; fechado = true; el.classList.add('saindo'); setTimeout(() => el.remove(), 200); };
+  el.querySelector('.aviso-fechar').addEventListener('click', fechar);
+  if (acao) el.querySelector('.aviso-acao').addEventListener('click', () => { fechar(); if (fn) fn(); });
+  // Um aviso por vez: o "Desfazer" visível é sempre o da última ação.
+  box.replaceChildren(el);
+  setTimeout(fechar, tempo);
+}
+
+/* ---------- Exportar ---------- */
+function baixar(nome, conteudo, tipo) {
+  const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
+  const a = document.createElement('a');
+  a.href = url; a.download = nome; a.target = '_self'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+const hojeIso = () => { const h = hoje(); return isoData(h.ano, h.mes, h.dia); };
+function exportarJSON() {
+  const d = { versao: 2, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), categorias: S.dados.categorias, anos: S.dados.anos };
+  baixar(`financas-backup-${hojeIso()}.json`, JSON.stringify(d, null, 1), 'application/json');
+}
+function exportarCSV() {
+  const mapa = mapaCats();
+  const linhas = [['Ano', 'Mês', 'Dia', 'Grupo', 'Categoria', 'Descrição', 'Valor']];
+  for (const ano of Object.keys(S.dados.anos).sort()) {
+    for (const l of S.dados.anos[ano].lancamentos) {
+      const c = mapa[l.categoriaId];
+      linhas.push([ano, Mes(l.mes), l.dia ?? '', c ? GRUPOS[c.grupo] : '', c ? c.nome : l.categoriaId, l.descricao || '', String(l.valor).replace('.', ',')]);
+    }
+  }
+  const csv = '﻿' + linhas.map((l) => l.map((x) => {
+    let s = String(x);
+    if (/^[=+\-@]/.test(s) && !/^-?\d/.test(s)) s = "'" + s;
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(';')).join('\r\n');
+  baixar(`financas-lancamentos-${hojeIso()}.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+/* =====================================================================
+   10. Primeiro acesso
+   ===================================================================== */
+const MODELOS = {
+  essencial: {
+    nome: 'Essencial', desc: 'Casa, mercado, transporte, saúde, lazer e o básico de rendas.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Assinaturas', 'fixo'],
+      ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'],
+      ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Salário', 'renda'], ['Outras rendas', 'renda']],
+  },
+  familia: {
+    nome: 'Família', desc: 'O essencial, mais escola, plano de saúde, filhos e pets.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Plano de saúde', 'fixo'], ['Escola', 'fixo'], ['Assinaturas', 'fixo'],
+      ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'], ['Filhos', 'variavel'],
+      ['Pets', 'variavel'], ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Salário', 'renda'], ['Outras rendas', 'renda']],
+  },
+  autonomo: {
+    nome: 'Autônomo', desc: 'O essencial, mais impostos, ferramentas de trabalho e rendas de serviço.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Impostos', 'fixo'], ['Assinaturas', 'fixo'],
+      ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'], ['Ferramentas de trabalho', 'variavel'],
+      ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Serviços prestados', 'renda'], ['Pró-labore', 'renda'], ['Outras rendas', 'renda']],
+  },
+  zero: { nome: 'Do zero', desc: 'Só “Gastos” e “Renda” para começar; você cria o resto em Ajustes.', cats: [['Gastos', 'variavel'], ['Renda', 'renda']] },
+};
+function slug(nome) { return normal(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'categoria'; }
+function idUnico(nome) { let base = slug(nome); if (!/^[a-z0-9]/.test(base)) base = 'c' + base; let id = base; let i = 2; while (catPorId(id)) id = base + '-' + i++; return id; }
+function mostrarBoasVindas() {
+  $('#carga').hidden = true; $('#app').hidden = true;
+  const box = $('#boasvindas'); box.hidden = false;
+  const st = { passo: 1, nome: S.dados.nome || '', modelo: 'essencial' };
+  const desenhar = () => {
+    const passos = `<div class="passos" aria-hidden="true"><i class="feito"></i><i class="${st.passo >= 2 ? 'feito' : ''}"></i></div>`;
+    if (st.passo === 1) {
+      box.innerHTML = `<div class="bv">${passos}<span class="logo logo-grande" aria-hidden="true"><i></i><i></i><i></i></span>`
+        + '<h1>Bem-vindo ao seu controle financeiro</h1><p class="sub" style="font-size:15px">Lance gastos em segundos no celular, acompanhe o mês e veja o ano inteiro no computador.</p>'
+        + `<label class="campo">Como quer chamar este controle?<input class="entrada" id="bv-nome" value="${esc(st.nome)}" placeholder="Ex.: Casa, Pessoal" maxlength="60"></label>`
+        + `<div class="nota nota-info">${ic('cadeado', 18)}<p>Seus dados ficam numa planilha no seu Google Drive. O app roda na sua conta e só enxerga essa planilha.</p></div>`
+        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="avancar">Continuar</button></div></div>';
+      $('#bv-nome').focus();
+    } else {
+      box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. Dá para renomear, juntar ou criar outras a qualquer momento.</p>`
+        + '<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend class="sr">Modelo de categorias</legend>'
+        + Object.entries(MODELOS).map(([k, m]) => `<label class="opcao"><input type="radio" name="bv-modelo" value="${k}"${st.modelo === k ? ' checked' : ''}><span><strong>${m.nome}${m.cats.length > 2 ? ` · ${m.cats.length} categorias` : ''}</strong>${m.desc}</span></label>`).join('')
+        + '</fieldset>'
+        + `<button type="button" class="botao fantasma" data-b="importar" style="align-self:flex-start">${ic('enviar', 18)}Já tenho um backup: importar JSON</button>`
+        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="concluir">Começar</button><button type="button" class="botao fantasma" data-b="voltar">Voltar</button></div></div>';
+    }
+  };
+  box.onclick = (e) => {
+    const b = e.target.closest('[data-b]');
+    if (!b) return;
+    if (b.dataset.b === 'avancar') { st.nome = $('#bv-nome').value.trim(); st.passo = 2; desenhar(); }
+    else if (b.dataset.b === 'voltar') { st.passo = 1; desenhar(); }
+    else if (b.dataset.b === 'importar') abrirImportar();
+    else if (b.dataset.b === 'concluir') {
+      st.modelo = ($('input[name="bv-modelo"]:checked') || {}).value || 'essencial';
+      if (st.nome) registrar({ t: 'cfg', k: 'nome', v: st.nome });
+      MODELOS[st.modelo].cats.forEach(([nome, grupo], i) => registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo, ordem: i + 1 } }));
+      box.hidden = true;
+      montarApp();
+      aviso('Tudo pronto. Toque em + para lançar o primeiro gasto.');
+    }
+  };
+  box.onkeydown = (e) => { if (e.key === 'Enter' && e.target.id === 'bv-nome') { e.preventDefault(); box.querySelector('[data-b="avancar"]').click(); } };
+  desenhar();
+}
+
+/* =====================================================================
+   11. Ações, teclado e histórico (botão Voltar)
+   ===================================================================== */
+const hist = (() => {
+  const g = typeof google !== 'undefined' && google.script && google.script.history;
+  return {
+    push(estado) { try { if (g) g.push(estado, null, estado.tela + (estado.n ? '-' + estado.n : '')); else history.pushState(estado, ''); } catch (e) { /* sem histórico */ } },
+    replace(estado) { try { if (g) g.replace(estado, null, estado.tela); else history.replaceState(estado, ''); } catch (e) { /* sem histórico */ } },
+    ouvir(fn) { try { if (g) g.setChangeHandler((ev) => fn(ev && ev.state)); else window.addEventListener('popstate', (ev) => fn(ev.state)); } catch (e) { /* sem histórico */ } },
+  };
+})();
+hist.ouvir((estado) => {
+  const n = estado && typeof estado.n === 'number' ? estado.n : 0;
+  while (pilha.length > n) fecharFolha(true);
+  if (estado && estado.tela && TELAS[estado.tela] && estado.tela !== S.tela) { S.tela = estado.tela; S.rolarPlanilha = true; render(); }
+});
+function irPara(tela, opc = {}) {
+  if (!TELAS[tela]) return;
+  if (S.tela === tela) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  S.tela = tela; S.rolarPlanilha = true;
+  if (opc.historico !== false) hist.push({ tela, n: 0 });
+  render();
+  window.scrollTo(0, 0);
+  $('#tela').focus({ preventScroll: true });
+}
+function mudarMes(d) {
+  const k = deChave(chaveMes(S.ano, S.mes) + d);
+  S.ano = k.ano; S.mes = k.mes;
+  render();
+}
+async function moverCategoria(cid, dir) {
+  const c = catPorId(cid); if (!c) return;
+  const lista = catsDoGrupo(c.grupo);
+  const i = lista.findIndex((x) => x.id === cid); const j = i + dir;
+  if (j < 0 || j >= lista.length) return;
+  const a = lista[i]; const b = lista[j];
+  registrar({ t: 'cat', c: { ...a, ordem: b.ordem } });
+  registrar({ t: 'cat', c: { ...b, ordem: a.ordem } });
+}
+const ACOES = {
+  tela: (el) => irPara(el.dataset.tela),
+  novo: () => abrirNovo(),
+  planejar: () => { S.modoMes = 'planejar'; if (S.tela !== 'mes') irPara('mes'); else render(); },
+  'mes-ant': () => mudarMes(-1),
+  'mes-prox': () => mudarMes(1),
+  'mes-hoje': () => { const h = hoje(); S.ano = h.ano; S.mes = h.mes; render(); },
+  'ano-ant': () => { S.ano--; S.rolarPlanilha = true; render(); },
+  'ano-prox': () => { S.ano++; S.rolarPlanilha = true; render(); },
+  'ir-mes': (el) => { S.mes = Number(el.dataset.mes); render(); },
+  sincronizar: () => { if (S.fila.length) { S.offline = false; enviar(); } else verificarNovidades(true); },
+  editar: (el) => abrirEditar(el.dataset.id),
+  categoria: (el) => abrirCategoria(el.dataset.cat, Number(el.dataset.ano) || S.ano, Number(el.dataset.mes) || S.mes),
+  confirmar: (el) => confirmarPrevisto(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes)),
+  'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
+  filtro: (el) => { S.filtro = el.dataset.filtro; renderExtrato($('#tela')); },
+  calor: (el) => { S.calor = el.dataset.calor === '1'; render(); },
+  tema: (el) => { const t = el.dataset.tema; aplicarTema(t); LS.gravar('tema', t); registrar({ t: 'cfg', k: 'tema', v: t }); },
+  'cat-mover': (el) => moverCategoria(el.dataset.cat, Number(el.dataset.dir)),
+  'cat-apagar': (el) => {
+    const c = catPorId(el.dataset.cat); if (!c) return;
+    const planos = [];
+    for (const [ano, b] of Object.entries(S.dados.anos)) for (const [m, v] of Object.entries(b.orcamento[c.id] || {})) planos.push({ ano: Number(ano), mes: Number(m), valor: v });
+    registrar({ t: 'cat-', id: c.id });
+    aviso(`Categoria “${c.nome}” apagada.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'cat', c }); planos.forEach((p) => registrar({ t: 'orc', ano: p.ano, categoriaId: c.id, mes: p.mes, valor: p.valor })); } });
+  },
+  'cat-nova': () => {
+    const nome = $('#nova-cat-nome').value.trim();
+    if (!nome) { $('#nova-cat-nome').focus(); return; }
+    const grupo = $('#nova-cat-grupo').value;
+    const ordem = Math.max(0, ...S.dados.categorias.map((c) => c.ordem)) + 1;
+    registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo, ordem } });
+    aviso(`Categoria “${nome}” criada.`);
+  },
+  'exportar-json': () => exportarJSON(),
+  'exportar-csv': () => exportarCSV(),
+  importar: () => abrirImportar(),
+  'plano-copiar': () => {
+    const ant = deChave(chaveMes(S.ano, S.mes) - 1); let n = 0;
+    for (const c of cats()) { const v = valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes); if (v > 0) { registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: arred(v) }); n++; } }
+    aviso(n ? `Plano copiado de ${MESES[ant.mes - 1]} (${n} categorias).` : `Nada para copiar de ${MESES[ant.mes - 1]}.`);
+  },
+  'plano-media': () => {
+    let n = 0;
+    for (const c of cats()) { const v = media3(c.id, S.ano, S.mes); if (v > 0) { registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }); n++; } }
+    aviso(n ? `Plano preenchido com as médias (${n} categorias).` : 'Ainda não há histórico para calcular médias.');
+  },
+  'plano-limpar': () => {
+    const antes = cats().map((c) => ({ c, v: planoExp(c.id, S.ano, S.mes) })).filter((x) => x.v);
+    antes.forEach(({ c }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null }));
+    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
+  },
+  recarregar: () => location.reload(),
+};
+const MUDAR = {
+  'filtro-cat': (el) => { S.filtroCat = el.value; renderExtrato($('#tela')); },
+  plano: (el) => {
+    const txt = el.value.trim(); const v = txt ? paraNumero(txt) : null;
+    if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido. Use, por exemplo, 1.360,00.', { tipo: 'erro' }); el.value = ''; return; }
+    registrar({ t: 'orc', ano: S.ano, categoriaId: el.dataset.cat, mes: S.mes, valor: v || null });
+  },
+  nome: (el) => registrar({ t: 'cfg', k: 'nome', v: el.value.trim() }),
+  'cat-nome': (el) => {
+    const c = catPorId(el.dataset.cat); const nome = el.value.trim();
+    if (!c || !nome || nome === c.nome) { if (c && !nome) el.value = c.nome; return; }
+    registrar({ t: 'cat', c: { ...c, nome } });
+  },
+  'cat-grupo': (el) => { const c = catPorId(el.dataset.cat); if (c) registrar({ t: 'cat', c: { ...c, grupo: el.value } }); },
+};
+let tBusca = 0;
+const DIGITAR = {
+  busca: (el) => { S.busca = el.value; clearTimeout(tBusca); tBusca = setTimeout(() => renderExtrato($('#tela')), 120); },
+};
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-acao]');
+  if (!el || el.disabled || el.closest('.folha')) {
+    if (el && el.closest('.folha') && el.dataset.acao === 'editar') { e.preventDefault(); abrirEditar(el.dataset.id); }
+    return;
+  }
+  const fn = ACOES[el.dataset.acao];
+  if (fn) { e.preventDefault(); fn(el, e); }
+});
+document.addEventListener('change', (e) => { const el = e.target.closest('[data-mudar]'); if (el && MUDAR[el.dataset.mudar]) MUDAR[el.dataset.mudar](el, e); });
+// Campo de valor seleciona tudo ao receber foco: digitar substitui em vez de emendar.
+document.addEventListener('focusin', (e) => { const el = e.target; if (el.matches && el.matches('input.valor')) setTimeout(() => { try { el.select(); } catch (err) { /* sem seleção */ } }, 0); });
+document.addEventListener('input', (e) => { const el = e.target.closest('[data-digitar]'); if (el && DIGITAR[el.dataset.digitar]) DIGITAR[el.dataset.digitar](el, e); });
+function prenderFoco(e) {
+  const f = pilha[pilha.length - 1]; if (!f) return;
+  const foc = $$('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])', f.el).filter((x) => !x.disabled && x.offsetParent !== null);
+  if (!foc.length) return;
+  const i = foc.indexOf(document.activeElement);
+  if (e.shiftKey && i <= 0) { e.preventDefault(); foc[foc.length - 1].focus(); }
+  else if (!e.shiftKey && (i === foc.length - 1 || i === -1)) { e.preventDefault(); foc[0].focus(); }
+}
+function navegarPlanilha(e, td) {
+  const r = Number(td.dataset.r); const c = Number(td.dataset.c);
+  const mov = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  if (mov) {
+    const alvo = $(`td.cel[data-r="${r + mov[0]}"][data-c="${c + mov[1]}"]`);
+    if (alvo) { e.preventDefault(); td.tabIndex = -1; alvo.tabIndex = 0; alvo.focus(); }
+  } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); td.click(); }
+}
+document.addEventListener('keydown', (e) => {
+  const alvo = e.target;
+  const digitando = alvo && (alvo.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName));
+  if (e.key === 'Escape' && pilha.length) { e.preventDefault(); fecharFolha(); return; }
+  if (e.key === 'Tab' && pilha.length) { prenderFoco(e); return; }
+  if (!S.montado || pilha.length) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrirNovo(); return; }
+  if (digitando || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); abrirNovo(); }
+  else if (e.key === '/' && S.tela === 'extrato') { e.preventDefault(); const b = $('#busca'); if (b) b.focus(); }
+  else if (S.tela === 'planilha' && alvo.closest && alvo.closest('td.cel')) navegarPlanilha(e, alvo.closest('td.cel'));
+});
+
+/* =====================================================================
+   12. Partida
+   ===================================================================== */
+function aplicarTema(t) {
+  if (t === 'claro' || t === 'escuro') document.documentElement.dataset.tema = t;
+  else delete document.documentElement.dataset.tema;
+}
+function montarApp() {
+  $('#carga').hidden = true; $('#boasvindas').hidden = true; $('#app').hidden = false;
+  S.montado = true;
+  render();
+}
+function mostrarErroCarga(e) {
+  const box = $('#carga');
+  box.hidden = false;
+  box.innerHTML = `<span class="logo logo-grande" aria-hidden="true"><i></i><i></i><i></i></span><h1 style="font-size:20px">Não consegui abrir a planilha</h1>`
+    + `<p class="sub" style="max-width:420px">${esc(e.message)}</p><button type="button" class="botao primario" data-acao="recarregar">Tentar de novo</button>`;
+}
+let tRecarga = 0;
+let tentativasCarga = 0;
+async function carregarDoServidor({ inicial = false, filaSalva = null } = {}) {
+  try {
+    const d = JSON.parse(await chamar('carregar'));
+    const pend = S.fila.length ? S.fila : (filaSalva && filaSalva.planilha === d.planilha.id && Array.isArray(filaSalva.ops) ? filaSalva.ops : []);
+    for (const op of pend) { try { aplicarOp(d, op); } catch (err) { /* operação velha que não se aplica */ } }
+    const recuperadas = inicial && !S.fila.length ? pend.length : 0;
+    S.fila = pend.slice();
+    S.dados = d; S.versao++;
+    S.offline = false; S.falhas = 0; S.atualizando = false; S.ultimaSync = Date.now(); tentativasCarga = 0;
+    aplicarTema(d.tema); LS.gravar('tema', d.tema);
+    salvarCache(); persistirFila();
+    if (!d.categorias.length) { mostrarBoasVindas(); return; }
+    if (!S.montado) montarApp(); else render();
+    if (recuperadas) aviso(`${recuperadas === 1 ? 'Uma alteração feita' : recuperadas + ' alterações feitas'} sem conexão ${recuperadas === 1 ? 'foi recuperada' : 'foram recuperadas'} e já está${recuperadas === 1 ? '' : 'ão'} sendo gravada${recuperadas === 1 ? '' : 's'}.`);
+    if (S.fila.length) enviar();
+  } catch (e) {
+    S.atualizando = false; S.offline = true;
+    if (S.montado) {
+      renderSinc();
+      if (!tentativasCarga) aviso('Sem conexão com a planilha. Mostrando a última cópia deste aparelho.', { tipo: 'erro' });
+      tentativasCarga++;
+      clearTimeout(tRecarga);
+      tRecarga = setTimeout(() => carregarDoServidor({ inicial, filaSalva }), [3, 6, 15, 30, 60][Math.min(tentativasCarga - 1, 4)] * 1000);
+    } else {
+      mostrarErroCarga(e);
+    }
+  }
+}
+function lerAtalhosDaUrl() {
+  const aplicar = (p) => {
+    if (!p || !S.montado) return;
+    if (p.tela && TELAS[p.tela]) irPara(p.tela, { historico: false });
+    if (p.novo !== undefined) abrirNovo({ cat: p.novo && catPorId(p.novo) ? p.novo : null, hoje: true });
+  };
+  try {
+    const g = typeof google !== 'undefined' && google.script && google.script.url;
+    if (g) g.getLocation((loc) => aplicar(loc && loc.parameter));
+    else aplicar(Object.fromEntries(new URLSearchParams(location.search)));
+  } catch (e) { /* sem atalhos */ }
+}
+async function iniciar() {
+  aplicarTema(LS.ler('tema') || 'auto');
+  const cache = LS.ler('cache');
+  const filaSalva = LS.ler('fila');
+  if (cache && Array.isArray(cache.categorias) && cache.categorias.length && cache.anos) {
+    S.dados = cache;
+    if (filaSalva && filaSalva.planilha === (cache.planilha || {}).id && Array.isArray(filaSalva.ops)) {
+      S.fila = filaSalva.ops.slice();
+      for (const op of S.fila) { try { aplicarOp(S.dados, op); } catch (e) { /* ignora */ } }
+    }
+    S.atualizando = true;
+    montarApp();
+  }
+  hist.replace({ tela: S.tela, n: 0 });
+  await carregarDoServidor({ inicial: true, filaSalva });
+  lerAtalhosDaUrl();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verificarNovidades(); });
+window.addEventListener('focus', () => verificarNovidades());
+window.addEventListener('online', () => { S.offline = false; enviar(); verificarNovidades(true); });
+window.addEventListener('beforeunload', (e) => { if (S.fila.length) { e.preventDefault(); e.returnValue = ''; } });
+setInterval(() => { if (document.visibilityState === 'visible') verificarNovidades(); }, 180000);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => agendarRender());
+
+iniciar();
+</script>

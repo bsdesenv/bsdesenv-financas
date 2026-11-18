@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Finanças</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap">
+<?!= incluir('Estilos'); ?>
+</head>
+<body>
+<a class="pular" href="#tela">Pular para o conteúdo</a>
+
+<div class="carga" id="carga" role="status" aria-live="polite">
+  <span class="logo logo-grande" aria-hidden="true"><i></i><i></i><i></i></span>
+  <p id="carga-msg">Abrindo sua planilha…</p>
+</div>
+
+<div class="boasvindas" id="boasvindas" hidden></div>
+
+<div class="app" id="app" hidden>
+  <aside class="lateral" id="lateral" aria-label="Menu"></aside>
+  <div class="coluna">
+    <header class="topo" id="topo"></header>
+    <main class="tela" id="tela" tabindex="-1"></main>
+  </div>
+  <nav class="inferior" id="inferior" aria-label="Navegação principal"></nav>
+</div>
+
+<div id="camada"></div>
+<div class="avisos" id="avisos" aria-live="polite"></div>
+
+<?!= incluir('App'); ?>
+</body>
+</html>

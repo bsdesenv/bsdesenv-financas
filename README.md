@@ -42,8 +42,6 @@ Não precisa saber programar. Você precisa de uma conta Google pessoal (Gmail),
 | Já uso a versão 1 | **[docs/ATUALIZAR.md](docs/ATUALIZAR.md)**: troca só o código, sem migrar dados |
 | Deu algum erro | **[Problemas comuns](docs/INSTALAR.md#problemas-comuns)** |
 
-> **Acesso ao repositório.** Este repositório não é público. Para ver os arquivos, entre na sua conta do GitHub e aceite o convite que chegou por e-mail. Sem isso, os links mostram "Page not found".
-
 Resumo da instalação, para quem já conhece o Apps Script: crie uma planilha, cole os arquivos de [`src/`](src) em **Extensões › Apps Script** e publique como **App da Web**, com *Executar como: Eu* e *Quem pode acessar: Somente eu*.
 
 ## Como funciona

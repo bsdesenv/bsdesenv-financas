@@ -6,10 +6,9 @@ Faça a instalação **no computador**. Depois é só abrir o endereço no celul
 
 ## Antes de começar
 
-Você precisa de:
+Você precisa de **uma conta Google pessoal** (Gmail). Contas de empresa ou de escola costumam bloquear scripts pessoais.
 
-- **Uma conta Google pessoal** (Gmail). Contas de empresa ou de escola costumam bloquear scripts pessoais.
-- **Acesso a este repositório no GitHub.** Ele não é público: quem mantém o projeto envia um convite para a sua conta do GitHub. Crie uma conta gratuita em <https://github.com/signup>, se ainda não tiver, aceite o convite que chega por e-mail e entre na sua conta antes de abrir os links deste guia. Sem estar logado, o GitHub mostra "Page not found".
+Não precisa de conta no GitHub: os arquivos daqui podem ser vistos e copiados por qualquer pessoa.
 
 ### Como copiar um arquivo do GitHub
 
@@ -106,8 +105,6 @@ O endereço continua o mesmo e os dados não são tocados. **Nova implantação*
 **Tela branca ou "função não encontrada".** Algum arquivo HTML está com nome diferente de `Index`, `Estilos` ou `App`.
 
 **Erro de sintaxe ao salvar, ou o app abre pela metade.** Algum arquivo foi colado incompleto, ou sobrou o código de exemplo do editor. Apague tudo do arquivo e cole de novo usando o botão **Copy raw file** (veja [Como copiar um arquivo do GitHub](#como-copiar-um-arquivo-do-github)).
-
-**"Page not found" no GitHub.** Você não está logado no GitHub, ou ainda não aceitou o convite para o repositório.
 
 **Abri o endereço no celular e pediu para entrar.** Entre com a mesma conta Google da planilha. O acesso é "Somente eu", então outra conta não abre.
 

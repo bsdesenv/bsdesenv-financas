@@ -5,18 +5,19 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 *Personal finance tracker built on Google Sheets + Apps Script (Portuguese UI). Your data stays in your own spreadsheet.*
 
 <p>
-  <img src="docs/img/celular-inicio.png" alt="Início no celular: livre para gastar até o fim do mês, ritmo do mês e contas a vencer" width="260">
+  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar, sobra projetada, meta de economia e contas a vencer" width="260">
   <img src="docs/img/celular-lancar.png" alt="Novo lançamento no celular: teclado numérico, data e categorias" width="260">
   <img src="docs/img/celular-mes.png" alt="Mês no celular: cada categoria com gasto, plano e ritmo" width="260">
 </p>
 
-![Início no computador: livre para gastar, números do mês, categorias, avisos e sobra mês a mês](docs/img/computador-inicio.png)
+![Início no computador: disponível para gastar, números do mês, categorias, meta de economia, contas a vencer e sobra mês a mês](docs/img/computador-inicio.png)
 
 ## Por que usar
 
 - **Seus dados, sua planilha.** Tudo fica numa planilha do seu Google Drive, em abas comuns que dá para abrir e ler. Sem servidor de terceiros, sem mensalidade, sem anúncio e sem senha de banco.
 - **Lançar em três toques.** O botão **+** fica sempre à mão. O valor se digita como no app do banco (6430 vira R$ 64,30), as categorias mais usadas vêm primeiro e a data já começa em "hoje".
-- **Previsão honesta.** "Livre para gastar até o fim do mês" e ritmo do mês. Só entra na conta o que você lançou ou planejou: o app não inventa previsão, e apagar um plano tira o previsto da soma.
+- **Guardar primeiro.** O app reserva a meta de economia e os planos do mês antes de dizer quanto sobra. O Início mostra o **disponível para gastar** já sem a meta de Guardar e sem os planos ainda não lançados, e a renda conta pelo que já entrou (ou pela prevista, se nada entrou). A **Meta de economia** sugere 80% da sobra média realizada dos últimos 3 meses fechados — a sugestão só vira meta quando você grava.
+- **Nada fica fora da conta sem aviso.** Categorias sem plano aparecem em **Cobertura do plano**, com o valor que está fora da barra e não é reservado; um toque planeja pela média dos últimos 3 meses. No mês atual a sobra é **projetada**; nos meses fechados, quando há dados reais, o app mostra a **realizada**.
 - **Planilha no computador.** O ano inteiro numa matriz com mapa de calor (onde cada categoria fugiu da própria média), atalhos de teclado e lançamento direto na célula.
 - **Não perde nada.** Celular e computador podem ser usados ao mesmo tempo sem um apagar o outro. Sem conexão, o app guarda no aparelho e envia depois. Toda exclusão tem "Desfazer".
 - **Acessível.** Contraste AA nos temas claro e escuro, alvos de toque de 44 px e navegação completa pelo teclado.
@@ -31,6 +32,8 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 |---|---|
 | <img src="docs/img/celular-extrato.png" alt="Extrato agrupado por dia, com busca e filtros" width="300"> | <img src="docs/img/primeiro-acesso.png" alt="Primeiro acesso: escolha de um modelo de categorias" width="300"> |
 
+Os prints são ilustrativos e usam dados fictícios.
+
 ## Começar
 
 Não precisa saber programar. Você precisa de uma conta Google pessoal (Gmail), de um computador para a instalação e de uns 10 minutos.
@@ -38,7 +41,7 @@ Não precisa saber programar. Você precisa de uma conta Google pessoal (Gmail),
 | Sua situação | Siga |
 |---|---|
 | Vou instalar pela primeira vez | **[docs/INSTALAR.md](docs/INSTALAR.md)**: passo a passo com os nomes exatos de cada menu e arquivo |
-| Já instalei e quero entender as telas | **[docs/USAR.md](docs/USAR.md)**: livre para gastar, plano, backup e atalhos |
+| Já instalei e quero entender as telas | **[docs/USAR.md](docs/USAR.md)**: disponível para gastar, meta de economia, plano, backup e atalhos |
 | Já uso a versão 1 | **[docs/ATUALIZAR.md](docs/ATUALIZAR.md)**: troca só o código, sem migrar dados |
 | Deu algum erro | **[Problemas comuns](docs/INSTALAR.md#problemas-comuns)** |
 
@@ -51,7 +54,7 @@ A planilha é a fonte da verdade, em quatro abas legíveis:
 | Aba | O que tem |
 |---|---|
 | `lancamentos` | uma linha por gasto ou renda: id, ano, mês, dia, categoria, descrição, valor |
-| `categorias` | nome, grupo (fixo, variável ou renda) e ordem |
+| `categorias` | nome, grupo (fixo, variável ou renda) e ordem — a categoria Guardar é um fixo especial, com id `guardar` |
 | `orcamento` | o plano de cada categoria em cada mês |
 | `config` | nome do controle, tema e a revisão usada na sincronização |
 
@@ -74,7 +77,7 @@ exemplos/     dados fictícios para experimentar e para os testes
 docs/         guias e imagens
 ```
 
-As versões ficam marcadas como tags (`v2.0.0`...) e o que mudou em cada uma está no [CHANGELOG.md](CHANGELOG.md).
+As versões ficam marcadas como tags (`v2.1.0`...) e o que mudou em cada uma está no [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 npm test             # testes do servidor (Node 20+, sem dependências)

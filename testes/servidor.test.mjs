@@ -106,6 +106,45 @@ test('operação inválida é recusada sem derrubar as outras', () => {
   assert.equal(planilha.ler('lancamentos').length, 5);
 });
 
+test('dia inválido para o mês é recusado; 29/02 de bissexto é aceito', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    lanc('fevereiro-31', { ano: 2026, mes: 2, dia: 31 }),
+    lanc('fevereiro-29-comum', { ano: 2026, mes: 2, dia: 29 }),
+    lanc('fevereiro-29-bissexto', { ano: 2028, mes: 2, dia: 29 }),
+    lanc('marco-31', { ano: 2026, mes: 3, dia: 31 }),
+    lanc('abril-31', { ano: 2026, mes: 4, dia: 31 }),
+  ]);
+  assert.equal(r.aplicadas, 2);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1, 4]);
+  const ids = planilha.ler('lancamentos').map((l) => l[0]);
+  assert.ok(ids.includes('fevereiro-29-bissexto'), '29/02/2028 existe');
+  assert.ok(ids.includes('marco-31'), '31/03 existe');
+  assert.ok(!ids.includes('fevereiro-31'), '31/02/2026 não existe');
+});
+
+test('importação também recusa lançamento com dia inexistente no mês', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const backup = {
+    versao: 2,
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }],
+    anos: {
+      2026: { lancamentos: [
+        { id: 'ruim31', mes: 2, dia: 31, categoriaId: 'mercado', valor: 10 },
+        { id: 'ruim29', mes: 2, dia: 29, categoriaId: 'mercado', valor: 20 },
+      ], orcamento: {} },
+      2028: { lancamentos: [
+        { id: 'bom29', mes: 2, dia: 29, categoriaId: 'mercado', valor: 30 },
+      ], orcamento: {} },
+    },
+  };
+  const r = sinc(ctx, 0, [{ t: 'importar', dados: backup, modo: 'substituir', confirmado: true }]);
+  const d = JSON.parse(r.dados);
+  assert.equal(d.anos['2026'], undefined, 'as datas inválidas foram ignoradas');
+  assert.equal(d.anos['2028'].lancamentos.length, 1);
+  assert.equal(d.anos['2028'].lancamentos[0].id, 'bom29');
+});
+
 test('ids e lotes fora do padrão são recusados', () => {
   const { ctx } = criarServidor(planilhaV1());
   const r = sinc(ctx, 0, [lanc('<script>'), lanc('-comeca-com-traco'), { t: 'cat', c: { id: 'a b', nome: 'X', grupo: 'fixo', ordem: 1 } }]);
@@ -193,6 +232,27 @@ test('importar: exige confirmação, substitui ou mescla', () => {
   assert.equal(d.anos['2026'], undefined, 'substituir troca tudo');
   assert.equal(d.nome, 'OUTRO');
   assert.equal(planilha.ler('orcamento').length, 1);
+});
+
+test('importar: tema do arquivo vale no substituir e é preservado no mesclar', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const backup = {
+    versao: 2,
+    config: { tema: 'claro' },
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  let r = sinc(ctx, 0, [{ t: 'cfg', k: 'tema', v: 'escuro' }]);
+  assert.equal(r.aplicadas, 1);
+
+  r = sinc(ctx, 1, [{ t: 'importar', dados: backup, modo: 'mesclar', confirmado: true }]);
+  assert.equal(JSON.parse(r.dados).tema, 'escuro', 'mesclar mantém o tema atual');
+
+  r = sinc(ctx, 2, [{ t: 'importar', dados: backup, modo: 'substituir', confirmado: true }]);
+  assert.equal(JSON.parse(r.dados).tema, 'claro', 'substituir aplica o tema do arquivo');
+
+  r = sinc(ctx, 3, [{ t: 'importar', dados: { ...backup, config: { tema: 'neon' } }, modo: 'substituir', confirmado: true }]);
+  assert.equal(JSON.parse(r.dados).tema, 'claro', 'tema fora de TEMAS é ignorado');
 });
 
 test('edição feita à mão na planilha aumenta a revisão', () => {

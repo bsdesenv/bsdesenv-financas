@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.1.0 — 2026-11-18
+
+"Guardar primeiro": o app reserva a meta de economia e os planos do mês antes de mostrar quanto há para gastar.
+
+### Novo
+- **Categoria Guardar.** Um fixo especial (id `guardar`) que é a primeira reserva do mês: o plano é a meta de economia e o lançamento é a transferência feita. Ela não entra na barra de gastos, nos avisos de "passou do plano" nem em "Sem plano", mas entra no total de saídas, na sobra e no disponível. Os quatro modelos de primeiro acesso já vêm com ela.
+- **Meta de economia.** Cartão no Início com o guardado, a meta e o que falta. O campo grava a meta do mês e o botão **Confirmar** registra a transferência. Se a categoria ainda não existe, o app sugere **80% da sobra média realizada dos últimos 3 meses fechados** (em múltiplos de 10) e oferece criá-la. A sugestão não é automática: só vira meta quando você toca no botão ou grava o valor.
+- **Cobertura do plano.** Cartão que mostra quanto está em categorias sem plano — valor que fica fora da barra e não é reservado no disponível — e oferece planejar pela média dos últimos 3 meses.
+- **Backup do tema.** O JSON agora inclui o tema escolhido. A importação em **substituir tudo** aplica o tema do arquivo (se for válido); em **juntar**, mantém o tema atual.
+
+### Mudou
+- **Guardar primeiro, disponível conservador.** "Livre para gastar" virou **Disponível para gastar até ...**: a conta usa a renda já recebida (ou a prevista, se nada entrou) e desconta o que já foi gasto e o que ainda falta lançar dos planos, inclusive as categorias variáveis e a meta de Guardar. O texto do herói lembra a meta e o valor por dia.
+- **Sobra projetada e sobra realizada.** No mês atual, a sobra é **projetada**: usa o lançado e, sem lançamento, o plano. Nos meses passados, o app usa a **sobra realizada** (renda recebida − gastos lançados) quando há dados reais e rotula "realizada"; sem eles, mostra "com previsto". O cartão do ano segue a mesma regra e marca os meses projetados com contorno.
+- **Renda recebida e renda prevista.** O KPI de renda mostra "recebida R$ X de R$ Y" quando há renda recebida; sem lançamento, "prevista". O disponível usa a renda recebida; se nada entrou, usa a prevista.
+- **Barra de atenção.** A barra do plano, que compara só as categorias de consumo com plano, fica em atenção quando o gasto passa mais de 12 pontos do ritmo do mês, antes de estourar o plano.
+- **Aviso ao apagar plano.** Limpar o plano de uma categoria (ou usar **Limpar plano**) avisa: "Plano removido. Isso não cancela a despesa; só deixa de reservá-la." com **Desfazer**.
+- **Telas.** "Previsto a lançar" saiu do Início; "Sobra do mês" virou "Sobra projetada"; a nota do herói não diz mais que o mês "fecha com sobra". O cartão "A vencer" não mostra Guardar, e a Planilha passou de "Total de gastos" para "Total de saídas" (inclui Guardar). A tela Mês mostra Guardar como compromisso fixo e o disponível já desconta a meta.
+
+### Corrigido
+- Lançamento com dia que não existe no mês (como 31/02) passou a ser recusado no servidor, que valida o dia contra o número de dias do mês.
+
 ## 2.0.3 — 2026-11-18
 
 ### Corrigido

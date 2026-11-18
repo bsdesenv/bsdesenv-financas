@@ -127,6 +127,13 @@ const cats = () => (S.dados ? S.dados.categorias.slice().sort((a, b) => a.ordem 
 const catsDoGrupo = (g) => cats().filter((c) => c.grupo === g);
 function mapaCats() { const m = {}; for (const c of S.dados.categorias) m[c.id] = c; return m; }
 const catPorId = (id) => S.dados.categorias.find((c) => c.id === id);
+function catGuardar() {
+  if (!S.dados) return null;
+  const porId = S.dados.categorias.find((c) => c.id === 'guardar' && c.grupo !== 'renda');
+  if (porId) return porId;
+  return cats().find((c) => c.grupo !== 'renda' && normal(c.nome).trim().startsWith('guardar')) || null;
+}
+const ehGuardar = (c) => { const g = catGuardar(); return Boolean(g && c && g.id === c.id); };
 
 /* =====================================================================
    4. Operações — espelho do que o servidor faz, para a tela responder na hora
@@ -293,38 +300,57 @@ function celula(cid, ano, mes) {
   return { valor: p, real: 0, qtd: 0, plano: p, tipo: p ? 'previsto' : 'vazio', fase: f };
 }
 function resumo(ano, mes) {
-  const f = fase(ano, mes); const h = hoje();
+  const f = fase(ano, mes); const h = hoje(); const gid = (catGuardar() || {}).id || null;
   let renda = 0; let gastos = 0; let rendaReal = 0; let gastoReal = 0; let aVencer = 0; let planoGastos = 0; let qtd = 0;
-  let gastoComPlano = 0; let semPlano = 0; let semPlanoQtd = 0;
+  let qtdGastos = 0; let qtdConsumo = 0; let gastoComPlano = 0; let semPlano = 0; let semPlanoQtd = 0;
+  let rendaPlano = 0; let gastosConsumo = 0; let gastoConsumoReal = 0;
+  let guardadoPlano = 0; let guardadoReal = 0; let aRealizar = 0; let aRealizarConsumo = 0;
   const porCat = [];
   for (const c of cats()) {
     const v = celula(c.id, ano, mes);
     porCat.push({ c, v });
     qtd += v.qtd;
-    if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; }
+    if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; rendaPlano += v.plano || 0; }
     else {
-      gastos += v.valor; gastoReal += v.real; planoGastos += v.plano || 0;
-      // A barra do plano compara só as categorias que têm plano; o resto aparece à parte.
-      if (v.plano) gastoComPlano += v.real;
-      else if (v.real) { semPlano += v.real; semPlanoQtd++; }
+      const guardar = c.id === gid;
+      gastos += v.valor; gastoReal += v.real; qtdGastos += v.qtd;
+      aRealizar += Math.max(0, (v.plano || 0) - v.real);
+      if (guardar) { guardadoPlano += v.plano || 0; guardadoReal += v.real; }
+      else {
+        gastosConsumo += v.valor; gastoConsumoReal += v.real; qtdConsumo += v.qtd;
+        planoGastos += v.plano || 0;
+        aRealizarConsumo += Math.max(0, (v.plano || 0) - v.real);
+        // A barra do plano compara só as categorias de consumo que têm plano; o resto aparece à parte.
+        if (v.plano) gastoComPlano += v.real;
+        else if (v.real) { semPlano += v.real; semPlanoQtd++; }
+      }
       // A vencer = conta fixa com plano e ainda sem lançamento: o mesmo valor que entra na sobra.
       if (c.grupo === 'fixo' && f === 'atual' && v.tipo === 'previsto') aVencer += v.plano;
     }
   }
   const dias = diasNoMes(ano, mes);
   const restantes = f === 'atual' ? dias - h.dia + 1 : 0;
-  const livre = renda - gastoReal - aVencer;
+  const rendaBase = rendaReal > 0 ? rendaReal : renda;
+  const disponivel = rendaBase - gastoReal - aRealizar;
+  const sobraSeGastarPlanos = renda - gastoReal - aRealizar;
   return {
-    fase: f, qtd, dias, restantes, porCat,
-    renda: arred(renda), gastos: arred(gastos), sobra: arred(renda - gastos), previsto: arred(gastos - gastoReal),
+    fase: f, qtd, qtdGastos, qtdConsumo, dias, restantes, porCat,
+    renda: arred(renda), rendaPlano: arred(rendaPlano), gastos: arred(gastos), sobra: arred(renda - gastos), previsto: arred(gastos - gastoReal),
+    gastosConsumo: arred(gastosConsumo),
     gastoComPlano: arred(gastoComPlano), semPlano: arred(semPlano), semPlanoQtd,
     rendaReal: arred(rendaReal), gastoReal: arred(gastoReal), aVencer: arred(aVencer), planoGastos: arred(planoGastos),
-    livre: arred(livre), porDia: restantes ? arred(livre / restantes) : 0,
+    rendaBase: arred(rendaBase), gastoConsumoReal: arred(gastoConsumoReal),
+    guardadoPlano: arred(guardadoPlano), guardadoReal: arred(guardadoReal),
+    aRealizar: arred(aRealizar), aRealizarConsumo: arred(aRealizarConsumo),
+    sobraSeGastarPlanos: arred(sobraSeGastarPlanos), disponivel: arred(disponivel), sobraReal: arred(rendaReal - gastoReal),
+    porDia: restantes ? arred(disponivel / restantes) : 0,
     ritmo: f === 'atual' ? h.dia / dias : f === 'passado' ? 1 : 0,
   };
 }
 function estadoCategoria(c, v, ritmo) {
-  if (c.grupo === 'renda' || !v.plano) return 'neutro';
+  if (c.grupo === 'renda') return 'neutro';
+  if (ehGuardar(c)) return 'ok';
+  if (!v.plano) return 'neutro';
   if (v.real > v.plano + 0.004) return 'acima';
   if (c.grupo === 'variavel' && v.fase === 'atual' && v.real / v.plano > ritmo + 0.12) return 'atencao';
   return 'ok';
@@ -405,6 +431,12 @@ function linhaLanc(l, ano, mapa) {
     + valorLanc(l, c) + '</button>';
 }
 function notaCategoria(c, v, est) {
+  if (ehGuardar(c)) {
+    if (v.plano > 0 && v.real >= v.plano) return 'Guardado';
+    if (!v.real && v.plano) return `A guardar · previsto ${moeda(v.plano)}`;
+    if (v.plano > 0) return `Faltam ${moeda(v.plano - v.real)}`;
+    return v.real ? 'Guardado' : 'Nada guardado';
+  }
   if (v.fase === 'futuro') return v.plano ? (c.grupo === 'renda' ? 'Renda prevista' : 'Planejado') : 'Sem plano';
   if (v.fase === 'passado') {
     if (v.tipo === 'previsto') return `Não lançado · previsto ${moeda(v.plano)}`;
@@ -487,11 +519,12 @@ function renderLateral() {
   $('#lateral').innerHTML = `<div class="lateral-marca"><span class="logo" aria-hidden="true"><i></i><i></i><i></i></span><span style="min-width:0"><strong>${esc(d.nome || 'Minhas finanças')}</strong><small>Controle financeiro</small></span></div>`
     + `<nav aria-label="Seções">${itens.map((t) => `<button type="button" class="lat-item" data-acao="tela" data-tela="${t}" data-foco="lat-${t}"${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 20)}${t === 'mes' ? 'Planejar mês' : TELAS[t].nome}</button>`).join('')}</nav>`
     + `<div class="lat-rodape"><button type="button" class="sinc sinc-lateral" id="sinc-lateral" data-acao="sincronizar"></button>`
+    + `<span class="versao" title="Versão ${esc(d.versaoApp || '—')}">v${esc(d.versaoApp || '—')}</span>`
     + (d.planilha && d.planilha.url ? `<a class="link" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">Abrir a planilha ${ic('externo', 14)}</a>` : '') + '</div>';
 }
 function renderTopo() {
   let esq;
-  if (S.tela === 'ajustes') esq = '<h1 class="titulo-tela">Ajustes</h1>';
+  if (S.tela === 'ajustes') esq = `<h1 class="titulo-tela">Ajustes <span class="versao" title="Versão ${esc(S.dados.versaoApp || '—')}">v${esc(S.dados.versaoApp || '—')}</span></h1>`;
   else if (S.tela === 'planilha') {
     esq = `<div class="navmes"><button type="button" class="icone" data-acao="ano-ant" data-foco="ano-ant" aria-label="Ano anterior">${ic('esq')}</button>`
       + `<div class="navmes-txt"><span class="navmes-nome">Planilha</span><h1>${S.ano}</h1></div>`
@@ -540,7 +573,7 @@ function renderSinc() {
 /* ---------- Início ---------- */
 function telaInicio() {
   const r = resumo(S.ano, S.mes);
-  const lado = r.fase === 'atual' ? cartaoAVencer(r) + cartaoAvisos(r) : '';
+  const lado = r.fase === 'atual' ? cartaoMeta(r) + cartaoAVencer(r) + cartaoCobertura(r) + cartaoAvisos(r) : '';
   return `<div class="grade-inicio${lado ? '' : ' sem-lado'}">${cartaoHeroi(r)}${cartaoKpis(r)}`
     + (lado ? `<div class="g-lado lado">${lado}</div>` : '')
     + cartaoCategorias(r) + cartaoUltimos() + cartaoAno() + '</div>';
@@ -549,27 +582,33 @@ function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
     const pct = r.planoGastos > 0 ? (r.gastoComPlano / r.planoGastos) * 100 : 0;
-    const estado = r.planoGastos > 0 && r.gastoComPlano > r.planoGastos ? 'acima' : 'ok';
-    const sub = r.livre > 0
-      ? `≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dia${r.restantes > 1 ? 's' : ''}`
-      : 'Os gastos e as contas a vencer já passam da renda do mês.';
-    const ritmo = r.planoGastos > 0
-      ? `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
-        + barra({ pct, ritmo: r.ritmo, estado, alta: true })
-        + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
-        + (r.semPlano > 0 ? `<p class="sub" style="margin-top:6px">Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} (fora da barra).</p>` : '') + '</div>'
-      : '<p class="sub" style="margin-top:12px">Defina um plano em <button type="button" class="link" data-acao="planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p>';
+    const estado = r.gastoComPlano > r.planoGastos ? 'acima'
+      : r.planoGastos > 0 && r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
+    const sub = r.disponivel > 0
+      ? `No máximo ≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dias`
+        + (r.guardadoPlano > 0 ? ` · depois de guardar ${moeda(r.guardadoPlano)}` : '')
+      : 'Os gastos, os planos e a economia já passam da renda disponível.';
+    const ritmo = `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
+      + barra({ pct, ritmo: r.ritmo, estado, alta: true })
+      + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
+      + (r.semPlano > 0 ? `<p class="sub" style="margin-top:6px">Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} (fora da barra). <button type="button" class="link" data-acao="planejar-sem-plano" data-foco="sem-plano">Planejar</button></p>` : '') + '</div>';
     const negativo = r.sobra < 0;
-    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-ok'}">${ic(negativo ? 'alerta' : 'check', 18)}<p><strong>${Mes(S.mes)} fecha ${negativo ? 'em ' + moeda(r.sobra) : 'com sobra de ' + moeda(r.sobra)}.</strong>`
-      + (r.previsto > 0 ? ` Conta o que já foi lançado e ${moeda(r.previsto)} de planos ainda sem lançamento; apagar o plano tira o previsto.` : ' Conta só o que já foi lançado.') + '</p></div>';
-    return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Livre para gastar até ${r.dias}/${dois(S.mes)}</h2>`
-      + `<p class="numero-heroi${r.livre < 0 ? ' negativo' : ''}">${moeda(r.livre)}</p><p class="sub">${sub}</p>${ritmo}${nota}</section>`;
+    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-info'}">${ic(negativo ? 'alerta' : 'calendario', 18)}<p><strong>Sobra projetada: ${moeda(r.sobra)}.</strong> Se você gastar os ${moeda(r.aRealizar)} que ainda estão nos planos, sobram ${moeda(r.sobraSeGastarPlanos)}.`
+      + (r.guardadoPlano > 0 ? ` Guardar: ${moeda(r.guardadoPlano)}.` : '')
+      + (r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` Renda recebida: ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}.` : '')
+      + ' Apagar um plano não cancela a despesa; só deixa de reservá-la.</p></div>';
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
+      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${ritmo}${nota}</section>`;
   }
   if (r.fase === 'passado') {
-    const pct = r.renda > 0 ? Math.round((r.sobra / r.renda) * 100) : 0;
-    return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${r.sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
-      + `<p class="numero-heroi${r.sobra < 0 ? ' negativo' : ''}">${moeda(r.sobra)}</p>`
-      + `<p class="sub">Renda de ${moeda(r.renda)} e gastos de ${moeda(r.gastos)}${r.renda > 0 ? ` · ${pct}% da renda ${pct >= 0 ? 'guardados' : 'a mais nos gastos'}` : ''}.</p></section>`;
+    const real = r.qtdGastos > 0 || r.rendaReal > 0;
+    const sobra = real ? r.sobraReal : r.sobra;
+    const renda = real && r.rendaReal > 0 ? r.rendaReal : r.renda;
+    const gastos = real ? r.gastoReal : r.gastos;
+    const pct = renda > 0 ? Math.round((sobra / renda) * 100) : 0;
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
+      + `<p class="numero-heroi${sobra < 0 ? ' negativo' : ''}">${moeda(sobra)}</p>`
+      + `<p class="sub">Renda de ${moeda(renda)} e gastos de ${moeda(gastos)}${renda > 0 ? ` · ${pct}% da renda ${pct >= 0 ? 'guardados' : 'a mais nos gastos'}` : ''} · ${real ? 'realizada' : 'com previsto'}.</p></section>`;
   }
   return `<section class="cartao g-heroi heroi" aria-labelledby="h-plano"><h2 id="h-plano" class="rotulo">Plano de ${m} de ${S.ano}</h2>`
     + `<p class="numero-heroi${r.sobra < 0 ? ' negativo' : ''}">${moeda(r.sobra)}</p>`
@@ -579,20 +618,20 @@ function cartaoHeroi(r) {
 function cartaoKpis(r) {
   let tiles;
   if (r.fase === 'atual') {
-    const ant = deChave(chaveMes(S.ano, S.mes) - 1);
-    const rAnt = resumo(ant.ano, ant.mes);
+    const g = catGuardar();
     tiles = [
-      ['Renda do mês', moeda(r.renda), r.rendaReal > 0 && r.rendaReal >= r.renda ? 'recebida' : r.rendaReal > 0 ? `${moeda(r.rendaReal)} recebidos` : 'prevista', 'ok'],
-      ['Gasto até hoje', moeda(r.gastoReal), `${r.qtd} lançamento${r.qtd === 1 ? '' : 's'}`, ''],
-      ['Previsto a lançar', moeda(r.previsto), r.previsto ? 'planos ainda sem lançamento' : 'nenhum plano pendente', ''],
-      ['Sobra do mês', moeda(r.sobra), `${Mes(ant.mes)} fechou em ${moeda(rAnt.sobra)}`, r.sobra < 0 ? 'acima' : 'ok'],
+      ['Renda do mês', moeda(r.rendaPlano || r.renda), r.rendaReal > 0 ? (r.rendaPlano > 0 ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : 'recebida') : 'prevista', 'ok'],
+      ['Gasto até hoje', moeda(r.gastoConsumoReal), `${r.qtdConsumo} lançamento${r.qtdConsumo === 1 ? '' : 's'}`, ''],
+      ['Guardado', moeda(r.guardadoReal), r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', ''],
+      ['Sobra projetada', moeda(r.sobra), r.guardadoPlano > 0 ? 'depois de guardar' : 'se não gastar além do plano', r.sobra < 0 ? 'acima' : 'ok'],
     ];
   } else if (r.fase === 'passado') {
+    const real = r.qtdGastos > 0 || r.rendaReal > 0;
     tiles = [
-      ['Renda', moeda(r.renda), '', 'ok'],
-      ['Gastos', moeda(r.gastos), `${r.qtd} lançamento${r.qtd === 1 ? '' : 's'}`, ''],
-      ['Sobra', moeda(r.sobra), '', r.sobra < 0 ? 'acima' : 'ok'],
-      ['Da renda, guardou', r.renda > 0 ? Math.round((r.sobra / r.renda) * 100) + '%' : '—', '', ''],
+      ['Renda', moeda(r.rendaReal || r.renda), r.rendaReal ? 'recebida' : 'prevista', 'ok'],
+      ['Gastos', moeda(r.gastoReal || r.gastos), `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, ''],
+      ['Sobra', moeda(real ? r.sobraReal : r.sobra), real ? 'realizada' : 'com previsto', (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok'],
+      ['Da renda, guardou', r.rendaReal > 0 ? Math.round(((r.guardadoReal > 0 ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) + '%' : '—', r.guardadoReal > 0 ? 'guardado' : '', ''],
     ];
   } else {
     tiles = [
@@ -604,8 +643,56 @@ function cartaoKpis(r) {
   }
   return `<section class="g-kpis kpis" aria-label="Números do mês">${tiles.map(([rot, v, s, cls]) => `<div class="cartao kpi"><span class="rotulo">${esc(rot)}</span><strong class="kpi-valor ${cls}">${esc(v)}</strong>${s ? `<span class="sub">${esc(s)}</span>` : ''}</div>`).join('')}</section>`;
 }
+function sugestaoMeta() {
+  const h = hoje(); const alvo = chaveMes(h.ano, h.mes);
+  let soma = 0; let n = 0;
+  for (let k = alvo - 1; k >= alvo - 3; k--) {
+    const d = deChave(k);
+    const rr = resumo(d.ano, d.mes);
+    if (!(rr.qtdGastos > 0 || rr.rendaReal > 0)) continue;
+    soma += rr.rendaReal - rr.gastoConsumoReal; n++;
+  }
+  const media = n ? soma / n : 0;
+  let valor = media > 0 ? media * 0.8 : 0;
+  if (valor >= 100) valor = Math.floor(valor / 10) * 10;
+  return { valor: arred(valor), meses: n };
+}
+function cartaoMeta(r) {
+  if (r.fase !== 'atual') return '';
+  const g = catGuardar();
+  const sug = sugestaoMeta();
+  if (!g) {
+    const botao = sug.valor > 0
+      ? `<button type="button" class="botao" data-acao="criar-guardar" data-valor="${sug.valor}" data-foco="criar-guardar">Criar “Guardar” com ${moeda(sug.valor)}</button>`
+      : '<button type="button" class="botao" data-acao="criar-guardar" data-foco="criar-guardar">Criar “Guardar”</button>';
+    return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
+      + '<p class="sub">Separe um valor antes de gastar. O app reserva essa meta no disponível do mês.</p>'
+      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% da sua sobra média dos últimos ${sug.meses} meses fechados.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
+      + `<div class="acoes">${botao}</div></section>`;
+  }
+  const meta = planoExp(g.id, S.ano, S.mes);
+  const guardado = celReal(g.id, S.ano, S.mes).soma;
+  const pct = meta > 0 ? (guardado / meta) * 100 : 0;
+  const texto = meta > 0 && guardado >= meta ? 'Meta atingida. O que passar disso é sobra.'
+    : meta > 0 ? `Faltam ${moeda(meta - guardado)} para a meta deste mês.` : 'Defina a meta deste mês.';
+  return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
+    + `<div class="legenda-barra" style="margin-top:0"><span>Guardado ${moeda(guardado)}</span><span>Meta ${meta ? moeda(meta) : '—'}</span></div>`
+    + barra({ pct, estado: 'ok', alta: true })
+    + `<p class="sub" style="margin-top:8px">${texto}</p>`
+    + `<label class="campo" style="margin-top:10px">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${meta ? num(meta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>`
+    + '<div class="acoes">'
+    + (sug.valor > 0 && sug.valor !== meta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
+    + (meta > 0 && guardado === 0 ? `<button type="button" class="botao pequeno" data-acao="confirmar" data-cat="${esc(g.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="meta-confirmar">Confirmar ${moeda(meta)}</button>` : '')
+    + '</div></section>';
+}
+function cartaoCobertura(r) {
+  if (!(r.semPlano > 0)) return '';
+  return `<section class="cartao" aria-labelledby="h-cobertura"><div class="cartao-topo"><h2 id="h-cobertura">Cobertura do plano</h2></div>`
+    + `<p class="sub">${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} sem plano. Esse valor fica fora da barra e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
+    + '<div class="acoes"><button type="button" class="botao pequeno" data-acao="planejar-sem-plano" data-foco="planejar-sem-plano">Planejar agora</button></div></section>';
+}
 function cartaoAVencer(r) {
-  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'fixo' && v.plano > 0 && v.real === 0);
+  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'fixo' && !ehGuardar(c) && v.plano > 0 && v.real === 0);
   if (!itens.length) return '';
   return `<section class="cartao" aria-labelledby="h-vencer"><div class="cartao-topo"><h2 id="h-vencer">A vencer este mês</h2></div>`
     + itens.map(({ c, v }) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>previsto ${moeda(v.plano)}</span></div>`
@@ -615,14 +702,14 @@ function cartaoAVencer(r) {
 function calcularAvisos(r) {
   const lista = [];
   for (const { c, v } of r.porCat) {
-    if (c.grupo !== 'renda' && v.plano > 0 && v.real > v.plano + 0.004) {
+    if (c.grupo !== 'renda' && !ehGuardar(c) && v.plano > 0 && v.real > v.plano + 0.004) {
       lista.push({ tipo: 'acima', icone: 'setaSobe', html: `<strong>${esc(c.nome)} passou ${moeda(v.real - v.plano)} do plano.</strong> <span>${moeda(v.real)} gastos para ${moeda(v.plano)} planejados.</span>` });
     }
   }
   if (r.ritmo >= 0.25) {
     let melhor = null;
     for (const { c, v } of r.porCat) {
-      if (c.grupo !== 'variavel' || v.qtd < 2) continue;
+      if (c.grupo !== 'variavel' || ehGuardar(c) || v.qtd < 2) continue;
       // Projeção pelo ritmo só faz sentido para gasto frequente (mercado, transporte...),
       // não para o esporádico (farmácia, compras).
       let freq = 0;
@@ -676,7 +763,11 @@ function cartaoUltimos() {
     + (ord.length ? `<div>${ord.map((l) => linhaLanc(l, S.ano, mapa)).join('')}</div>` : vazio(`Nada lançado em ${MESES[S.mes - 1]} ainda.`)) + '</section>';
 }
 function cartaoAno() {
-  const meses = Array.from({ length: 12 }, (_, i) => { const rr = resumo(S.ano, i + 1); return { mes: i + 1, sobra: rr.sobra, fase: rr.fase }; });
+  const meses = Array.from({ length: 12 }, (_, i) => {
+    const rr = resumo(S.ano, i + 1);
+    const real = rr.fase === 'passado' && (rr.qtdGastos > 0 || rr.rendaReal > 0);
+    return { mes: i + 1, sobra: real ? rr.sobraReal : rr.sobra, fase: rr.fase, real };
+  });
   const mp = Math.max(0, ...meses.map((m) => m.sobra)); const mn = Math.max(0, ...meses.map((m) => -m.sobra));
   const total = mp + mn || 1;
   let hp = Math.round((150 * mp) / total); let hn = 150 - hp;
@@ -685,12 +776,12 @@ function cartaoAno() {
   const barras = meses.map((m) => {
     const hPos = m.sobra > 0 && mp ? Math.max(2, Math.round((m.sobra / mp) * hp)) : 0;
     const hNeg = m.sobra < 0 && mn ? Math.max(2, Math.round((-m.sobra / mn) * hn)) : 0;
-    const extra = m.fase === 'atual' ? ' (lançado até agora + planos sem lançamento)' : m.fase === 'futuro' ? ' (previsto)' : '';
-    return `<button type="button" class="ga-mes ${m.fase}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
+    const extra = m.real ? ' (realizada)' : ' (projeção)';
+    return `<button type="button" class="ga-mes ${m.fase}${!m.real && m.fase !== 'futuro' ? ' futuro' : ''}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
       + `<span class="ga-pos"><i style="height:${hPos}px"></i></span><span class="ga-neg"><i style="height:${hNeg}px"></i></span><span class="ga-rot">${MesC(m.mes)}</span></button>`;
   }).join('');
   return `<section class="cartao g-ano" aria-labelledby="h-ano"><div class="cartao-topo"><h2 id="h-ano">Sobra mês a mês · ${S.ano}</h2></div>`
-    + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>mês atual e futuros</span></div>'
+    + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>projeção (contorno)</span></div>'
     + `<figure class="grafico-ano"><div class="ga-barras" style="--hp:${hp}px;--hn:${hn}px">${barras}</div>`
     + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong></figcaption></figure></section>`;
 }
@@ -764,13 +855,14 @@ function kpisMes(r) {
     let renda = 0; let gastos = 0;
     for (const c of cats()) { const p = planoExp(c.id, S.ano, S.mes); if (c.grupo === 'renda') renda += p; else gastos += p; }
     const sobra = renda - gastos;
-    return `<div class="kpis-mes"><div><span>Renda planejada</span><strong class="txt-ok">${num(renda)}</strong></div><div><span>Gastos planejados</span><strong>${num(gastos)}</strong></div>`
+    return `<div class="kpis-mes"><div><span>Renda planejada</span><strong class="txt-ok">${num(renda)}</strong></div><div><span>Saídas planejadas</span><strong>${num(gastos)}</strong></div>`
       + `<div class="${sobra < 0 ? 'alerta' : ''}"><span>Sobra planejada</span><strong>${num(sobra)}</strong></div></div>`;
   }
   const atual = r.fase === 'atual';
-  return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(r.renda)}</strong></div>`
-    + `<div><span>${atual ? 'Gasto até hoje' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(atual ? r.gastoReal : r.gastos)}</strong></div>`
-    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Sobra do mês' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
+  const renda = atual ? (r.rendaPlano || r.renda) : r.fase === 'passado' ? (r.rendaReal || r.renda) : r.renda;
+  return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(renda)}</strong></div>`
+    + `<div><span>${atual ? 'Gasto até hoje' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(atual ? r.gastoConsumoReal : r.gastosConsumo)}</strong></div>`
+    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Sobra projetada' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
 }
 function telaAcompanhar(r) {
   const blocos = ORDEM_GRUPOS.map((g) => {
@@ -795,7 +887,7 @@ function telaPlanejar() {
         + `<input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="${med ? num(med) : '0,00'}"></div>`;
     }).join('')}</div></section>`;
   }).join('');
-  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média dos 3 meses aparece só como sugestão.</p>`
+  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média dos 3 meses aparece só como sugestão. Guardar entra como compromisso fixo; o disponível já desconta.</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
     + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Usar as médias</button>'
     + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
@@ -861,7 +953,7 @@ function telaPlanilha() {
     + `<button type="button" class="botao pequeno" data-acao="exportar-csv" data-foco="exp-csv" style="margin-left:auto">${ic('baixar', 16)}Exportar CSV</button></div>`
     + `<div class="planilha-caixa"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
     + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
-    + `<tfoot>${rodape('Total de gastos', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
+    + `<tfoot>${rodape('Total de saídas', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
     + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado como previsto e entra no total. Apague o plano para tirá-lo.</p>';
 }
 function posPlanilha() {
@@ -1256,7 +1348,14 @@ function abrirCategoria(cid, ano, mes) {
         const txt = e.target.value.trim();
         const v = txt ? paraNumero(txt) : null;
         if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido.', { tipo: 'erro' }); return; }
+        const antes = planoExp(cid, ano, mes);
         registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
+        if (!v && antes > 0) {
+          aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', {
+            acao: 'Desfazer',
+            fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
+          });
+        }
       });
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && ['fc-valor', 'fc-desc', 'fc-dia'].includes(e.target.id)) { e.preventDefault(); adicionar(); }
@@ -1272,7 +1371,7 @@ function confirmarPrevisto(cid, ano, mes) {
   if (!c || !v.plano) return;
   const id = novoId();
   registrar({ t: 'lanc', l: { id, ano, mes, dia: fase(ano, mes) === 'atual' ? hoje().dia : null, categoriaId: cid, descricao: '', valor: v.plano } });
-  aviso(`${c.nome}: ${moeda(v.plano)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
+  aviso(ehGuardar(c) ? `${moeda(v.plano)} guardado.` : `${c.nome}: ${moeda(v.plano)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
 }
 
 /* ---------- Importar backup ---------- */
@@ -1357,7 +1456,7 @@ function baixar(nome, conteudo, tipo) {
 }
 const hojeIso = () => { const h = hoje(); return isoData(h.ano, h.mes, h.dia); };
 function exportarJSON() {
-  const d = { versao: 2, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), categorias: S.dados.categorias, anos: S.dados.anos };
+  const d = { versao: 2, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), config: { tema: S.dados.tema || 'auto' }, categorias: S.dados.categorias, anos: S.dados.anos };
   baixar(`financas-backup-${hojeIso()}.json`, JSON.stringify(d, null, 1), 'application/json');
 }
 function exportarCSV() {
@@ -1382,24 +1481,24 @@ function exportarCSV() {
    ===================================================================== */
 const MODELOS = {
   essencial: {
-    nome: 'Essencial', desc: 'Casa, mercado, transporte, saúde, lazer e o básico de rendas.',
-    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Assinaturas', 'fixo'],
+    nome: 'Essencial', desc: 'Casa, mercado, transporte, saúde, lazer, guardar e o básico de rendas.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Assinaturas', 'fixo'], ['Guardar', 'fixo'],
       ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'],
       ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Salário', 'renda'], ['Outras rendas', 'renda']],
   },
   familia: {
-    nome: 'Família', desc: 'O essencial, mais escola, plano de saúde, filhos e pets.',
-    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Plano de saúde', 'fixo'], ['Escola', 'fixo'], ['Assinaturas', 'fixo'],
+    nome: 'Família', desc: 'O essencial, mais escola, plano de saúde, filhos, pets e guardar.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Plano de saúde', 'fixo'], ['Escola', 'fixo'], ['Assinaturas', 'fixo'], ['Guardar', 'fixo'],
       ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'], ['Filhos', 'variavel'],
       ['Pets', 'variavel'], ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Salário', 'renda'], ['Outras rendas', 'renda']],
   },
   autonomo: {
-    nome: 'Autônomo', desc: 'O essencial, mais impostos, ferramentas de trabalho e rendas de serviço.',
-    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Impostos', 'fixo'], ['Assinaturas', 'fixo'],
+    nome: 'Autônomo', desc: 'O essencial, mais impostos, ferramentas de trabalho, guardar e rendas de serviço.',
+    cats: [['Moradia', 'fixo'], ['Contas da casa', 'fixo'], ['Internet e celular', 'fixo'], ['Impostos', 'fixo'], ['Assinaturas', 'fixo'], ['Guardar', 'fixo'],
       ['Mercado', 'variavel'], ['Transporte', 'variavel'], ['Restaurantes e delivery', 'variavel'], ['Saúde e farmácia', 'variavel'], ['Ferramentas de trabalho', 'variavel'],
       ['Lazer', 'variavel'], ['Compras', 'variavel'], ['Outros', 'variavel'], ['Serviços prestados', 'renda'], ['Pró-labore', 'renda'], ['Outras rendas', 'renda']],
   },
-  zero: { nome: 'Do zero', desc: 'Só “Gastos” e “Renda” para começar; você cria o resto em Ajustes.', cats: [['Gastos', 'variavel'], ['Renda', 'renda']] },
+  zero: { nome: 'Do zero', desc: 'Começa com “Guardar”, “Gastos” e “Renda”; você cria o resto em Ajustes.', cats: [['Guardar', 'fixo'], ['Gastos', 'variavel'], ['Renda', 'renda']] },
 };
 function slug(nome) { return normal(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'categoria'; }
 function idUnico(nome) { let base = slug(nome); if (!/^[a-z0-9]/.test(base)) base = 'c' + base; let id = base; let i = 2; while (catPorId(id)) id = base + '-' + i++; return id; }
@@ -1417,7 +1516,7 @@ function mostrarBoasVindas() {
         + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="avancar">Continuar</button></div></div>';
       $('#bv-nome').focus();
     } else {
-      box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. Dá para renomear, juntar ou criar outras a qualquer momento.</p>`
+      box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. O app reserva primeiro a meta de Guardar; o resto é o disponível para gastar. Dá para renomear, juntar ou criar outras a qualquer momento.</p>`
         + '<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend class="sr">Modelo de categorias</legend>'
         + Object.entries(MODELOS).map(([k, m]) => `<label class="opcao"><input type="radio" name="bv-modelo" value="${k}"${st.modelo === k ? ' checked' : ''}><span><strong>${m.nome}${m.cats.length > 2 ? ` · ${m.cats.length} categorias` : ''}</strong>${m.desc}</span></label>`).join('')
         + '</fieldset>'
@@ -1483,6 +1582,44 @@ async function moverCategoria(cid, dir) {
   registrar({ t: 'cat', c: { ...a, ordem: b.ordem } });
   registrar({ t: 'cat', c: { ...b, ordem: a.ordem } });
 }
+function definirGuardar(valor) {
+  const ano = S.ano; const mes = S.mes;
+  const existente = catGuardar();
+  const antes = existente ? planoExp(existente.id, ano, mes) : 0;
+  const gid = existente ? existente.id : (catPorId('guardar') ? idUnico('Guardar') : 'guardar');
+  const criada = !existente;
+  if (criada) {
+    const fixos = catsDoGrupo('fixo');
+    const ordem = (fixos.length ? Math.min(...fixos.map((c) => c.ordem)) : Math.min(...cats().map((c) => c.ordem), 1)) - 1;
+    registrar({ t: 'cat', c: { id: gid, nome: 'Guardar', grupo: 'fixo', ordem } });
+  }
+  if (valor > 0) registrar({ t: 'orc', ano, categoriaId: gid, mes, valor });
+  const desfazer = () => {
+    if (criada) registrar({ t: 'cat-', id: gid });
+    else registrar({ t: 'orc', ano, categoriaId: gid, mes, valor: antes || null });
+  };
+  if (criada) aviso(`Categoria “Guardar” criada${valor > 0 ? ` com meta de ${moeda(valor)}` : ''}.`, { acao: 'Desfazer', fn: desfazer });
+  else if (valor > 0) aviso(`Meta de economia: ${moeda(valor)}.`, { acao: 'Desfazer', fn: desfazer });
+}
+function planejarSemPlano() {
+  const ano = S.ano; const mes = S.mes; const gid = (catGuardar() || {}).id || null;
+  const criados = []; let total = 0;
+  for (const c of cats()) {
+    if (c.grupo === 'renda' || c.id === gid) continue;
+    if (planoExp(c.id, ano, mes) !== 0) continue;
+    const real = celReal(c.id, ano, mes).soma;
+    if (!(real > 0)) continue;
+    const med = media3(c.id, ano, mes);
+    const valor = med > 0 ? med : real;
+    registrar({ t: 'orc', ano, categoriaId: c.id, mes, valor });
+    criados.push(c.id); total += valor;
+  }
+  if (!criados.length) { aviso('Nenhuma categoria de consumo sem plano para planejar.'); return; }
+  aviso(`Plano criado para ${criados.length} categoria${criados.length > 1 ? 's' : ''}: ${moeda(total)}. O disponível agora reserva esse valor.`, {
+    acao: 'Desfazer',
+    fn: () => criados.forEach((id) => registrar({ t: 'orc', ano, categoriaId: id, mes, valor: null })),
+  });
+}
 const ACOES = {
   tela: (el) => irPara(el.dataset.tela),
   novo: () => abrirNovo(),
@@ -1497,6 +1634,9 @@ const ACOES = {
   editar: (el) => abrirEditar(el.dataset.id),
   categoria: (el) => abrirCategoria(el.dataset.cat, Number(el.dataset.ano) || S.ano, Number(el.dataset.mes) || S.mes),
   confirmar: (el) => confirmarPrevisto(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes)),
+  'criar-guardar': (el) => definirGuardar(Number(el.dataset.valor) || 0),
+  'meta-sugestao': (el) => definirGuardar(Number(el.dataset.valor) || 0),
+  'planejar-sem-plano': () => planejarSemPlano(),
   'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
   filtro: (el) => { S.filtro = el.dataset.filtro; renderExtrato($('#tela')); },
   calor: (el) => { S.calor = el.dataset.calor === '1'; render(); },
@@ -1533,7 +1673,7 @@ const ACOES = {
   'plano-limpar': () => {
     const antes = cats().map((c) => ({ c, v: planoExp(c.id, S.ano, S.mes) })).filter((x) => x.v);
     antes.forEach(({ c }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null }));
-    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
+    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo. Isso não cancela a despesa; só deixa de reservá-la.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
   },
   recarregar: () => location.reload(),
 };
@@ -1542,7 +1682,15 @@ const MUDAR = {
   plano: (el) => {
     const txt = el.value.trim(); const v = txt ? paraNumero(txt) : null;
     if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido. Use, por exemplo, 1.360,00.', { tipo: 'erro' }); el.value = ''; return; }
-    registrar({ t: 'orc', ano: S.ano, categoriaId: el.dataset.cat, mes: S.mes, valor: v || null });
+    const ano = S.ano; const mes = S.mes; const cid = el.dataset.cat;
+    const antes = planoExp(cid, ano, mes);
+    registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
+    if (!v && antes > 0) {
+      aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', {
+        acao: 'Desfazer',
+        fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
+      });
+    }
   },
   nome: (el) => registrar({ t: 'cfg', k: 'nome', v: el.value.trim() }),
   'cat-nome': (el) => {

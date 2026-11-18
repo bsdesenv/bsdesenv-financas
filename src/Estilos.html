@@ -122,6 +122,8 @@ input, select, textarea { min-width: 0; }
 .topo-esq, .topo-dir { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .tela { padding: 4px 16px 24px; outline: none; min-width: 0; }
 .titulo-tela { font-size: 22px; font-weight: 650; padding-left: 12px; }
+.versao { display: inline-flex; align-items: center; font-size: 11px; line-height: 1; font-weight: 600; color: var(--tinta-3); border: 1px solid var(--linha); border-radius: 99px; padding: 4px 7px; vertical-align: middle; }
+.titulo-tela .versao { margin-left: 6px; }
 
 .navmes { display: flex; align-items: center; min-width: 0; }
 .navmes-txt { display: flex; flex-direction: column; align-items: center; min-width: 118px; line-height: 1.25; }
@@ -473,6 +475,13 @@ table.planilha { border-collapse: separate; border-spacing: 0; width: 100%; font
 /* Telas baixas (celular pequeno com a barra do navegador): uma linha de categorias e tudo mais justo */
 @media (max-height: 670px) {
   .nv-toque { --nv-chip: 38px; --nv-valor: 36px; --nv-seg: 34px; --nv-teclas: 181px; }
+  .nv-toque::before { display: none; }
+  .nv-toque .nv-fixo { gap: 8px; padding-bottom: 6px; }
+  .nv-toque .nv-cats-area { margin-top: 6px; }
+  .nv-toque .folha-corpo { min-height: 44px; padding: 6px 16px 6px; }
+  .nv-toque .nv-teclado-area { padding-top: 6px; }
+  .nv-toque .folha-rodape { padding-top: 8px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .datas { gap: 6px; }
   .nv-toque .chips-faixa { grid-template-rows: auto; }
   .nv-toque .nv-cats-area legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }

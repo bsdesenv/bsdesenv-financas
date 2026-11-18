@@ -106,20 +106,26 @@ async function substituir(p, seletor, texto) {
   await p.$eval(seletor, (e) => { e.focus(); e.select(); });
   await p.type(seletor, texto);
 }
+const kpiDe = (p, rotulo) => p.$$eval('.kpi', (els, r) => {
+  const e = els.find((x) => x.querySelector('.rotulo').textContent === r);
+  return e ? { valor: e.querySelector('.kpi-valor').textContent, sub: e.querySelector('.sub')?.textContent || '' } : null;
+}, rotulo);
+const esperarHeroi = (p, valor) => p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, valor);
 
-/** Regra da versão 1: teve lançamento, vale o lançado; não teve, vale o plano gravado. */
+/** Disponível: renda recebida (ou prevista) − gasto real − o que ainda falta realizar nos planos. */
 function livreEsperado(d, ano, mes) {
   const b = d.anos[ano];
   const doMes = (cid) => b.lancamentos.filter((l) => l.mes === mes && l.categoriaId === cid);
   const real = (cid) => arred(doMes(cid).reduce((a, l) => a + l.valor, 0));
   const plano = (cid) => (b.orcamento[cid] || {})[mes] || 0;
-  let renda = 0; let gasto = 0; let aVencer = 0;
+  let renda = 0; let rendaReal = 0; let gastoReal = 0; let aRealizar = 0;
   for (const c of d.categorias) {
     const teve = doMes(c.id).length > 0; const r = real(c.id); const p = plano(c.id);
-    if (c.grupo === 'renda') renda += teve ? r : p;
-    else { gasto += r; if (c.grupo === 'fixo' && !teve) aVencer += p; }
+    if (c.grupo === 'renda') { renda += teve ? r : p; rendaReal += r; }
+    else { gastoReal += r; aRealizar += Math.max(0, p - r); }
   }
-  return arred(renda - gasto - aVencer);
+  const rendaBase = rendaReal > 0 ? rendaReal : renda;
+  return arred(rendaBase - gastoReal - aRealizar);
 }
 
 const resultados = [];
@@ -168,7 +174,7 @@ const amb = criarAmbiente(abasDoBackup(exemplo));
 const url = montarPagina(amb, 'app');
 let cel; let pc;
 
-await caso('celular: abre a planilha no formato da v1 e mostra o “livre para gastar” certo', async () => {
+await caso('celular: abre a planilha no formato da v1 e mostra o “disponível para gastar” certo', async () => {
   cel = await abrir(amb, CEL, url);
   await pronto(cel);
   const heroi = await cel.$eval('.numero-heroi', (e) => e.textContent);
@@ -265,7 +271,7 @@ await caso('computador: célula da planilha abre o painel e lança ali mesmo; se
   assert.equal(foco, '12');
 });
 
-await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento ou plano muda a sobra', async () => {
+await caso('sobra projetada: só o lançado e o plano gravado; apagar lançamento ou plano muda a sobra', async () => {
   const dados = {
     nome: 'Sobra', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -285,8 +291,10 @@ await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento 
   await pronto(p);
   const kpi = (rot) => p.$$eval('.kpi', (els, r) => els.find((e) => e.querySelector('.rotulo').textContent === r)?.querySelector('.kpi-valor').textContent, rot);
   // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
-  assert.equal(await kpi('Sobra do mês'), moeda(8200));
-  assert.equal(await kpi('Previsto a lançar'), moeda(1000));
+  assert.equal(await kpi('Sobra projetada'), moeda(8200));
+  const nota = await p.$eval('.heroi .nota', (e) => e.textContent);
+  assert.ok(nota.includes('Sobra projetada: ' + moeda(8200)), 'a nota do herói cobre o previsto');
+  assert.ok(nota.includes(moeda(1000)), 'a nota mostra o que ainda está nos planos');
   const barra = await p.$eval('.ritmo-bloco', (e) => e.textContent);
   assert.ok(barra.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
   assert.ok(barra.includes('Sem plano: ' + moeda(800) + ' em 1 categoria'), 'o mercado sem plano aparece à parte');
@@ -298,7 +306,7 @@ await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento 
   await p.click('#extrato-lista .linha-lanc[data-id="s13"]'); await folhaAberta(p);
   await p.click('.folha [data-f="apagar"]'); await semFolha(p); await sincronizado(p);
   await irPara(p, 'inicio');
-  assert.equal(await kpi('Sobra do mês'), moeda(8700), 'apagar 500 do mercado devolve 500 à sobra');
+  assert.equal(await kpi('Sobra projetada'), moeda(8700), 'apagar 500 do mercado devolve 500 à sobra');
 
   await irPara(p, 'mes');
   await p.click('[data-modo="planejar"]'); await sleep(100);
@@ -306,8 +314,170 @@ await caso('sobra do mês: só o lançado e o plano gravado; apagar lançamento 
   await p.keyboard.press('Backspace'); await p.keyboard.press('Tab'); await sleep(250); await sincronizado(p);
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'aluguel' && l[2] === 11), 'plano apagado na planilha');
   await p.click('[data-modo="acompanhar"]'); await irPara(p, 'inicio');
-  assert.equal(await kpi('Sobra do mês'), moeda(9700), 'sem o plano, o aluguel previsto sai da sobra');
-  assert.equal(await kpi('Previsto a lançar'), moeda(0));
+  assert.equal(await kpi('Sobra projetada'), moeda(9700), 'sem o plano, o aluguel previsto sai da sobra');
+  const notaSemPlano = await p.$eval('.heroi .nota', (e) => e.textContent);
+  assert.ok(!notaSemPlano.includes(moeda(1000)), 'sem plano, não há mais 1.000 a realizar');
+  await p.close();
+});
+
+await caso('disponível: plano variável sem lançamento também é reservado no herói', async () => {
+  const dados = {
+    nome: 'Plano variável', categorias: [
+      { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+      { id: 'luz', nome: 'Luz', grupo: 'variavel', ordem: 2 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 3 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 4 },
+    ],
+    anos: { 2026: { lancamentos: [{ id: 'p1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 500 }], orcamento: { aluguel: { 11: 1000 }, luz: { 11: 300 }, salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'disponivel-plano-variavel'));
+  await pronto(p);
+  const heroi = await p.$eval('.numero-heroi', (e) => e.textContent);
+  assert.equal(heroi, moeda(8200), '10.000 − 500 lançados − 1.300 ainda nos planos');
+  assert.notEqual(heroi, moeda(8500), 'a regra antiga, só com contas fixas a vencer, daria 8.500');
+  assert.equal((await kpiDe(p, 'Sobra projetada')).valor, moeda(8200));
+  const nota = await p.$eval('.heroi .nota', (e) => e.textContent);
+  assert.ok(nota.includes('Sobra projetada: ' + moeda(8200)), 'a nota mostra a sobra projetada');
+  await p.close();
+});
+
+await caso('renda parcial: KPI mostra o plano e o disponível usa o que já entrou', async () => {
+  const dados = {
+    nome: 'Renda parcial', categorias: [
+      { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'r1', mes: 11, dia: 5, categoriaId: 'salario', descricao: 'Salário', valor: 5000 },
+      { id: 'r2', mes: 11, dia: 6, categoriaId: 'mercado', descricao: '', valor: 500 },
+    ], orcamento: { aluguel: { 11: 1000 }, salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'renda-parcial'));
+  await pronto(p);
+  const renda = await kpiDe(p, 'Renda do mês');
+  assert.equal(renda.valor, moeda(10000), 'o KPI mostra a renda planejada');
+  assert.match(renda.sub, /5\.000,00 recebid|recebid[ao] R\$\s?5\.000,00 de R\$\s?10\.000,00/, `sub da renda: ${renda.sub}`);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(3500), '5.000 recebidos − 500 gastos − 1.000 a realizar');
+  await p.close();
+});
+
+await caso('meta de economia: criar Guardar reserva no disponível; confirmar mantém a sobra', async () => {
+  const dados = {
+    nome: 'Meta', categorias: [
+      { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [], orcamento: { aluguel: { 11: 2000 }, mercado: { 11: 1000 }, salario: { 11: 10000 } } } },
+  };
+  const b = dados.anos[2026];
+  for (const mes of [8, 9, 10]) {
+    b.lancamentos.push({ id: 'h' + mes + 's', mes, dia: 5, categoriaId: 'salario', descricao: '', valor: 10000 });
+    b.lancamentos.push({ id: 'h' + mes + 'm', mes, dia: 6, categoriaId: 'mercado', descricao: '', valor: 5000 });
+  }
+  b.lancamentos.push(
+    { id: 'n1', mes: 11, dia: 5, categoriaId: 'salario', descricao: '', valor: 10000 },
+    { id: 'n2', mes: 11, dia: 6, categoriaId: 'aluguel', descricao: '', valor: 2000 },
+    { id: 'n3', mes: 11, dia: 7, categoriaId: 'mercado', descricao: '', valor: 1000 },
+  );
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'meta-economia'));
+  await pronto(p);
+  assert.ok((await p.evaluate(() => document.body.textContent)).includes('Meta de economia'), 'o cartão aparece sem Guardar');
+  const botao = await p.waitForSelector('[data-acao="criar-guardar"]');
+  const valor = Number(await botao.evaluate((e) => e.dataset.valor));
+  assert.ok(valor > 0, 'a sugestão tem valor');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7000));
+  await botao.click();
+  await sincronizado(p);
+  await esperarHeroi(p, moeda(7000 - valor));
+  const cats = a.servidor.planilha.ler('categorias');
+  assert.ok(cats.some((l) => l[0] === 'guardar' && l[2] === 'fixo'), 'a categoria Guardar foi criada');
+  const planoLido = a.servidor.planilha.ler('orcamento').find((l) => Number(l[0]) === 2026 && l[1] === 'guardar' && l[2] === 11);
+  assert.ok(planoLido && planoLido[3] === valor, 'o plano de Guardar foi gravado');
+  const sobraCriada = (await kpiDe(p, 'Sobra projetada')).valor;
+  assert.equal(sobraCriada, moeda(7000 - valor), 'a meta reduz a sobra projetada');
+  await p.click('[data-foco="meta-confirmar"]');
+  await sincronizado(p);
+  await sleep(200);
+  const transferencia = a.servidor.planilha.ler('lancamentos').find((l) => Number(l[1]) === 2026 && l[2] === 11 && l[4] === 'guardar');
+  assert.ok(transferencia && transferencia[6] === valor, 'a transferência foi lançada');
+  assert.equal((await kpiDe(p, 'Sobra projetada')).valor, sobraCriada, 'confirmar só tira do previsto, não muda a sobra');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7000 - valor));
+  await p.close();
+});
+
+await caso('cobertura do plano: planejar a categoria sem plano grava e limpa o “Sem plano”', async () => {
+  const dados = {
+    nome: 'Cobertura', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'c1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 500 },
+    ], orcamento: { salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'cobertura-plano'));
+  await pronto(p);
+  await p.waitForSelector('[data-foco="planejar-sem-plano"]');
+  const texto = await p.$eval('#tela', (e) => e.innerText);
+  assert.ok(texto.includes('Cobertura do plano'), 'o cartão de cobertura aparece');
+  assert.ok(texto.includes('Sem plano: ' + moeda(500)), 'o valor sem plano aparece');
+  await p.click('[data-foco="planejar-sem-plano"]');
+  await sincronizado(p);
+  await sleep(200);
+  const plano = a.servidor.planilha.ler('orcamento').find((l) => l[1] === 'mercado' && l[2] === 11);
+  assert.ok(plano && plano[3] === 500, 'o plano foi gravado com o gasto real');
+  await p.waitForFunction(() => !document.querySelector('#tela').innerText.includes('Sem plano'));
+  await p.close();
+});
+
+await caso('barra agregada: 82% do plano com 60% do mês fica em atenção', async () => {
+  const dados = {
+    nome: 'Barra', categorias: [
+      { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'b1', mes: 11, dia: 5, categoriaId: 'aluguel', descricao: '', valor: 800 },
+      { id: 'b2', mes: 11, dia: 6, categoriaId: 'mercado', descricao: '', valor: 840 },
+    ], orcamento: { aluguel: { 11: 1000 }, mercado: { 11: 1000 }, salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'barra-atencao'));
+  await pronto(p);
+  assert.ok(await p.$('.heroi .barra .enchido.atencao'), 'a barra agregada fica em atenção');
+  assert.equal(await p.$('.heroi .barra .enchido.acima'), null, 'sem estourar o plano');
+  const legenda = await p.$eval('.heroi .ritmo-bloco', (e) => e.textContent);
+  assert.ok(legenda.includes('82% do plano usado'));
+  assert.ok(legenda.includes('hoje: 60% do mês'));
+  await p.close();
+});
+
+await caso('apagar plano avisa que não cancela a despesa', async () => {
+  const dados = {
+    nome: 'Apagar plano', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+    ],
+    anos: { 2026: { lancamentos: [], orcamento: { mercado: { 11: 500 }, salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'apagar-plano'));
+  await pronto(p);
+  await irPara(p, 'mes');
+  await p.click('[data-modo="planejar"]'); await sleep(100);
+  await substituir(p, '#pl-mercado', '');
+  await p.keyboard.press('Backspace'); await p.keyboard.press('Tab'); await sleep(250); await sincronizado(p);
+  await p.waitForSelector('.aviso .aviso-txt');
+  const aviso = await p.$eval('.aviso .aviso-txt', (e) => e.textContent);
+  assert.match(aviso, /não cancela a despesa/);
+  assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'mercado' && l[2] === 11), 'plano apagado na planilha');
   await p.close();
 });
 
@@ -377,7 +547,7 @@ await caso('primeiro acesso: planilha vazia vira um controle pronto em 2 passos'
   await p.tap('[data-b="concluir"]');
   await p.waitForFunction(() => S.montado && !document.querySelector('#app').hidden);
   await sincronizado(p);
-  assert.equal(vazio.servidor.planilha.ler('categorias').length, 17);
+  assert.equal(vazio.servidor.planilha.ler('categorias').length, 18);
   assert.ok(vazio.servidor.planilha.ler('config').some((l) => l[0] === 'nome' && l[1] === 'Teste'));
 });
 

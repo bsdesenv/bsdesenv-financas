@@ -19,7 +19,7 @@
  * "somente esta planilha".
  */
 
-var VERSAO_APP = '2.0.3';
+var VERSAO_APP = '2.1.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -292,6 +292,7 @@ function validarLanc_(l, ano, idsCategoria) {
   var a = inteiro_(ano, 1900, 2200, 'ano');
   var mes = inteiro_(l.mes, 1, 12, 'mês');
   var dia = (l.dia === null || l.dia === undefined || l.dia === '') ? null : inteiro_(l.dia, 1, 31, 'dia');
+  if (dia !== null && dia > diasNoMes_(a, mes)) throw new Error('dia inválido para o mês: ' + dia);
   var cid = String(l.categoriaId);
   if (!idsCategoria[cid]) throw new Error('categoria inexistente: ' + cid);
   var valor = arred_(Number(l.valor));
@@ -451,6 +452,8 @@ function importar_(m, op) {
   var nome = texto_(d.nome || d.titular).trim();
   var nomeAtual = m.cfg.nome || m.cfg.titular;
   if (nome && (!mesclar || !nomeAtual)) m.cfg.nome = nome.slice(0, 60);
+  var tema = d.config && d.config.tema;
+  if (!mesclar && TEMAS.indexOf(tema) >= 0) m.cfg.tema = tema;
   m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.config = true;
 }
 
@@ -461,6 +464,14 @@ function importar_(m, op) {
 function indice_(lista, campo, valor) {
   for (var i = 0; i < lista.length; i++) if (lista[i][campo] === valor) return i;
   return -1;
+}
+
+function diasNoMes_(ano, mes) {
+  if (mes === 2) {
+    var bissexto = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0;
+    return bissexto ? 29 : 28;
+  }
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mes - 1];
 }
 
 function inteiro_(v, min, max, nome) {

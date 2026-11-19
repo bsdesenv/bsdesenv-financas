@@ -5,18 +5,18 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 *Personal finance tracker built on Google Sheets + Apps Script (Portuguese UI). Your data stays in your own spreadsheet.*
 
 <p>
-  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar, meta de economia, ritmo do plano e contas a vencer" width="260">
+  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar com anel de composição, números do mês com micrográficos, meta de economia, ritmo do plano e contas a vencer" width="260">
   <img src="docs/img/celular-lancar.png" alt="Novo lançamento no celular: teclado numérico, data e categorias" width="260">
   <img src="docs/img/celular-mes.png" alt="Mês no celular: cada categoria com gasto, plano e ritmo" width="260">
 </p>
 
-![Início no computador: campo de lançamento rápido no topo, disponível para gastar, números do mês, variáveis do mês com resumo, meta de economia e ritmo do plano](docs/img/computador-inicio.png)
+![Início no computador: campo de lançamento rápido no topo, disponível para gastar com anel de composição, números do mês com micrográficos, variáveis do mês com resumo, meta de economia e ritmo do plano](docs/img/computador-inicio.png)
 
 ## Por que usar
 
 - **Seus dados, sua planilha.** Tudo fica numa planilha do seu Google Drive, em abas comuns que dá para abrir e ler. Sem servidor de terceiros, sem mensalidade, sem anúncio e sem senha de banco.
 - **Lançar em três toques.** O botão **+** fica sempre à mão; no computador, a barra do topo é um **lançamento rápido de gasto**: digite `32,90 mercado padaria` e pressione `Enter` para gravar com a data de hoje. Para escolher categoria, data ou descrição, use **Novo lançamento** (ou `Ctrl+K`). O valor se digita como no app do banco (6430 vira R$ 64,30), as categorias mais usadas vêm primeiro e a data já começa em "hoje".
-- **A regra da planilha, sem mágica.** O plano de uma categoria só entra enquanto ela não tem lançamento; depois do primeiro lançamento, só o realizado conta. O Início mostra o **disponível** como renda − o que já saiu − os planos sem lançamento. O **Ritmo do plano** compara o gasto com o plano, mas o plano não desconta o disponível. A **Meta de economia** sugere 80% da sobra média realizada dos últimos 3 meses fechados — a sugestão só vira meta quando você grava.
+- **A regra da planilha, sem mágica.** O plano de uma categoria só entra enquanto ela não tem lançamento; depois do primeiro lançamento, só o realizado conta. O **anel de composição** do Início mostra onde está a renda do mês — **Já saiu**, **Planos sem lançamento** e **Disponível**, com a porcentagem livre no centro — e o **disponível** é renda − o que já saiu − os planos sem lançamento. O **Ritmo do plano** compara o gasto com o plano, mas o plano não desconta o disponível. A **Meta de economia** sugere 80% da sobra média realizada dos últimos 3 meses fechados — a sugestão só vira meta quando você grava.
 - **Nada fica fora da conta sem aviso.** Categorias sem plano aparecem em **Cobertura do plano**, com o valor que está fora da barra; um toque planeja pela média dos últimos 3 meses. Como essas categorias já têm lançamento, o plano novo entra no ritmo, não no disponível. A sobra do mês atual é a mesma do disponível; nos meses fechados, quando há dados reais, o app mostra a **realizada**.
 - **Planilha no computador.** O ano inteiro numa matriz com mapa de calor (onde cada categoria fugiu da própria média), atalhos de teclado e lançamento direto na célula.
 - **Não perde nada.** Celular e computador podem ser usados ao mesmo tempo sem um apagar o outro. Sem conexão, o app guarda no aparelho e envia depois. Toda exclusão tem "Desfazer".

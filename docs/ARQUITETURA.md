@@ -64,6 +64,10 @@ No computador, a barra do topo é um campo de lançamento rápido de gasto. `lan
 
 O atalho `N` foca esse campo no computador; no celular, como o campo não existe, abre o formulário completo. **Novo lançamento** e `Ctrl+K` sempre abrem o formulário completo. Na tela Início, o cartão **Variáveis do mês** resume **Gasto**, **Plano** e **Ainda previsto** apenas das categorias variáveis e desenha **“Para onde foi”** com as 5 maiores categorias variáveis do mês + **Outras**. São agregações de exibição: a regra de cálculo da v2.2.0 (abaixo) não mudou.
 
+## Camada visual do Início
+
+O topo do Início é só exibição. `cartaoHeroi()` desenha o anel de composição a partir de `gastoReal`, `previsto` e `disponivel` (e a linha-ponte Renda/Ainda na conta); `cartaoKpis()` desenha os micrográficos — sparkline da renda dos últimos 6 meses, barras por dia do mês a partir dos lançamentos, lista das 3 maiores categorias sem lançamento e anel da meta de Guardar. O cálculo continua sendo o de `resumo(ano, mes)`, sem fórmula nova: vale a regra da v2.2.0 descrita abaixo.
+
 ## Regras de cálculo
 
 Para uma categoria num mês:
@@ -111,7 +115,7 @@ Campos de `resumo(ano, mes)`:
 `disponivel` é igual a `sobra`: a regra é a da v1, lançado; sem lançamento, o plano. O plano de uma categoria com lançamento não conta no disponível; só o realizado. A barra do ritmo ainda mostra o plano de todas as categorias de consumo, mas ele é só uma referência de ritmo, não uma reserva.
 
 - **Mês fechado:** `sobraReal` é o realizado. `sobra` continua sendo o valor por categoria (o plano quando não há lançamento). Nas telas de mês passado, o app usa `sobraReal` quando há renda/lançamento real e rotula "realizada"; sem dados reais, usa `sobra` e rotula "com previsto".
-- **Herói:** mostra `renda − gastoReal = aindaNaConta` e `aindaNaConta − previsto = disponivel`. O link "De onde vem esse valor?" abre a folha com a mesma conta, as categorias sem lançamento, o plano usado no ritmo e as categorias acima do plano.
+- **Herói:** mostra `renda − gastoReal = aindaNaConta` e `aindaNaConta − previsto = disponivel`. O link **Ver composição** abre a folha com a mesma conta, as categorias sem lançamento, o plano usado no ritmo e as categorias acima do plano.
 - **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra. O plano aqui é só ritmo: não desconta o disponível.
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele. Guardar é sempre `ok`: guardar mais que a meta é bom.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.

@@ -245,6 +245,19 @@ await caso('computador: lançamento rápido da barra do topo salva direto', asyn
   assert.equal(await pc.$eval('#quick', (e) => e.value), '', 'o campo limpa depois de salvar');
 });
 
+await caso('topo: anel de composição e micrográficos nos KPIs', async () => {
+  const p = await abrir(amb, PC, montarPagina(amb, 'topo-moderno'));
+  await pronto(p);
+  assert.ok(await p.$('.heroi .anel'), 'anel de composição');
+  const legenda = await p.$eval('.heroi-legenda', (e) => e.textContent);
+  assert.ok(legenda.includes('Já saiu') && legenda.includes('Planos sem lançamento') && legenda.includes('Disponível'), 'legenda da composição');
+  assert.ok(await p.$('.kpi .spark'), 'sparkline da renda');
+  assert.ok(await p.$('.kpi .mini-barras'), 'barras diárias');
+  assert.ok(await p.$('.kpi .kpi-lista'), 'lista de planos');
+  assert.ok(await p.$('.kpi .kpi-anel'), 'anel da meta');
+  await p.close();
+});
+
 await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava depois', async () => {
   amb.falhar = true;
   await cel.tap('.inf-mais'); await folhaAberta(cel);

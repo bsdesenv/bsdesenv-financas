@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.4.0 — 2026-11-19
+
+### Novo
+- **Anel de composição no Início.** O herói ganhou um anel (donut) da renda do mês com três partes: **Já saiu** (roxo), **Planos sem lançamento** (âmbar, quando houver) e **Disponível** (verde). O centro mostra a **porcentagem livre**; a legenda traz o valor e a porcentagem de cada parte.
+- **Linha-ponte e Ver composição.** O herói mostra **Renda recebida/prevista** e **Ainda na conta**, com uma frase curta sobre a regra e o link **Ver composição**, que abre a folha **De onde vem o disponível**.
+- **Micrográficos nos KPIs.** Os quatro números do mês ganharam ícone e um gráfico de apoio: **Renda do mês** com sparkline dos últimos 6 meses; **Já saiu** com barras por dia do mês, destacando o dia de hoje; **Planos sem lançamento** com as 3 maiores categorias pendentes, ou "Nenhum plano pendente"; e **Guardado** com o anel de progresso da meta, ou "—" quando não há meta.
+
+### Mudou
+- **Herói mais enxuto.** O texto longo que explicava a conta saiu; ficou a frase curta "O plano só conta enquanto a categoria não tem lançamento" e o link **Ver composição**. O número principal continua sendo o **Disponível**, com a linha "No máximo ≈ R$ ... por dia".
+- **Celular.** O anel vai para baixo da legenda, e os KPIs continuam em 2 colunas.
+- **Regra de cálculo da v2.2.0 mantida.** O plano só entra enquanto a categoria não tem lançamento; depois do primeiro lançamento, só o realizado conta. `Disponível = renda − gastos`; o plano de uma categoria com lançamento só aparece no **Ritmo do plano**. Os valores não mudaram.
+
 ## 2.3.0 — 2026-11-19
 
 ### Novo

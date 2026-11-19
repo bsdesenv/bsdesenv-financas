@@ -592,6 +592,26 @@ function telaInicio() {
     + (lado ? `<div class="g-lado lado">${lado}</div>` : '')
     + cartaoCategorias(r) + cartaoUltimos() + cartaoAno() + '</div>';
 }
+function sparkline(vals, cor = 'var(--ok)') {
+  if (!vals || vals.length < 2) return '';
+  const max = Math.max(...vals, 0); const min = Math.min(...vals, 0); const span = max - min || 1;
+  const flat = max === min;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * 100).toFixed(1)},${(flat ? 17 : 34 - ((v - min) / span) * 30).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function barrasDia(ano, mes) {
+  const b = S.dados.anos[String(ano)]; if (!b) return '';
+  const dias = diasNoMes(ano, mes); const vals = Array(dias).fill(0); const mapa = mapaCats();
+  for (const l of b.lancamentos) {
+    if (l.mes !== mes) continue;
+    const c = mapa[l.categoriaId];
+    if (c && c.grupo === 'renda') continue;
+    const d = Math.min(dias, Math.max(1, Number(l.dia) || 1));
+    vals[d - 1] += l.valor;
+  }
+  const max = Math.max(...vals, 1);
+  return `<div class="mini-barras" aria-hidden="true">${vals.map((v, i) => `<i class="${i + 1 === hoje().dia ? 'hoje' : ''}" style="height:${Math.max(2, (v / max) * 100).toFixed(1)}%"></i>`).join('')}</div>`;
+}
 function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
@@ -600,18 +620,25 @@ function cartaoHeroi(r) {
       : 'Os gastos, os planos e a economia já passam da renda disponível.';
     const rendaLbl = r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista';
     const rendaDet = r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` (de ${moeda(r.rendaPlano)})` : '';
-    const saiuLbl = r.guardadoReal > 0 ? '− Já saiu (gastos + Guardar)' : '− Já saiu';
-    const conta = `<div class="conta-heroi">`
-      + `<div><span>${rendaLbl}${rendaDet}</span><strong>${moeda(r.renda)}</strong></div>`
-      + `<div><span>${saiuLbl}</span><strong>${moeda(r.gastoReal)}</strong></div>`
-      + `<div class="subtotal"><span>= ${r.rendaReal > 0 ? 'Ainda na conta' : 'Ainda previsto'}</span><strong>${moeda(r.aindaNaConta)}</strong></div>`
-      + (r.previsto > 0 ? `<div><span>− Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong></div>` : '')
-      + `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`
+    const pctOf = (v) => r.renda > 0 ? Math.max(0, Math.min(100, (v / r.renda) * 100)) : 0;
+    const pctSaiu = pctOf(r.gastoReal); const pctPlano = pctOf(r.previsto); const pctLivre = pctOf(Math.max(0, r.disponivel));
+    const corte = Math.min(100, pctSaiu + pctPlano);
+    const anelBg = r.renda > 0
+      ? `conic-gradient(var(--acento) 0 ${pctSaiu}%, var(--atencao) ${pctSaiu}% ${corte}%, var(--ok) ${corte}% 100%)`
+      : 'var(--trilho)';
+    const anel = `<div class="anel" style="background:${anelBg}" role="img" aria-label="Já saiu ${Math.round(pctSaiu)}%, planos sem lançamento ${Math.round(pctPlano)}%, disponível ${Math.round(pctLivre)}%"><div class="anel-centro"><strong>${Math.round(pctLivre)}%</strong><span>livre</span></div></div>`;
+    const legenda = '<div class="heroi-legenda">'
+      + `<div><i style="background:var(--acento)"></i><span>Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
+      + (r.previsto > 0 ? `<div><i style="background:var(--atencao)"></i><span>Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong><em>${Math.round(pctPlano)}%</em></div>` : '')
+      + `<div><i style="background:var(--ok)"></i><span>Disponível</span><strong>${moeda(r.disponivel)}</strong><em>${Math.round(pctLivre)}%</em></div>`
       + '</div>';
-    const dica = '<p class="sub" style="margin-top:8px">O plano de uma categoria só entra enquanto ela não tem lançamento. Depois do primeiro lançamento, o plano deixa de contar e só o realizado conta. O plano continua no Ritmo do plano, mas não desconta o disponível.</p>'
-      + ((r.previsto > 0 || r.planoGastos > 0) ? '<p class="sub" style="margin-top:4px"><button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">De onde vem esse valor?</button></p>' : '');
-    return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
-      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${conta}${dica}</section>`;
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><div class="heroi-topo"><div class="heroi-principal">`
+      + `<h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
+      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
+      + `<div class="heroi-bridge"><span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span><span>Ainda na conta <strong>${moeda(r.aindaNaConta)}</strong></span></div>`
+      + legenda
+      + '<p class="heroi-nota">O plano só conta enquanto a categoria não tem lançamento. <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + `</div>${anel}</div></section>`;
   }
   if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
@@ -653,29 +680,37 @@ function cartaoKpis(r) {
   let tiles;
   if (r.fase === 'atual') {
     const g = catGuardar();
+    const valsRenda = Array.from({ length: 6 }, (_, i) => { const d = deChave(chaveMes(S.ano, S.mes) - (5 - i)); return resumo(d.ano, d.mes).renda; });
+    const pend = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.plano > 0 && v.real === 0).sort((a, b) => b.v.plano - a.v.plano).slice(0, 3);
+    const listaPend = pend.length
+      ? `<div class="kpi-lista">${pend.map(({ c, v }) => `<div><span>${esc(c.nome)}</span><strong>${moeda(v.plano)}</strong></div>`).join('')}</div>`
+      : '<p class="sub kpi-vazio">Nenhum plano pendente.</p>';
+    const meta = r.guardadoPlano; const pctMeta = meta > 0 ? Math.min(100, (r.guardadoReal / meta) * 100) : 0;
+    const anelMeta = `<div class="kpi-anel" style="background:conic-gradient(var(--ok) 0 ${pctMeta}%, var(--trilho) ${pctMeta}% 100%)"><span>${meta ? Math.round(pctMeta) + '%' : '—'}</span></div>`;
     tiles = [
-      ['Renda do mês', moeda(r.rendaPlano || r.renda), r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', 'ok'],
-      ['Já saiu', moeda(r.gastoReal), `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, ''],
-      ['Planos sem lançamento', moeda(r.previsto), r.previsto ? 'o que falta lançar' : 'nenhum', ''],
-      ['Guardado', moeda(r.guardadoReal), r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', ''],
+      { rot: 'Renda do mês', v: moeda(r.rendaPlano || r.renda), s: r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', cls: 'ok', icone: 'setaDesce', visual: sparkline(valsRenda) },
+      { rot: 'Já saiu', v: moeda(r.gastoReal), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, cls: '', icone: 'setaSobe', visual: barrasDia(S.ano, S.mes) },
+      { rot: 'Planos sem lançamento', v: moeda(r.previsto), s: r.previsto ? 'o que falta lançar' : 'nenhum', cls: '', icone: 'calendario', visual: listaPend },
+      { rot: 'Guardado', v: moeda(r.guardadoReal), s: r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', cls: '', icone: 'cadeado', visual: anelMeta },
     ];
   } else if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
     tiles = [
-      ['Renda', moeda(r.rendaReal || r.renda), r.rendaReal ? 'recebida' : 'prevista', 'ok'],
-      ['Gastos', moeda(r.gastoReal || r.gastos), `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, ''],
-      ['Sobra', moeda(real ? r.sobraReal : r.sobra), real ? 'realizada' : 'com previsto', (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok'],
-      ['Da renda, guardou', r.rendaReal > 0 ? Math.round(((r.guardadoReal > 0 ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) + '%' : '—', r.guardadoReal > 0 ? 'guardado' : '', ''],
+      { rot: 'Renda', v: moeda(r.rendaReal || r.renda), s: r.rendaReal ? 'recebida' : 'prevista', cls: 'ok', icone: 'setaDesce' },
+      { rot: 'Gastos', v: moeda(r.gastoReal || r.gastos), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, cls: '', icone: 'setaSobe' },
+      { rot: 'Sobra', v: moeda(real ? r.sobraReal : r.sobra), s: real ? 'realizada' : 'com previsto', cls: (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok', icone: 'check' },
+      { rot: 'Da renda, guardou', v: r.rendaReal > 0 ? Math.round(((r.guardadoReal > 0 ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) + '%' : '—', s: r.guardadoReal > 0 ? 'guardado' : '', cls: '', icone: 'cadeado' },
     ];
   } else {
     tiles = [
-      ['Renda prevista', moeda(r.renda), '', 'ok'],
-      ['Gastos previstos', moeda(r.gastos), '', ''],
-      ['Sobra prevista', moeda(r.sobra), '', r.sobra < 0 ? 'acima' : 'ok'],
-      ['Lançado até agora', moeda(r.gastoReal), 'compras já lançadas para este mês', ''],
+      { rot: 'Renda prevista', v: moeda(r.renda), s: '', cls: 'ok', icone: 'calendario' },
+      { rot: 'Gastos previstos', v: moeda(r.gastos), s: '', cls: '', icone: 'setaSobe' },
+      { rot: 'Sobra prevista', v: moeda(r.sobra), s: '', cls: r.sobra < 0 ? 'acima' : 'ok', icone: 'check' },
+      { rot: 'Lançado até agora', v: moeda(r.gastoReal), s: 'compras já lançadas para este mês', cls: '', icone: 'setaDesce' },
     ];
   }
-  return `<section class="g-kpis kpis" aria-label="Números do mês">${tiles.map(([rot, v, s, cls]) => `<div class="cartao kpi"><span class="rotulo">${esc(rot)}</span><strong class="kpi-valor ${cls}">${esc(v)}</strong>${s ? `<span class="sub">${esc(s)}</span>` : ''}</div>`).join('')}</section>`;
+  const card = (t) => `<div class="cartao kpi"><div class="kpi-topo"><span class="rotulo">${esc(t.rot)}</span><span class="kpi-icone" aria-hidden="true">${ic(t.icone, 16)}</span></div><strong class="kpi-valor ${t.cls || ''}">${esc(t.v)}</strong>${t.s ? `<span class="sub">${esc(t.s)}</span>` : ''}${t.visual || ''}</div>`;
+  return `<section class="g-kpis kpis" aria-label="Números do mês">${tiles.map(card).join('')}</section>`;
 }
 function sugestaoMeta() {
   const h = hoje(); const alvo = chaveMes(h.ano, h.mes);

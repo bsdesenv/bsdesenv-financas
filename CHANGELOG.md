@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.1 — 2026-11-18
+
+### Mudou
+- **Card do Início mais simples.** O herói agora mostra a conta em quatro linhas: **Renda** − **Já saiu** − **Ainda reservado** = **Disponível**. A "sobra projetada" saiu do herói e dos KPIs do mês; ela continua no gráfico "Sobra mês a mês" e na tela Mês.
+- **Ritmo do plano em cartão próprio.** A barra de gasto × plano saiu do herói e virou o cartão **Ritmo do plano**, com a explicação de que ela compara o consumo com o plano e não é a conta do disponível.
+- **KPIs do mês:** Renda do mês, Já saiu, Ainda reservado e Guardado. O cartão "Gasto até hoje" virou "Já saiu" para incluir as transferências de Guardar quando existirem.
+- **Cobertura do plano** agora começa com "Sem plano: R$ ...", deixando claro o valor que está fora da barra e não é reservado.
+
 ## 2.1.0 — 2026-11-18
 
 "Guardar primeiro": o app reserva a meta de economia e os planos do mês antes de mostrar quanto há para gastar.

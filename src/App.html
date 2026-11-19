@@ -573,7 +573,7 @@ function renderSinc() {
 /* ---------- Início ---------- */
 function telaInicio() {
   const r = resumo(S.ano, S.mes);
-  const lado = r.fase === 'atual' ? cartaoMeta(r) + cartaoAVencer(r) + cartaoCobertura(r) + cartaoAvisos(r) : '';
+  const lado = r.fase === 'atual' ? cartaoMeta(r) + cartaoRitmo(r) + cartaoAVencer(r) + cartaoCobertura(r) + cartaoAvisos(r) : '';
   return `<div class="grade-inicio${lado ? '' : ' sem-lado'}">${cartaoHeroi(r)}${cartaoKpis(r)}`
     + (lado ? `<div class="g-lado lado">${lado}</div>` : '')
     + cartaoCategorias(r) + cartaoUltimos() + cartaoAno() + '</div>';
@@ -581,24 +581,22 @@ function telaInicio() {
 function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
-    const pct = r.planoGastos > 0 ? (r.gastoComPlano / r.planoGastos) * 100 : 0;
-    const estado = r.gastoComPlano > r.planoGastos ? 'acima'
-      : r.planoGastos > 0 && r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
     const sub = r.disponivel > 0
       ? `No máximo ≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dias`
-        + (r.guardadoPlano > 0 ? ` · depois de guardar ${moeda(r.guardadoPlano)}` : '')
       : 'Os gastos, os planos e a economia já passam da renda disponível.';
-    const ritmo = `<div class="ritmo-bloco"><div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
-      + barra({ pct, ritmo: r.ritmo, estado, alta: true })
-      + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
-      + (r.semPlano > 0 ? `<p class="sub" style="margin-top:6px">Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} (fora da barra). <button type="button" class="link" data-acao="planejar-sem-plano" data-foco="sem-plano">Planejar</button></p>` : '') + '</div>';
-    const negativo = r.sobra < 0;
-    const nota = `<div class="nota ${negativo ? 'nota-aviso' : 'nota-info'}">${ic(negativo ? 'alerta' : 'calendario', 18)}<p><strong>Sobra projetada: ${moeda(r.sobra)}.</strong> Se você gastar os ${moeda(r.aRealizar)} que ainda estão nos planos, sobram ${moeda(r.sobraSeGastarPlanos)}.`
-      + (r.guardadoPlano > 0 ? ` Guardar: ${moeda(r.guardadoPlano)}.` : '')
-      + (r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` Renda recebida: ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}.` : '')
-      + ' Apagar um plano não cancela a despesa; só deixa de reservá-la.</p></div>';
+    const rendaLbl = r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista';
+    const rendaDet = r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` (de ${moeda(r.rendaPlano)})` : '';
+    const saiuLbl = r.guardadoReal > 0 ? '− Já saiu (gastos + Guardar)' : '− Já saiu';
+    const resLbl = r.guardadoPlano > 0 ? '− Ainda reservado (planos + Guardar)' : '− Ainda reservado';
+    const conta = `<div class="conta-heroi">`
+      + `<div><span>${rendaLbl}${rendaDet}</span><strong>${moeda(r.rendaBase)}</strong></div>`
+      + `<div><span>${saiuLbl}</span><strong>${moeda(r.gastoReal)}</strong></div>`
+      + `<div><span>${resLbl}</span><strong>${moeda(r.aRealizar)}</strong></div>`
+      + `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`
+      + '</div>';
+    const dica = '<p class="sub" style="margin-top:10px">O disponível é o que sobra depois de tudo o que já saiu e do que ainda está reservado. Gastar menos que o plano aumenta a sobra.</p>';
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
-      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${ritmo}${nota}</section>`;
+      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${conta}${dica}</section>`;
   }
   if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
@@ -615,15 +613,30 @@ function cartaoHeroi(r) {
     + `<p class="sub">${r.renda || r.gastos ? `Sobra prevista: renda de ${moeda(r.renda)} e gastos de ${moeda(r.gastos)}.` : 'Ainda não há plano para este mês.'}</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="planejar">${ic('mes', 18)}Planejar ${m}</button></div></section>`;
 }
+function cartaoRitmo(r) {
+  if (r.fase !== 'atual') return '';
+  if (!(r.planoGastos > 0)) {
+    return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2></div>`
+      + `<p class="sub">Defina um plano em <button type="button" class="link" data-acao="planejar" data-foco="ritmo-planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p></section>`;
+  }
+  const pct = (r.gastoComPlano / r.planoGastos) * 100;
+  const estado = r.gastoComPlano > r.planoGastos ? 'acima'
+    : r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
+  return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2></div>`
+    + `<div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
+    + barra({ pct, ritmo: r.ritmo, estado, alta: true })
+    + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
+    + '<p class="sub" style="margin-top:6px">A barra compara o gasto com o plano de consumo. O disponível já desconta o que ainda está reservado.</p></section>';
+}
 function cartaoKpis(r) {
   let tiles;
   if (r.fase === 'atual') {
     const g = catGuardar();
     tiles = [
-      ['Renda do mês', moeda(r.rendaPlano || r.renda), r.rendaReal > 0 ? (r.rendaPlano > 0 ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : 'recebida') : 'prevista', 'ok'],
-      ['Gasto até hoje', moeda(r.gastoConsumoReal), `${r.qtdConsumo} lançamento${r.qtdConsumo === 1 ? '' : 's'}`, ''],
+      ['Renda do mês', moeda(r.rendaPlano || r.renda), r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', 'ok'],
+      ['Já saiu', moeda(r.gastoReal), `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, ''],
+      ['Ainda reservado', moeda(r.aRealizar), r.guardadoPlano > 0 ? 'planos + guardar' : 'planos do mês', ''],
       ['Guardado', moeda(r.guardadoReal), r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', ''],
-      ['Sobra projetada', moeda(r.sobra), r.guardadoPlano > 0 ? 'depois de guardar' : 'se não gastar além do plano', r.sobra < 0 ? 'acima' : 'ok'],
     ];
   } else if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
@@ -688,7 +701,7 @@ function cartaoMeta(r) {
 function cartaoCobertura(r) {
   if (!(r.semPlano > 0)) return '';
   return `<section class="cartao" aria-labelledby="h-cobertura"><div class="cartao-topo"><h2 id="h-cobertura">Cobertura do plano</h2></div>`
-    + `<p class="sub">${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''} sem plano. Esse valor fica fora da barra e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
+    + `<p class="sub"><strong>Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''}.</strong> Esse valor fica fora da barra e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
     + '<div class="acoes"><button type="button" class="botao pequeno" data-acao="planejar-sem-plano" data-foco="planejar-sem-plano">Planejar agora</button></div></section>';
 }
 function cartaoAVencer(r) {

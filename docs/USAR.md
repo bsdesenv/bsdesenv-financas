@@ -51,18 +51,17 @@ Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque n
 
 ### Início
 
-- **Disponível para gastar até o fim do mês:** quanto dá para gastar depois de guardar e reservar os planos. A conta é: renda já recebida (se nada entrou ainda, a renda prevista) − o que já foi gasto (incluindo as transferências para Guardar) − o que ainda falta lançar dos planos (contas fixas, variáveis e a meta de Guardar que ainda não foi transferida). O texto abaixo do número divide esse valor pelos dias que faltam e, se houver meta, lembra "depois de guardar R$ ...". Se o valor ficar negativo, o texto avisa que os gastos, os planos e a economia já passam da renda disponível.
-- **Barra do plano:** só entram as categorias de consumo com plano; Guardar fica de fora. Ela compara o gasto com o plano e com o ritmo do mês: fica em **atenção** quando você está mais de 12 pontos à frente do mês, e em **acima** quando passa do plano. Categorias sem plano aparecem em "Sem plano", com um botão **Planejar**.
-- **Sobra projetada:** a nota do herói mostra a sobra do mês como **projeção** e quanto sobraria se você gastasse tudo o que ainda está nos planos. Se houver meta, mostra o valor de Guardar; se parte da renda ainda não entrou, mostra quanto já foi recebido. A nota sempre avisa: apagar um plano não cancela a despesa; só deixa de reservá-la.
-- **Números do mês:** renda do mês (**recebida** ou **prevista**), gasto até hoje (só consumo), **guardado** (com a meta, quando existe) e **sobra projetada**.
+- **Disponível para gastar até o fim do mês:** quanto dá para gastar depois de guardar e reservar os planos. O cartão mostra a conta em quatro linhas: **Renda** (recebida; se nada entrou ainda, prevista) − **Já saiu** (gastos e transferências para Guardar) − **Ainda reservado** (planos e a meta de Guardar que ainda não foi transferida) = **Disponível**. O texto abaixo do número divide esse valor pelos dias que faltam e mostra o máximo por dia. Se o valor ficar negativo, o texto avisa que os gastos, os planos e a economia já passam da renda disponível. Gastar menos que o plano aumenta a sobra.
+- **Ritmo do plano:** cartão separado do disponível. A barra compara o gasto das categorias de consumo com o plano delas e com o ritmo do mês: fica em **atenção** quando você está mais de 12 pontos à frente do mês, e em **acima** quando passa do plano. Guardar fica de fora. A barra não é a conta do disponível; ela só mostra o ritmo.
+- **Números do mês:** renda do mês (**recebida** ou **prevista**), **já saiu** (gastos; inclui Guardar quando houver transferência), **ainda reservado** (planos e meta de Guardar) e **guardado** (com a meta, quando existe).
 - **Meta de economia:** a meta do mês, o que já foi guardado e o que falta. O campo abaixo da barra grava a meta (também dá para editá-la na tela Mês); **Confirmar** lança a transferência com a data de hoje. O valor já estava reservado no disponível, então confirmar só registra a transferência. Se a categoria Guardar ainda não existe, o cartão mostra uma sugestão de **80% da sua sobra média realizada dos últimos 3 meses fechados** e oferece criar a categoria já com esse valor. A sugestão não é automática: ela só vira meta quando você toca no botão ou grava o valor.
-- **Cobertura do plano:** aparece quando há categorias de consumo sem plano. Mostra o valor que está fora da barra e não é reservado no disponível e oferece **Planejar agora**, pela média dos últimos 3 meses (ou pelo valor já lançado, quando não há média). A partir daí, o disponível passa a reservar esses planos.
+- **Cobertura do plano:** aparece quando há categorias de consumo sem plano. Mostra **“Sem plano: R$ ...”**, o valor que está fora da barra e não é reservado no disponível, e oferece **Planejar agora**, pela média dos últimos 3 meses (ou pelo valor já lançado, quando não há média). A partir daí, o disponível passa a reservar esses planos.
 - **A vencer este mês:** contas fixas com plano e sem lançamento, sem Guardar. O botão **Confirmar** lança o valor do plano com a data de hoje.
 - **Avisos:** categorias de consumo que passaram do plano ou que estão gastando rápido demais. Guardar nunca entra como "passou do plano".
 
 ### Sobra projetada e sobra realizada
 
-No mês atual, a sobra é uma **projeção**: ela usa o que foi lançado e, nas categorias sem lançamento, o plano. Não é dinheiro que já sobrou. Nos meses fechados, quando há dados reais, o app mostra a **sobra realizada** (renda recebida − gastos lançados) e a rotula "realizada"; sem dados reais, mostra "com previsto". O gráfico **Sobra mês a mês**, no fim do Início, segue a mesma regra e marca os meses projetados com contorno.
+A sobra **não é o número principal do Início**: o Início mostra o **disponível**, que já desconta o que ainda está reservado. No mês atual, a sobra é uma **projeção**: ela usa o que foi lançado e, nas categorias sem lançamento, o plano. Não é dinheiro que já sobrou. Nos meses fechados, quando há dados reais, o app mostra a **sobra realizada** (renda recebida − gastos lançados) e a rotula "realizada"; sem dados reais, mostra "com previsto". A sobra projetada aparece na tela **Mês** e no gráfico **Sobra mês a mês**, no fim do Início, que marca os meses projetados com contorno.
 
 ### Extrato
 
@@ -89,7 +88,7 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas.
 
 ### Ajustes
 
-Nome do controle, tema (automático, claro ou escuro), categorias e a seção **Seus dados**.
+Nome do controle, tema (automático, claro ou escuro), categorias e a seção **Seus dados**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e na seção **Sobre**.
 
 ## Seus dados e backup
 

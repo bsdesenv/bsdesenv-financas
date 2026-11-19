@@ -108,7 +108,8 @@ Campos de `resumo(ano, mes)`:
 A diferença central está entre `sobra` e `disponivel`: `sobra` responde "quanto sobra se o mês terminar como está previsto?" e `disponivel` responde "quanto posso gastar agora sem furar os planos nem a meta?". Por isso `disponivel` parte de `rendaBase` (renda recebida) e desconta `aRealizar` (o que ainda falta sair), incluindo Guardar. Quando parte da renda ainda não entrou, `disponivel` é menor que `sobra`.
 
 - **Mês fechado:** `sobraReal` é o realizado. `sobra` continua sendo o valor por categoria (o plano quando não há lançamento). Nas telas de mês passado, o app usa `sobraReal` quando há renda/lançamento real e rotula "realizada"; sem dados reais, usa `sobra` e rotula "com previsto".
-- **Barra do herói:** usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra.
+- **Herói:** mostra `rendaBase − gastoReal − aRealizar = disponivel`, em quatro linhas (Renda, Já saiu, Ainda reservado, Disponível). A sobra não entra no herói; ela fica na tela Mês e no gráfico anual.
+- **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra.
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele. Guardar é sempre `ok`: guardar mais que a meta é bom.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.
 

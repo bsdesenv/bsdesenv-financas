@@ -5,12 +5,12 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 *Personal finance tracker built on Google Sheets + Apps Script (Portuguese UI). Your data stays in your own spreadsheet.*
 
 <p>
-  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar, sobra projetada, meta de economia e contas a vencer" width="260">
+  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar, meta de economia, ritmo do plano e contas a vencer" width="260">
   <img src="docs/img/celular-lancar.png" alt="Novo lançamento no celular: teclado numérico, data e categorias" width="260">
   <img src="docs/img/celular-mes.png" alt="Mês no celular: cada categoria com gasto, plano e ritmo" width="260">
 </p>
 
-![Início no computador: disponível para gastar, números do mês, categorias, meta de economia, contas a vencer e sobra mês a mês](docs/img/computador-inicio.png)
+![Início no computador: disponível para gastar, números do mês, categorias, meta de economia, ritmo do plano e sobra mês a mês](docs/img/computador-inicio.png)
 
 ## Por que usar
 

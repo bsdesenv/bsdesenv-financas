@@ -289,6 +289,11 @@ kbd { font: 500 12px var(--fonte); padding: 2px 7px; border-radius: 6px; backgro
 .numero-heroi.negativo { color: var(--acima); }
 .heroi .ritmo-bloco { margin-top: 14px; }
 .heroi .nota { margin-top: 14px; }
+.conta-heroi { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--linha-2); }
+.conta-heroi > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--tinta-2); }
+.conta-heroi strong { color: var(--tinta); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.conta-heroi .total { margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--linha); color: var(--tinta); font-weight: 650; }
+.conta-heroi .total strong { color: var(--acento); font-size: 16px; }
 .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .kpi { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; }
 .kpi-valor { font-size: 20px; font-weight: 650; letter-spacing: -.02em; }

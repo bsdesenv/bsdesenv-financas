@@ -271,7 +271,7 @@ await caso('computador: célula da planilha abre o painel e lança ali mesmo; se
   assert.equal(foco, '12');
 });
 
-await caso('sobra projetada: só o lançado e o plano gravado; apagar lançamento ou plano muda a sobra', async () => {
+await caso('disponível: só o lançado e o plano gravado; apagar lançamento ou plano muda o disponível', async () => {
   const dados = {
     nome: 'Sobra', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -291,13 +291,14 @@ await caso('sobra projetada: só o lançado e o plano gravado; apagar lançament
   await pronto(p);
   const kpi = (rot) => p.$$eval('.kpi', (els, r) => els.find((e) => e.querySelector('.rotulo').textContent === r)?.querySelector('.kpi-valor').textContent, rot);
   // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
-  assert.equal(await kpi('Sobra projetada'), moeda(8200));
-  const nota = await p.$eval('.heroi .nota', (e) => e.textContent);
-  assert.ok(nota.includes('Sobra projetada: ' + moeda(8200)), 'a nota do herói cobre o previsto');
-  assert.ok(nota.includes(moeda(1000)), 'a nota mostra o que ainda está nos planos');
-  const barra = await p.$eval('.ritmo-bloco', (e) => e.textContent);
-  assert.ok(barra.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
-  assert.ok(barra.includes('Sem plano: ' + moeda(800) + ' em 1 categoria'), 'o mercado sem plano aparece à parte');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8200));
+  assert.equal(await kpi('Ainda reservado'), moeda(1000));
+  assert.equal(await kpi('Já saiu'), moeda(800));
+  const ritmo = await p.$eval('section[aria-labelledby="h-ritmo"]', (e) => e.textContent);
+  assert.ok(ritmo.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
+  assert.ok(ritmo.includes('Plano ' + moeda(1000)), 'o plano do aluguel aparece na barra');
+  const cobertura = await p.$eval('#tela', (e) => e.innerText);
+  assert.ok(cobertura.includes('Sem plano: ' + moeda(800) + ' em 1 categoria'), 'o mercado sem plano aparece à parte');
   await irPara(p, 'planilha');
   assert.equal(await p.$eval('td.cel[data-cat="carro"][data-mes="11"]', (e) => e.textContent), '–', 'sem plano, sem média inventada');
   assert.equal(await p.$eval('td.cel[data-cat="mercado"][data-mes="11"]', (e) => e.textContent), '800,00', 'a célula mostra o lançado');
@@ -306,7 +307,7 @@ await caso('sobra projetada: só o lançado e o plano gravado; apagar lançament
   await p.click('#extrato-lista .linha-lanc[data-id="s13"]'); await folhaAberta(p);
   await p.click('.folha [data-f="apagar"]'); await semFolha(p); await sincronizado(p);
   await irPara(p, 'inicio');
-  assert.equal(await kpi('Sobra projetada'), moeda(8700), 'apagar 500 do mercado devolve 500 à sobra');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8700), 'apagar 500 do mercado devolve 500 ao disponível');
 
   await irPara(p, 'mes');
   await p.click('[data-modo="planejar"]'); await sleep(100);
@@ -314,9 +315,8 @@ await caso('sobra projetada: só o lançado e o plano gravado; apagar lançament
   await p.keyboard.press('Backspace'); await p.keyboard.press('Tab'); await sleep(250); await sincronizado(p);
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'aluguel' && l[2] === 11), 'plano apagado na planilha');
   await p.click('[data-modo="acompanhar"]'); await irPara(p, 'inicio');
-  assert.equal(await kpi('Sobra projetada'), moeda(9700), 'sem o plano, o aluguel previsto sai da sobra');
-  const notaSemPlano = await p.$eval('.heroi .nota', (e) => e.textContent);
-  assert.ok(!notaSemPlano.includes(moeda(1000)), 'sem plano, não há mais 1.000 a realizar');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9700), 'sem o plano, o aluguel previsto sai do disponível');
+  assert.equal(await kpi('Ainda reservado'), moeda(0), 'sem plano, não há mais 1.000 reservados');
   await p.close();
 });
 
@@ -336,9 +336,7 @@ await caso('disponível: plano variável sem lançamento também é reservado no
   const heroi = await p.$eval('.numero-heroi', (e) => e.textContent);
   assert.equal(heroi, moeda(8200), '10.000 − 500 lançados − 1.300 ainda nos planos');
   assert.notEqual(heroi, moeda(8500), 'a regra antiga, só com contas fixas a vencer, daria 8.500');
-  assert.equal((await kpiDe(p, 'Sobra projetada')).valor, moeda(8200));
-  const nota = await p.$eval('.heroi .nota', (e) => e.textContent);
-  assert.ok(nota.includes('Sobra projetada: ' + moeda(8200)), 'a nota mostra a sobra projetada');
+  assert.equal((await kpiDe(p, 'Ainda reservado')).valor, moeda(1300), 'aluguel e luz ainda estão reservados');
   await p.close();
 });
 
@@ -364,7 +362,7 @@ await caso('renda parcial: KPI mostra o plano e o disponível usa o que já entr
   await p.close();
 });
 
-await caso('meta de economia: criar Guardar reserva no disponível; confirmar mantém a sobra', async () => {
+await caso('meta de economia: criar Guardar reserva no disponível; confirmar mantém o disponível', async () => {
   const dados = {
     nome: 'Meta', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -398,15 +396,13 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   assert.ok(cats.some((l) => l[0] === 'guardar' && l[2] === 'fixo'), 'a categoria Guardar foi criada');
   const planoLido = a.servidor.planilha.ler('orcamento').find((l) => Number(l[0]) === 2026 && l[1] === 'guardar' && l[2] === 11);
   assert.ok(planoLido && planoLido[3] === valor, 'o plano de Guardar foi gravado');
-  const sobraCriada = (await kpiDe(p, 'Sobra projetada')).valor;
-  assert.equal(sobraCriada, moeda(7000 - valor), 'a meta reduz a sobra projetada');
+  assert.equal((await kpiDe(p, 'Ainda reservado')).valor, moeda(valor), 'a meta fica reservada no disponível');
   await p.click('[data-foco="meta-confirmar"]');
   await sincronizado(p);
   await sleep(200);
   const transferencia = a.servidor.planilha.ler('lancamentos').find((l) => Number(l[1]) === 2026 && l[2] === 11 && l[4] === 'guardar');
   assert.ok(transferencia && transferencia[6] === valor, 'a transferência foi lançada');
-  assert.equal((await kpiDe(p, 'Sobra projetada')).valor, sobraCriada, 'confirmar só tira do previsto, não muda a sobra');
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7000 - valor));
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7000 - valor), 'confirmar só tira do previsto, não muda o disponível');
   await p.close();
 });
 
@@ -451,9 +447,9 @@ await caso('barra agregada: 82% do plano com 60% do mês fica em atenção', asy
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'barra-atencao'));
   await pronto(p);
-  assert.ok(await p.$('.heroi .barra .enchido.atencao'), 'a barra agregada fica em atenção');
-  assert.equal(await p.$('.heroi .barra .enchido.acima'), null, 'sem estourar o plano');
-  const legenda = await p.$eval('.heroi .ritmo-bloco', (e) => e.textContent);
+  assert.ok(await p.$('section[aria-labelledby="h-ritmo"] .barra .enchido.atencao'), 'a barra agregada fica em atenção');
+  assert.equal(await p.$('section[aria-labelledby="h-ritmo"] .barra .enchido.acima'), null, 'sem estourar o plano');
+  const legenda = await p.$eval('section[aria-labelledby="h-ritmo"]', (e) => e.textContent);
   assert.ok(legenda.includes('82% do plano usado'));
   assert.ok(legenda.includes('hoje: 60% do mês'));
   await p.close();

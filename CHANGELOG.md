@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.3.0 — 2026-11-19
+
+### Novo
+- **Lançamento rápido de gasto na barra do topo (computador).** A barra deixou de ser um botão e virou um campo de verdade: digite algo como `32,90 mercado padaria` e pressione `Enter`. O app grava na hora, com a data de hoje, mostra o aviso com **Desfazer** e limpa o campo. Se não reconhecer a categoria, abre o formulário completo já preenchido com o texto.
+- **Variáveis do mês.** O cartão do Início ganhou o resumo **Gasto**, **Plano** e **Ainda previsto** (só das categorias variáveis); o gráfico **“Para onde foi”**, com as 5 maiores categorias variáveis do mês + **Outras**, legenda e percentuais; e os atalhos **Lançar** e **Ajustar planos** no rodapé, com a dica “Toque numa categoria para lançar ou ajustar o plano”.
+- **Limpar meta.** O cartão **Meta de economia** ganhou o link que remove o plano de Guardar do mês, com aviso e **Desfazer**.
+- **Ajustar meta.** O **Ritmo do plano** ganhou o atalho que foca o campo da Meta de economia.
+- **Apagar plano no painel da categoria.** Ao tocar numa categoria, o painel agora tem o link **Apagar plano**, que remove o plano daquele mês com aviso e **Desfazer**.
+
+### Mudou
+- **Atalho `N`.** No computador, foca o campo de lançamento rápido; no celular, abre o formulário completo. O botão **Novo lançamento** e `Ctrl+K` continuam abrindo o formulário completo.
+- **Meta de economia.** O cartão mostra o percentual da renda ao lado da meta (por exemplo, `Meta R$ 2.000,00 · 16,6% da renda`) e explica que, enquanto a meta não é lançada, ela entra como plano sem lançamento; depois, entra o realizado.
+- **Ritmo do plano.** O cartão ganhou o botão **Ajustar plano** no topo, que leva para **Mês › Planejar**, a linha `Plano = X% da renda do mês` e a linha da meta de economia com valor e percentual da renda. O texto continua explicando que o plano é só ritmo e não desconta o disponível.
+- **Regra de cálculo da v2.2.0 mantida.** O plano de uma categoria só entra enquanto ela não tem lançamento; depois do primeiro lançamento, só o realizado conta. `Disponível = renda − gastos`; o plano das categorias com lançamento aparece só no **Ritmo do plano**; a sugestão de média só vira plano quando você usa; a sobra do mês é a mesma do disponível; meses fechados usam a sobra realizada.
+
+### Corrigido
+- **A barra do topo não é mais um botão disfarçado de campo.** Antes, clicar nela abria o formulário completo e o ícone era uma lupa; agora é um campo real de lançamento rápido, com ícone de raio.
+
 ## 2.2.0 — 2026-11-19
 
 ### Mudou

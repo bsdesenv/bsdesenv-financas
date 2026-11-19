@@ -218,7 +218,7 @@ await caso('dois aparelhos: o que um grava, o outro não apaga', async () => {
   await digitarTeclado(cel, ['1', '1', '1', '1']);
   await cel.tap('#nv-salvar'); await semFolha(cel); await sincronizado(cel);
   // o computador ainda está com a revisão antiga
-  await pc.keyboard.press('n'); await folhaAberta(pc);
+  await pc.click('[data-foco="novo-topo"]'); await folhaAberta(pc);
   await pc.type('#nv-texto', '22,22 mercado teste no pc');
   assert.match(await pc.$eval('#nv-entendi', (e) => e.textContent), /R\$\s22,22 em Mercado/);
   await pc.keyboard.press('Enter'); await semFolha(pc); await sincronizado(pc);
@@ -228,6 +228,21 @@ await caso('dois aparelhos: o que um grava, o outro não apaga', async () => {
   assert.ok(pcViu, 'o computador recebeu o lançamento do celular');
   const desc = amb.linhas().find((l) => l[6] === 22.22)[5];
   assert.equal(desc, 'teste no pc');
+});
+
+await caso('computador: lançamento rápido da barra do topo salva direto', async () => {
+  await irPara(pc, 'inicio');
+  await pc.keyboard.press('n');
+  assert.equal(await pc.evaluate(() => document.activeElement && document.activeElement.id), 'quick', 'N foca o campo rápido');
+  await pc.type('#quick', '12,34 mercado padaria');
+  await pc.keyboard.press('Enter');
+  await sincronizado(pc);
+  await sleep(200);
+  const linha = amb.linhas().find((l) => l[6] === 12.34);
+  assert.ok(linha, 'o lançamento rápido foi gravado');
+  assert.equal(linha[4], 'mercado');
+  assert.equal(linha[5], 'padaria');
+  assert.equal(await pc.$eval('#quick', (e) => e.value), '', 'o campo limpa depois de salvar');
 });
 
 await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava depois', async () => {
@@ -366,6 +381,35 @@ await caso('de onde vem: mostra planos sem lançamento e o plano usado no ritmo'
   await p.close();
 });
 
+await caso('variáveis do mês: resumo, gráfico e atalhos de lançar e ajustar plano', async () => {
+  const dados = {
+    nome: 'Painel', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'v1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 800 },
+      { id: 'v2', mes: 11, dia: 6, categoriaId: 'lazer', descricao: '', valor: 200 },
+      { id: 'v3', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: { mercado: { 11: 1000 }, lazer: { 11: 300 }, salario: { 11: 5000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'variaveis-painel'));
+  await pronto(p);
+  const texto = await p.$eval('#tela', (e) => e.innerText);
+  assert.ok(texto.includes('Gasto ' + moeda(1000)), 'resumo do gasto variável');
+  assert.ok(texto.includes('Plano ' + moeda(1300)), 'resumo do plano variável');
+  assert.ok(texto.includes('Ainda previsto ' + moeda(0)), 'resumo do previsto');
+  assert.ok(texto.includes('Para onde foi'), 'gráfico de participação');
+  assert.ok(await p.$('.grafico-variaveis .gv-barra'), 'barra do gráfico');
+  assert.ok(await p.$('[data-foco="cats-novo"]'), 'atalho para lançar');
+  await p.click('[data-foco="cats-planejar"]'); await sleep(150);
+  assert.ok(await p.$('#pl-mercado'), 'atalho leva ao planejamento');
+  assert.equal(await p.$eval('[data-modo="planejar"]', (e) => e.getAttribute('aria-pressed')), 'true');
+  await p.close();
+});
+
 await caso('sugestão de média: aparece, mas só entra no plano quando você usa', async () => {
   const dados = {
     nome: 'Sugestão', categorias: [
@@ -469,6 +513,32 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   await p.close();
 });
 
+await caso('meta: mostra % da renda, ajusta pelo atalho e limpa a meta', async () => {
+  const dados = {
+    nome: 'Meta %', categorias: [
+      { id: 'guardar', nome: 'Guardar', grupo: 'fixo', ordem: 1 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'g1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 10000 },
+    ], orcamento: { guardar: { 11: 2000 }, mercado: { 11: 1000 }, salario: { 11: 10000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'meta-percentual'));
+  await pronto(p);
+  const texto = await p.$eval('#tela', (e) => e.innerText);
+  assert.ok(texto.includes('Meta ' + moeda(2000) + ' · 20,0% da renda'), 'meta em % da renda');
+  assert.ok(texto.includes('Meta de economia: ' + moeda(2000) + ' (20,0% da renda)'), 'ritmo mostra a meta');
+  await p.click('[data-acao="meta-foco"]'); await sleep(100);
+  assert.equal(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-foco')), 'meta-guardar');
+  await p.click('[data-acao="meta-limpar"]'); await sincronizado(p); await sleep(200);
+  assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'guardar' && l[2] === 11), 'meta removida da planilha');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'sem a meta, o disponível sobe');
+  assert.ok(!(await p.$eval('#tela', (e) => e.innerText)).includes('Limpar meta'), 'o botão some');
+  await p.close();
+});
+
 await caso('cobertura do plano: planejar a categoria sem plano grava e limpa o “Sem plano”', async () => {
   const dados = {
     nome: 'Cobertura', categorias: [
@@ -537,6 +607,27 @@ await caso('apagar plano avisa que não cancela a despesa', async () => {
   const aviso = await p.$eval('.aviso .aviso-txt', (e) => e.textContent);
   assert.match(aviso, /não cancela a despesa/);
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'mercado' && l[2] === 11), 'plano apagado na planilha');
+  await p.close();
+});
+
+await caso('categoria: apagar plano pelo painel do Início', async () => {
+  const dados = {
+    nome: 'Apagar painel', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'ap1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 500 },
+      { id: 'ap2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: { mercado: { 11: 1000 }, salario: { 11: 5000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'apagar-painel'));
+  await pronto(p);
+  await p.click('[data-acao="categoria"][data-cat="mercado"]'); await folhaAberta(p);
+  await p.click('[data-f="apagar-plano"]'); await sincronizado(p); await sleep(200);
+  assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'mercado' && l[2] === 11), 'o plano saiu da planilha');
+  await p.click('.folha [data-f="fechar"]'); await semFolha(p);
   await p.close();
 });
 

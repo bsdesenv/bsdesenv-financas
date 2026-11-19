@@ -18,6 +18,7 @@ const _num = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumF
 const arred = (v) => Math.round((Number(v) || 0) * 100) / 100;
 const moeda = (v) => _moeda.format(arred(v)).replace('-', '−');
 const num = (v) => _num.format(arred(v)).replace('-', '−');
+const pct1 = (v) => (Number(v) || 0).toFixed(1).replace('.', ',');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -64,6 +65,7 @@ const ICONES = {
   inicio: '<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
   extrato: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
   mais: '<path d="M12 5v14M5 12h14"/>',
+  raio: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   mes: '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>',
   planilha: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/>',
   ajustes: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
@@ -111,7 +113,7 @@ function chamar(fn, ...args) {
 const S = {
   dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
   montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
-  busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true,
+  busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
    navegador: é só um reforço. A garantia é a planilha. */
@@ -403,6 +405,20 @@ function interpretarLinha(txt, renda) {
   }
   return { valores, categoriaId, descricao: tokens.join(' '), invalido: !valores.length && String(txt).trim().length > 0 && /^[\d.,R$]/i.test(String(txt).trim()) };
 }
+/** Lançamento rápido da barra do topo: salva direto quando a categoria é reconhecida. */
+function lancarRapido(txt) {
+  const s = String(txt || '').trim();
+  if (!s) return false;
+  const r = interpretarLinha(s, false);
+  if (!r.valores.length) { aviso('Não entendi o valor. Use, por exemplo, 32,90 mercado padaria.', { tipo: 'erro' }); return false; }
+  const c = r.categoriaId ? catPorId(r.categoriaId) : null;
+  if (!c) { abrirNovo({ texto: s }); return false; }
+  const h = hoje();
+  const ids = r.valores.map((v) => { const id = novoId(); registrar({ t: 'lanc', l: { id, ano: h.ano, mes: h.mes, dia: h.dia, categoriaId: c.id, descricao: r.descricao, valor: v } }); return id; });
+  const total = r.valores.reduce((a, b) => a + b, 0);
+  aviso(`Lançado em ${c.nome}: ${moeda(total)}${ids.length > 1 ? ` (${ids.length} lançamentos)` : ''}`, { acao: 'Desfazer', fn: () => ids.forEach((id) => registrar({ t: 'lanc-', id })) });
+  return true;
+}
 
 /* =====================================================================
    7. Pedaços de HTML
@@ -536,7 +552,7 @@ function renderTopo() {
       + (foraDoMes ? '<button type="button" class="botao fantasma pequeno" data-acao="mes-hoje" data-foco="mes-hoje">Hoje</button>' : '') + '</div>';
   }
   $('#topo').innerHTML = `<div class="topo-esq">${esq}</div><div class="topo-dir">`
-    + `<button type="button" class="busca-rapida so-desktop" data-acao="novo" data-foco="busca-rapida">${ic('busca', 18)}<span>Lançar: “32,90 mercado padaria”</span><kbd>N</kbd></button>`
+    + `<form class="busca-rapida so-desktop" id="quick-form" aria-label="Lançamento rápido">${ic('raio', 18)}<label class="sr" for="quick">Lançamento rápido</label><input id="quick" data-foco="quick" data-digitar="quick" value="${esc(S.quick)}" placeholder="Lançar rápido: “32,90 mercado padaria”" autocomplete="off"><kbd>N</kbd></form>`
     + `<button type="button" class="botao primario so-desktop" data-acao="novo" data-foco="novo-topo">${ic('mais', 18)}Novo lançamento</button>`
     + '<button type="button" class="sinc so-celular" id="sinc-topo" data-acao="sincronizar"></button></div>';
 }
@@ -619,13 +635,19 @@ function cartaoRitmo(r) {
       + `<p class="sub">Defina um plano em <button type="button" class="link" data-acao="planejar" data-foco="ritmo-planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p></section>`;
   }
   const pct = (r.gastoComPlano / r.planoGastos) * 100;
+  const pctRenda = r.renda > 0 ? Math.round((r.planoGastos / r.renda) * 100) : 0;
+  const meta = r.guardadoPlano;
+  const pctMeta = r.renda > 0 && meta > 0 ? (meta / r.renda) * 100 : 0;
   const estado = r.gastoComPlano > r.planoGastos ? 'acima'
     : r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
-  return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2></div>`
+  return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2>`
+    + '<button type="button" class="link" data-acao="planejar" data-foco="ritmo-ajustar">Ajustar plano</button></div>'
     + `<div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
     + barra({ pct, ritmo: r.ritmo, estado, alta: true })
     + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
-    + '<p class="sub" style="margin-top:6px">A barra compara o gasto com o plano de consumo. Esse plano é só ritmo: depois do primeiro lançamento, ele não desconta o disponível; o disponível usa apenas os planos sem lançamento.</p></section>';
+    + `<p class="sub" style="margin-top:6px">Plano = ${pctRenda}% da renda do mês.</p>`
+    + `<p class="sub" style="margin-top:4px">${meta > 0 ? `Meta de economia: ${moeda(meta)} (${pct1(pctMeta)}% da renda).` : 'Defina uma meta de economia para guardar antes de gastar.'} <button type="button" class="link" data-acao="meta-foco" data-foco="ritmo-meta">Ajustar meta</button></p>`
+    + '<p class="sub" style="margin-top:4px">A barra compara o gasto com o plano de consumo. Esse plano é só ritmo: depois do primeiro lançamento, ele não desconta o disponível; o disponível usa apenas os planos sem lançamento.</p></section>';
 }
 function cartaoKpis(r) {
   let tiles;
@@ -678,23 +700,25 @@ function cartaoMeta(r) {
       ? `<button type="button" class="botao" data-acao="criar-guardar" data-valor="${sug.valor}" data-foco="criar-guardar">Criar “Guardar” com ${moeda(sug.valor)}</button>`
       : '<button type="button" class="botao" data-acao="criar-guardar" data-foco="criar-guardar">Criar “Guardar”</button>';
     return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
-      + '<p class="sub">Separe um valor antes de gastar. O app reserva essa meta no disponível do mês.</p>'
+      + '<p class="sub">Separe um valor antes de gastar. Enquanto a meta não é lançada, o app a desconta do disponível como plano sem lançamento; depois, entra o realizado.</p>'
       + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% da sua sobra média dos últimos ${sug.meses} meses fechados.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
       + `<div class="acoes">${botao}</div></section>`;
   }
   const meta = planoExp(g.id, S.ano, S.mes);
   const guardado = celReal(g.id, S.ano, S.mes).soma;
   const pct = meta > 0 ? (guardado / meta) * 100 : 0;
+  const pctRenda = meta > 0 && r.renda > 0 ? (meta / r.renda) * 100 : 0;
   const texto = meta > 0 && guardado >= meta ? 'Meta atingida. O que passar disso é sobra.'
     : meta > 0 ? `Faltam ${moeda(meta - guardado)} para a meta deste mês.` : 'Defina a meta deste mês.';
   return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
-    + `<div class="legenda-barra" style="margin-top:0"><span>Guardado ${moeda(guardado)}</span><span>Meta ${meta ? moeda(meta) : '—'}</span></div>`
+    + `<div class="legenda-barra" style="margin-top:0"><span>Guardado ${moeda(guardado)}</span><span>Meta ${meta ? moeda(meta) : '—'}${pctRenda ? ` · ${pct1(pctRenda)}% da renda` : ''}</span></div>`
     + barra({ pct, estado: 'ok', alta: true })
     + `<p class="sub" style="margin-top:8px">${texto}</p>`
     + `<label class="campo" style="margin-top:10px">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${meta ? num(meta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>`
     + '<div class="acoes">'
     + (sug.valor > 0 && sug.valor !== meta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
     + (meta > 0 && guardado === 0 ? `<button type="button" class="botao pequeno" data-acao="confirmar" data-cat="${esc(g.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="meta-confirmar">Confirmar ${moeda(meta)}</button>` : '')
+    + (meta > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
     + '</div></section>';
 }
 function cartaoCobertura(r) {
@@ -747,20 +771,45 @@ function cartaoAvisos(r) {
   return `<section class="cartao" aria-labelledby="h-avisos"><div class="cartao-topo"><h2 id="h-avisos">Avisos</h2></div>`
     + lista.map((a) => `<div class="aviso-item ${a.tipo}"><span class="marca-aviso" aria-hidden="true">${ic(a.icone, 16)}</span><p>${a.html}</p></div>`).join('') + '</section>';
 }
+function resumoVariaveis(r) {
+  const vars = r.porCat.filter(({ c }) => c.grupo === 'variavel');
+  const gasto = vars.reduce((a, { v }) => a + v.real, 0);
+  const plano = vars.reduce((a, { v }) => a + (v.plano || 0), 0);
+  const previsto = vars.reduce((a, { v }) => a + (v.real === 0 ? (v.plano || 0) : 0), 0);
+  return { gasto, plano, previsto };
+}
+function graficoVariaveis(r) {
+  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && v.real > 0).sort((a, b) => b.v.real - a.v.real);
+  const total = itens.reduce((a, { v }) => a + v.real, 0);
+  if (!total) return '';
+  const top = itens.slice(0, 5); const resto = itens.slice(5).reduce((a, { v }) => a + v.real, 0);
+  const seg = top.map(({ c, v }) => `<i class="cor-${corDe(c.id)}" style="width:${(v.real / total * 100).toFixed(2)}%;background:var(--c)" title="${esc(c.nome)}: ${moeda(v.real)}"></i>`).join('')
+    + (resto > 0 ? `<i style="width:${(resto / total * 100).toFixed(2)}%;background:var(--tinta-3)" title="Outras: ${moeda(resto)}"></i>` : '');
+  const leg = top.map(({ c, v }) => `<span><i class="cor-${corDe(c.id)}" style="background:var(--c)"></i>${esc(c.nome)} <strong>${Math.round(v.real / total * 100)}%</strong></span>`).join('')
+    + (resto > 0 ? `<span><i style="background:var(--tinta-3)"></i>Outras <strong>${Math.round(resto / total * 100)}%</strong></span>` : '');
+  return `<div class="grafico-variaveis"><div class="gv-titulo"><span>Para onde foi</span><span>${moeda(total)}</span></div>`
+    + `<div class="gv-barra" aria-hidden="true">${seg}</div><div class="gv-legenda">${leg}</div></div>`;
+}
 function cartaoCategorias(r) {
-  let itens; let titulo;
+  let itens; let titulo; let extra = '';
   if (r.fase === 'atual') {
     titulo = 'Variáveis do mês';
     const peso = { acima: 0, atencao: 1, ok: 2, neutro: 3 };
     itens = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && (v.plano > 0 || v.real > 0))
       .map((x) => ({ ...x, est: estadoCategoria(x.c, x.v, r.ritmo), pct: x.v.plano ? x.v.real / x.v.plano : 1 }))
       .sort((a, b) => peso[a.est] - peso[b.est] || b.pct - a.pct);
+    const rv = resumoVariaveis(r);
+    extra = `<div class="cats-resumo"><span>Gasto <strong>${moeda(rv.gasto)}</strong></span><span>Plano <strong>${moeda(rv.plano)}</strong></span><span>Ainda previsto <strong>${moeda(rv.previsto)}</strong></span></div>`
+      + graficoVariaveis(r)
+      + '<div class="acoes cats-acoes"><button type="button" class="botao pequeno" data-acao="novo" data-foco="cats-novo">' + ic('mais', 16) + 'Lançar</button>'
+      + '<button type="button" class="botao pequeno" data-acao="planejar" data-foco="cats-planejar">Ajustar planos</button></div>'
+      + '<p class="sub" style="margin-top:8px">Toque numa categoria para lançar ou ajustar o plano.</p>';
   } else {
     titulo = r.fase === 'passado' ? 'Para onde foi o dinheiro' : 'Plano por categoria';
     itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.valor > 0).sort((a, b) => b.v.valor - a.v.valor);
   }
   const corpo = itens.length
-    ? `<div class="lista-cats">${itens.slice(0, 8).map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4)).join('')}</div>`
+    ? `<div class="lista-cats">${itens.slice(0, 8).map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4)).join('')}</div>${extra}`
     : vazio(r.fase === 'futuro' ? 'Nenhum gasto planejado para este mês.' : 'Nada lançado neste mês ainda.', r.fase !== 'futuro');
   return `<section class="cartao g-cats" aria-labelledby="h-cats"><div class="cartao-topo"><h2 id="h-cats">${titulo}</h2>`
     + `<button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-todas">Ver todas</button></div>${corpo}</section>`;
@@ -1080,10 +1129,11 @@ function abrirNovo(opc = {}) {
   if (!S.dados || !cats().length) return;
   const h = hoje();
   const teclado = window.matchMedia('(pointer: coarse)').matches;
-  const catIni = opc.cat && catPorId(opc.cat);
+  const pre = opc.texto ? interpretarLinha(opc.texto, false) : null;
+  const catIni = (opc.cat && catPorId(opc.cat)) || (pre && pre.categoriaId ? catPorId(pre.categoriaId) : null);
   const st = {
     tipo: catIni && catIni.grupo === 'renda' ? 'renda' : 'gasto',
-    cents: '', texto: '', desc: '', descManual: false, cat: catIni ? catIni.id : null,
+    cents: '', texto: opc.texto || '', desc: pre ? pre.descricao : '', descManual: false, cat: catIni ? catIni.id : null,
     data: (S.ano === h.ano && S.mes === h.mes) || opc.hoje ? { modo: 'hoje' } : { modo: 'outra', iso: isoData(opc.ano || S.ano, opc.mes || S.mes, 1), semDia: true },
   };
   const garantirCat = () => {
@@ -1107,7 +1157,7 @@ function abrirNovo(opc = {}) {
     montar(el) {
       const segmento = '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>';
       const categorias = `<fieldset class="nv-cats-area"><legend class="rotulo">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`;
-      const descricao = '<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>';
+      const descricao = `<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" value="${esc(st.desc)}" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>`;
       el.innerHTML = teclado
         // Celular: valor e categorias sempre à vista, teclado e Salvar sempre embaixo.
         // Só a descrição rola; quando falta altura, as teclas encolhem (ver .nv-toque no CSS).
@@ -1121,7 +1171,7 @@ function abrirNovo(opc = {}) {
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e novo</button></footer>'
         : topoFolha('Novo lançamento')
           + '<div class="nv-fixo">' + segmento
-          + '<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>'
+          + `<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" value="${esc(st.texto)}" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>`
           + '</div><div class="folha-corpo">' + categorias + '<div class="datas" id="nv-datas"></div>' + descricao + '</div>'
           + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
@@ -1333,7 +1383,8 @@ function abrirCategoria(cid, ano, mes) {
         if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
         const med = media3(cid, ano, mes);
         inp.placeholder = '0,00';
-        $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio = sem previsto nas contas. A sugestão não entra nas contas até você usar.';
+        $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio = sem previsto nas contas. A sugestão não entra nas contas até você usar.'
+          + (v.plano > 0 ? ' <button type="button" class="link" data-f="apagar-plano">Apagar plano</button>' : '');
       };
       const adicionar = () => {
         const msg = $('#fc-msg', el);
@@ -1362,6 +1413,13 @@ function abrirCategoria(cid, ano, mes) {
           const antes = planoExp(cid, ano, mes);
           registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: med });
           aviso(`Plano de ${c.nome}: ${moeda(med)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes || null }) });
+          atualizar();
+        }
+        else if (f === 'apagar-plano') {
+          const antes = planoExp(cid, ano, mes);
+          if (!antes) return;
+          registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: null });
+          aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }) });
           atualizar();
         }
         else if (f === 'repetir') {
@@ -1714,6 +1772,16 @@ const ACOES = {
   confirmar: (el) => confirmarPrevisto(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes)),
   'criar-guardar': (el) => definirGuardar(Number(el.dataset.valor) || 0),
   'meta-sugestao': (el) => definirGuardar(Number(el.dataset.valor) || 0),
+  'meta-foco': () => {
+    const el = $('[data-foco="meta-guardar"]') || $('[data-foco="criar-guardar"]');
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus(); }
+  },
+  'meta-limpar': () => {
+    const c = catGuardar(); if (!c) return;
+    const antes = planoExp(c.id, S.ano, S.mes); if (!antes) return;
+    registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null });
+    aviso('Meta de economia removida.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes }) });
+  },
   'planejar-sem-plano': () => planejarSemPlano(),
   'detalhe-reserva': () => abrirDetalheReserva(),
   'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
@@ -1800,6 +1868,7 @@ const MUDAR = {
 let tBusca = 0;
 const DIGITAR = {
   busca: (el) => { S.busca = el.value; clearTimeout(tBusca); tBusca = setTimeout(() => renderExtrato($('#tela')), 120); },
+  quick: (el) => { S.quick = el.value; },
 };
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-acao]');
@@ -1811,6 +1880,17 @@ document.addEventListener('click', (e) => {
   if (fn) { e.preventDefault(); fn(el, e); }
 });
 document.addEventListener('change', (e) => { const el = e.target.closest('[data-mudar]'); if (el && MUDAR[el.dataset.mudar]) MUDAR[el.dataset.mudar](el, e); });
+document.addEventListener('submit', (e) => {
+  if (!e.target || e.target.id !== 'quick-form') return;
+  e.preventDefault();
+  const inp = $('#quick');
+  const txt = inp ? inp.value.trim() : '';
+  if (!txt) return;
+  if (lancarRapido(txt)) {
+    S.quick = '';
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+});
 // Campo de valor seleciona tudo ao receber foco: digitar substitui em vez de emendar.
 document.addEventListener('focusin', (e) => { const el = e.target; if (el.matches && el.matches('input.valor')) setTimeout(() => { try { el.select(); } catch (err) { /* sem seleção */ } }, 0); });
 document.addEventListener('input', (e) => { const el = e.target.closest('[data-digitar]'); if (el && DIGITAR[el.dataset.digitar]) DIGITAR[el.dataset.digitar](el, e); });
@@ -1838,7 +1918,11 @@ document.addEventListener('keydown', (e) => {
   if (!S.montado || pilha.length) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrirNovo(); return; }
   if (digitando || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); abrirNovo(); }
+  if (e.key === 'n' || e.key === 'N') {
+    e.preventDefault();
+    const q = $('#quick');
+    if (q && q.offsetParent !== null) q.focus(); else abrirNovo();
+  }
   else if (e.key === '/' && S.tela === 'extrato') { e.preventDefault(); const b = $('#busca'); if (b) b.focus(); }
   else if (S.tela === 'planilha' && alvo.closest && alvo.closest('td.cel')) navegarPlanilha(e, alvo.closest('td.cel'));
 });

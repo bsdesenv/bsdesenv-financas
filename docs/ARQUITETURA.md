@@ -58,6 +58,12 @@ A categoria de economia é a que tem `id === 'guardar'` ou, se ela não existir,
 - O cartão "A vencer" não a mostra; a transferência é confirmada no cartão "Meta de economia".
 - `sugestaoMeta()` devolve `{ valor, meses }` a partir da média de `rendaReal − gastoConsumoReal` dos últimos 3 meses fechados que tenham lançamentos. O valor é 80% dessa média, arredondado para baixo em múltiplos de 10 quando for pelo menos 100; se a média for menor ou igual a zero, o valor é 0. A sugestão só vira plano quando a pessoa usa o botão da sugestão ou grava o campo.
 
+## Lançamento rápido
+
+No computador, a barra do topo é um campo de lançamento rápido de gasto. `lancarRapido()` usa `interpretarLinha()` — o mesmo interpretador do campo de valor do formulário completo — para separar valor, categoria e descrição; grava com a data de hoje e mostra o aviso com **Desfazer**. Se a categoria não for reconhecida, abre o formulário completo com o texto (`abrirNovo({ texto })`), sem gravar nada.
+
+O atalho `N` foca esse campo no computador; no celular, como o campo não existe, abre o formulário completo. **Novo lançamento** e `Ctrl+K` sempre abrem o formulário completo. Na tela Início, o cartão **Variáveis do mês** resume **Gasto**, **Plano** e **Ainda previsto** apenas das categorias variáveis e desenha **“Para onde foi”** com as 5 maiores categorias variáveis do mês + **Outras**. São agregações de exibição: a regra de cálculo da v2.2.0 (abaixo) não mudou.
+
 ## Regras de cálculo
 
 Para uma categoria num mês:

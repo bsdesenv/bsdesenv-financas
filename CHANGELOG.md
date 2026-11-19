@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.2 — 2026-11-18
+
+### Mudou
+- **De onde vem o disponível.** O herói agora mostra a ponte completa: **Renda − Já saiu = Ainda na conta**, depois **− Planos sem lançamento = Sobra otimista**, depois **− Restante dos planos já iniciados = Disponível**. O link **De onde vem esse valor?** abre a conta e a lista de cada categoria.
+- **Ainda planejado.** O KPI "Ainda reservado" virou "Ainda planejado" e o detalhe separa planos sem lançamento, restante dos planos já iniciados e categorias acima do plano.
+- **Sobra otimista.** A tela Mês e o gráfico usam a sobra do mês atual sem descontar o restante dos planos já iniciados, com aviso explícito. A sobra realizada dos meses fechados não muda.
+- **Ajustar planos.** A folha "De onde vem o disponível" tem um botão que leva direto para **Mês › Planejar**.
+
 ## 2.1.1 — 2026-11-18
 
 ### Mudou

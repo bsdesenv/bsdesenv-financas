@@ -331,15 +331,20 @@ function resumo(ano, mes) {
   const dias = diasNoMes(ano, mes);
   const restantes = f === 'atual' ? dias - h.dia + 1 : 0;
   const rendaBase = rendaReal > 0 ? rendaReal : renda;
+  const previsto = arred(gastos - gastoReal);
+  const aindaNaConta = rendaBase - gastoReal;
+  const restanteIniciados = Math.max(0, aRealizar - previsto);
+  const sobraBase = aindaNaConta - previsto;
   const disponivel = rendaBase - gastoReal - aRealizar;
   const sobraSeGastarPlanos = renda - gastoReal - aRealizar;
   return {
     fase: f, qtd, qtdGastos, qtdConsumo, dias, restantes, porCat,
-    renda: arred(renda), rendaPlano: arred(rendaPlano), gastos: arred(gastos), sobra: arred(renda - gastos), previsto: arred(gastos - gastoReal),
+    renda: arred(renda), rendaPlano: arred(rendaPlano), gastos: arred(gastos), sobra: arred(renda - gastos), previsto,
     gastosConsumo: arred(gastosConsumo),
     gastoComPlano: arred(gastoComPlano), semPlano: arred(semPlano), semPlanoQtd,
     rendaReal: arred(rendaReal), gastoReal: arred(gastoReal), aVencer: arred(aVencer), planoGastos: arred(planoGastos),
-    rendaBase: arred(rendaBase), gastoConsumoReal: arred(gastoConsumoReal),
+    rendaBase: arred(rendaBase), aindaNaConta: arred(aindaNaConta), restanteIniciados: arred(restanteIniciados), sobraBase: arred(sobraBase),
+    gastoConsumoReal: arred(gastoConsumoReal),
     guardadoPlano: arred(guardadoPlano), guardadoReal: arred(guardadoReal),
     aRealizar: arred(aRealizar), aRealizarConsumo: arred(aRealizarConsumo),
     sobraSeGastarPlanos: arred(sobraSeGastarPlanos), disponivel: arred(disponivel), sobraReal: arred(rendaReal - gastoReal),
@@ -587,16 +592,20 @@ function cartaoHeroi(r) {
     const rendaLbl = r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista';
     const rendaDet = r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` (de ${moeda(r.rendaPlano)})` : '';
     const saiuLbl = r.guardadoReal > 0 ? '− Já saiu (gastos + Guardar)' : '− Já saiu';
-    const resLbl = r.guardadoPlano > 0 ? '− Ainda reservado (planos + Guardar)' : '− Ainda reservado';
     const conta = `<div class="conta-heroi">`
       + `<div><span>${rendaLbl}${rendaDet}</span><strong>${moeda(r.rendaBase)}</strong></div>`
       + `<div><span>${saiuLbl}</span><strong>${moeda(r.gastoReal)}</strong></div>`
-      + `<div><span>${resLbl}</span><strong>${moeda(r.aRealizar)}</strong></div>`
+      + `<div class="subtotal"><span>= ${r.rendaReal > 0 ? 'Ainda na conta' : 'Ainda previsto'}</span><strong>${moeda(r.aindaNaConta)}</strong></div>`
+      + (r.previsto > 0 ? `<div><span>− Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong></div>` : '')
+      + (r.restanteIniciados > 0 ? `<div><span>− Restante dos planos já iniciados</span><strong>${moeda(r.restanteIniciados)}</strong></div>` : '')
       + `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`
       + '</div>';
-    const dica = '<p class="sub" style="margin-top:10px">O disponível é o que sobra depois de tudo o que já saiu e do que ainda está reservado. Gastar menos que o plano aumenta a sobra.</p>';
+    const sobraNota = r.restanteIniciados > 0
+      ? `<p class="sub" style="margin-top:8px">Se você não gastar o restante dos planos, sobram ${moeda(r.sobraBase)}.</p>` : '';
+    const dica = '<p class="sub" style="margin-top:8px">“Ainda na conta” é o que entrou menos o que já saiu. O “Disponível” desconta o que ainda está planejado.</p>'
+      + (r.aRealizar > 0 ? '<p class="sub" style="margin-top:4px"><button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">De onde vem esse valor?</button></p>' : '');
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
-      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${conta}${dica}</section>`;
+      + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>${conta}${sobraNota}${dica}</section>`;
   }
   if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
@@ -635,7 +644,7 @@ function cartaoKpis(r) {
     tiles = [
       ['Renda do mês', moeda(r.rendaPlano || r.renda), r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', 'ok'],
       ['Já saiu', moeda(r.gastoReal), `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, ''],
-      ['Ainda reservado', moeda(r.aRealizar), r.guardadoPlano > 0 ? 'planos + guardar' : 'planos do mês', ''],
+      ['Ainda planejado', moeda(r.aRealizar), r.guardadoPlano > 0 ? 'planos + guardar' : 'o que falta nos planos', ''],
       ['Guardado', moeda(r.guardadoReal), r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', ''],
     ];
   } else if (r.fase === 'passado') {
@@ -779,7 +788,8 @@ function cartaoAno() {
   const meses = Array.from({ length: 12 }, (_, i) => {
     const rr = resumo(S.ano, i + 1);
     const real = rr.fase === 'passado' && (rr.qtdGastos > 0 || rr.rendaReal > 0);
-    return { mes: i + 1, sobra: real ? rr.sobraReal : rr.sobra, fase: rr.fase, real };
+    const sobra = rr.fase === 'atual' ? rr.sobraBase : real ? rr.sobraReal : rr.sobra;
+    return { mes: i + 1, sobra, fase: rr.fase, real };
   });
   const mp = Math.max(0, ...meses.map((m) => m.sobra)); const mn = Math.max(0, ...meses.map((m) => -m.sobra));
   const total = mp + mn || 1;
@@ -789,14 +799,14 @@ function cartaoAno() {
   const barras = meses.map((m) => {
     const hPos = m.sobra > 0 && mp ? Math.max(2, Math.round((m.sobra / mp) * hp)) : 0;
     const hNeg = m.sobra < 0 && mn ? Math.max(2, Math.round((-m.sobra / mn) * hn)) : 0;
-    const extra = m.real ? ' (realizada)' : ' (projeção)';
+    const extra = m.fase === 'atual' ? ' (projeção otimista: não desconta o restante dos planos)' : m.real ? ' (realizada)' : ' (projeção)';
     return `<button type="button" class="ga-mes ${m.fase}${!m.real && m.fase !== 'futuro' ? ' futuro' : ''}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
       + `<span class="ga-pos"><i style="height:${hPos}px"></i></span><span class="ga-neg"><i style="height:${hNeg}px"></i></span><span class="ga-rot">${MesC(m.mes)}</span></button>`;
   }).join('');
   return `<section class="cartao g-ano" aria-labelledby="h-ano"><div class="cartao-topo"><h2 id="h-ano">Sobra mês a mês · ${S.ano}</h2></div>`
     + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>projeção (contorno)</span></div>'
     + `<figure class="grafico-ano"><div class="ga-barras" style="--hp:${hp}px;--hn:${hn}px">${barras}</div>`
-    + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong></figcaption></figure></section>`;
+    + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong>. A sobra do mês atual é otimista: não desconta o restante dos planos já iniciados.</figcaption></figure></section>`;
 }
 
 /* ---------- Extrato ---------- */
@@ -873,9 +883,10 @@ function kpisMes(r) {
   }
   const atual = r.fase === 'atual';
   const renda = atual ? (r.rendaPlano || r.renda) : r.fase === 'passado' ? (r.rendaReal || r.renda) : r.renda;
+  const sobraKpi = atual ? r.sobraBase : r.fase === 'futuro' ? r.sobra : (r.rendaReal > 0 || r.gastoReal > 0 ? r.sobraReal : r.sobra);
   return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(renda)}</strong></div>`
     + `<div><span>${atual ? 'Gasto até hoje' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(atual ? r.gastoConsumoReal : r.gastosConsumo)}</strong></div>`
-    + `<div class="${r.sobra < 0 ? 'alerta' : ''}"><span>${atual ? 'Sobra projetada' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(r.sobra)}</strong></div></div>`;
+    + `<div class="${sobraKpi < 0 ? 'alerta' : ''}"${atual ? ' title="Não desconta o restante dos planos já iniciados"' : ''}><span>${atual ? 'Sobra otimista' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(sobraKpi)}</strong></div></div>`;
 }
 function telaAcompanhar(r) {
   const blocos = ORDEM_GRUPOS.map((g) => {
@@ -1387,6 +1398,58 @@ function confirmarPrevisto(cid, ano, mes) {
   aviso(ehGuardar(c) ? `${moeda(v.plano)} guardado.` : `${c.nome}: ${moeda(v.plano)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
 }
 
+/* ---------- De onde vem o disponível ---------- */
+function abrirDetalheReserva() {
+  const ano = S.ano; const mes = S.mes;
+  abrirFolha({
+    tipo: 'reserva',
+    montar(el) {
+      const r = resumo(ano, mes);
+      const semLanc = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.plano > 0 && v.real === 0)
+        .sort((a, b) => b.v.plano - a.v.plano);
+      const iniciados = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.plano > 0 && v.real > 0 && v.plano > v.real + 0.004)
+        .sort((a, b) => (b.v.plano - b.v.real) - (a.v.plano - a.v.real));
+      const acima = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.plano > 0 && v.real > v.plano + 0.004)
+        .sort((a, b) => (b.v.real - b.v.plano) - (a.v.real - a.v.plano));
+      const totalAcima = acima.reduce((a, { v }) => a + (v.real - v.plano), 0);
+      const linha = (c, detalhe, valor, classe = '') => `<div class="reserva-linha">${mono(c)}<div class="reserva-txt"><strong>${esc(c.nome)}</strong><span>${esc(detalhe)}</span></div><strong class="reserva-valor${classe ? ' ' + classe : ''}">${valor}</strong></div>`;
+      const linhas = [
+        `<div><span>${r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista'}</span><strong>${moeda(r.rendaBase)}</strong></div>`,
+        `<div><span>− Já saiu</span><strong>${moeda(r.gastoReal)}</strong></div>`,
+        `<div class="subtotal"><span>= ${r.rendaReal > 0 ? 'Ainda na conta' : 'Ainda previsto'}</span><strong>${moeda(r.aindaNaConta)}</strong></div>`,
+        r.previsto > 0 ? `<div><span>− Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong></div>` : '',
+        `<div class="subtotal"><span>= Sobra se não gastar o restante</span><strong>${moeda(r.sobraBase)}</strong></div>`,
+        r.restanteIniciados > 0 ? `<div><span>− Restante dos planos já iniciados</span><strong>${moeda(r.restanteIniciados)}</strong></div>` : '',
+        `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`,
+      ].join('');
+      const bloco = (titulo, total, texto, itens, fmt) => !itens.length ? ''
+        : `<section><h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3><p class="sub">${texto}</p><div class="lista">${itens.map(fmt).join('')}</div></section>`;
+      el.innerHTML = topoFolha('De onde vem o disponível', `${Mes(mes)} de ${ano}`)
+        + '<div class="folha-corpo">'
+        + '<p class="sub">O disponível é o dinheiro que sobra depois de tudo o que já saiu e do que ainda está planejado. “Ainda planejado” não é dinheiro que saiu: é o que falta para completar os planos que você gravou.</p>'
+        + `<div class="conta-heroi" style="margin-top:0">${linhas}</div>`
+        + bloco('Planos sem lançamento', r.previsto, 'Categorias com plano e nenhum gasto ainda. A sobra já conta esses valores como gastos.', semLanc,
+          ({ c, v }) => linha(c, `plano ${moeda(v.plano)}`, moeda(v.plano)))
+        + bloco('Restante dos planos já iniciados', r.restanteIniciados, 'Categorias em que você já gastou algo, mas o plano é maior. Esse resto é o que reduz o disponível em relação à sobra.', iniciados,
+          ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.plano - v.real)))
+        + bloco('Acima do plano', totalAcima, 'Categorias em que você gastou mais que o plano. O excesso já saiu; não entra no “ainda planejado”.', acima,
+          ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.real - v.plano), 'acima'))
+        + '<div class="acoes"><button type="button" class="botao" data-f="ajustar">Ajustar planos</button></div>'
+        + '</div>';
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        if (b.dataset.f === 'fechar') fecharFolha();
+        else if (b.dataset.f === 'ajustar') {
+          fecharFolha();
+          S.modoMes = 'planejar';
+          if (S.tela !== 'mes') irPara('mes'); else render();
+        }
+      });
+    },
+  });
+}
+
 /* ---------- Importar backup ---------- */
 function abrirImportar() {
   abrirFolha({
@@ -1650,6 +1713,7 @@ const ACOES = {
   'criar-guardar': (el) => definirGuardar(Number(el.dataset.valor) || 0),
   'meta-sugestao': (el) => definirGuardar(Number(el.dataset.valor) || 0),
   'planejar-sem-plano': () => planejarSemPlano(),
+  'detalhe-reserva': () => abrirDetalheReserva(),
   'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
   filtro: (el) => { S.filtro = el.dataset.filtro; renderExtrato($('#tela')); },
   calor: (el) => { S.calor = el.dataset.calor === '1'; render(); },

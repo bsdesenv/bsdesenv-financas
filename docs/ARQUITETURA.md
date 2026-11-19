@@ -93,9 +93,12 @@ Campos de `resumo(ano, mes)`:
 | `aRealizar` | soma de `max(0, plano − real)` de todas as categorias de saída; inclui Guardar |
 | `aRealizarConsumo` | o mesmo, só nas categorias de consumo |
 | `previsto` | `gastos − gastoReal`: a diferença agregada dos planos sem lançamento |
-| `disponivel` | `rendaBase − gastoReal − aRealizar` |
+| `aindaNaConta` | `rendaBase − gastoReal`: o dinheiro que já entrou menos o que já saiu |
+| `restanteIniciados` | `aRealizar − previsto`: o que falta nos planos de categorias que já tiveram algum lançamento |
+| `disponivel` | `rendaBase − gastoReal − aRealizar` (equivale a `sobraBase − restanteIniciados`) |
 | `porDia` | `disponivel / dias restantes` no mês atual; 0 nos demais |
 | `sobra` | `renda − gastos` (projeção; inclui Guardar) |
+| `sobraBase` | `rendaBase − gastoReal − previsto`: a sobra otimista do mês atual, com a renda recebida; é `aindaNaConta − previsto` |
 | `sobraSeGastarPlanos` | `renda − gastoReal − aRealizar` (se gastar tudo o que ainda está nos planos) |
 | `sobraReal` | `rendaReal − gastoReal` (realizado) |
 | `planoGastos` e `gastoComPlano` | só categorias de consumo; alimentam a barra do plano |
@@ -103,12 +106,12 @@ Campos de `resumo(ano, mes)`:
 | `qtdGastos` e `qtdConsumo` | quantidade de lançamentos de saída e de consumo |
 | `aVencer` | fixos com plano e sem lançamento, para o cartão "A vencer"; o cartão exclui Guardar |
 
-`previsto` e `aRealizar` não são a mesma coisa: `aRealizar` soma apenas o que falta em cada plano e não desconta o que passou dele; `previsto` é a diferença agregada entre `gastos` e `gastoReal`.
+`previsto` e `aRealizar` não são a mesma coisa: `aRealizar` soma apenas o que falta em cada plano e não desconta o que passou dele; `previsto` é a diferença agregada entre `gastos` e `gastoReal`. A soma `previsto + restanteIniciados` é o `aRealizar`.
 
-A diferença central está entre `sobra` e `disponivel`: `sobra` responde "quanto sobra se o mês terminar como está previsto?" e `disponivel` responde "quanto posso gastar agora sem furar os planos nem a meta?". Por isso `disponivel` parte de `rendaBase` (renda recebida) e desconta `aRealizar` (o que ainda falta sair), incluindo Guardar. Quando parte da renda ainda não entrou, `disponivel` é menor que `sobra`.
+A diferença central está entre `sobraBase` e `disponivel`: `sobraBase` responde "quanto sobra se o mês terminar como está previsto, sem gastar o restante dos planos já iniciados?" e `disponivel` responde "quanto posso gastar agora sem furar os planos nem a meta?". A ponte é `sobraBase − restanteIniciados = disponivel`. O `previsto` já está dentro da `sobraBase`; por isso não se desconta o `aRealizar` inteiro dela. Quando parte da renda ainda não entrou, `disponivel` é menor que `sobra`.
 
 - **Mês fechado:** `sobraReal` é o realizado. `sobra` continua sendo o valor por categoria (o plano quando não há lançamento). Nas telas de mês passado, o app usa `sobraReal` quando há renda/lançamento real e rotula "realizada"; sem dados reais, usa `sobra` e rotula "com previsto".
-- **Herói:** mostra `rendaBase − gastoReal − aRealizar = disponivel`, em quatro linhas (Renda, Já saiu, Ainda reservado, Disponível). A sobra não entra no herói; ela fica na tela Mês e no gráfico anual.
+- **Herói:** mostra a conta completa: `rendaBase − gastoReal = aindaNaConta`; `aindaNaConta − previsto = sobraBase`; `sobraBase − restanteIniciados = disponivel`. A sobra otimista não é o número principal; ela aparece na tela Mês e no gráfico anual. O link "De onde vem esse valor?" abre a folha com a mesma conta e a lista de categorias em planos sem lançamento, restante dos planos iniciados e acima do plano.
 - **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra.
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele. Guardar é sempre `ok`: guardar mais que a meta é bom.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.

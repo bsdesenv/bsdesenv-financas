@@ -112,20 +112,19 @@ const kpiDe = (p, rotulo) => p.$$eval('.kpi', (els, r) => {
 }, rotulo);
 const esperarHeroi = (p, valor) => p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, valor);
 
-/** Disponível: renda recebida (ou prevista) − gasto real − o que ainda falta realizar nos planos. */
+/** Regra da v1: lançado; sem lançamento, o plano. Plano de categoria com lançamento não conta. */
 function livreEsperado(d, ano, mes) {
   const b = d.anos[ano];
   const doMes = (cid) => b.lancamentos.filter((l) => l.mes === mes && l.categoriaId === cid);
   const real = (cid) => arred(doMes(cid).reduce((a, l) => a + l.valor, 0));
   const plano = (cid) => (b.orcamento[cid] || {})[mes] || 0;
-  let renda = 0; let rendaReal = 0; let gastoReal = 0; let aRealizar = 0;
+  let renda = 0; let gastos = 0;
   for (const c of d.categorias) {
     const teve = doMes(c.id).length > 0; const r = real(c.id); const p = plano(c.id);
-    if (c.grupo === 'renda') { renda += teve ? r : p; rendaReal += r; }
-    else { gastoReal += r; aRealizar += Math.max(0, p - r); }
+    if (c.grupo === 'renda') renda += teve ? r : p;
+    else gastos += teve ? r : p;
   }
-  const rendaBase = rendaReal > 0 ? rendaReal : renda;
-  return arred(rendaBase - gastoReal - aRealizar);
+  return arred(renda - gastos);
 }
 
 const resultados = [];
@@ -292,7 +291,7 @@ await caso('disponível: só o lançado e o plano gravado; apagar lançamento ou
   const kpi = (rot) => p.$$eval('.kpi', (els, r) => els.find((e) => e.querySelector('.rotulo').textContent === r)?.querySelector('.kpi-valor').textContent, rot);
   // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8200));
-  assert.equal(await kpi('Ainda planejado'), moeda(1000));
+  assert.equal(await kpi('Planos sem lançamento'), moeda(1000));
   assert.equal(await kpi('Já saiu'), moeda(800));
   const ritmo = await p.$eval('section[aria-labelledby="h-ritmo"]', (e) => e.textContent);
   assert.ok(ritmo.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
@@ -316,7 +315,7 @@ await caso('disponível: só o lançado e o plano gravado; apagar lançamento ou
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'aluguel' && l[2] === 11), 'plano apagado na planilha');
   await p.click('[data-modo="acompanhar"]'); await irPara(p, 'inicio');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9700), 'sem o plano, o aluguel previsto sai do disponível');
-  assert.equal(await kpi('Ainda planejado'), moeda(0), 'sem plano, não há mais 1.000 reservados');
+  assert.equal(await kpi('Planos sem lançamento'), moeda(0), 'sem plano, não há mais 1.000 reservados');
   await p.close();
 });
 
@@ -336,11 +335,11 @@ await caso('disponível: plano variável sem lançamento também é reservado no
   const heroi = await p.$eval('.numero-heroi', (e) => e.textContent);
   assert.equal(heroi, moeda(8200), '10.000 − 500 lançados − 1.300 ainda nos planos');
   assert.notEqual(heroi, moeda(8500), 'a regra antiga, só com contas fixas a vencer, daria 8.500');
-  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(1300), 'aluguel e luz ainda estão reservados');
+  assert.equal((await kpiDe(p, 'Planos sem lançamento')).valor, moeda(1300), 'aluguel e luz ainda estão reservados');
   await p.close();
 });
 
-await caso('de onde vem: separa planos sem lançamento e restante dos planos iniciados', async () => {
+await caso('de onde vem: mostra planos sem lançamento e o plano usado no ritmo', async () => {
   const dados = {
     nome: 'Detalhe', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -356,14 +355,13 @@ await caso('de onde vem: separa planos sem lançamento e restante dos planos ini
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'detalhe-reserva'));
   await pronto(p);
-  // 10.000 recebidos − 500 gastos = 9.500 na conta; 1.300 sem lançamento; 500 restantes; disponível 7.700.
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7700));
+  // 10.000 recebidos − 500 gastos = 9.500 na conta; 1.300 sem lançamento; disponível 8.200.
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8200));
   await p.click('[data-acao="detalhe-reserva"]'); await folhaAberta(p);
   const texto = await p.$eval('.folha .folha-corpo', (e) => e.innerText);
   assert.ok(texto.includes('Ainda na conta'), 'mostra o dinheiro que já entrou');
-  assert.ok(texto.includes('Sobra se não gastar o restante'), 'mostra a sobra otimista');
   assert.ok(texto.includes('Planos sem lançamento'), 'lista os planos sem lançamento');
-  assert.ok(texto.includes('Restante dos planos já iniciados'), 'lista o restante dos planos iniciados');
+  assert.ok(texto.includes('Plano usado no ritmo'), 'mostra o plano das categorias já iniciadas sem descontá-lo');
   assert.ok(texto.includes('Ajustar planos'), 'oferece ajustar os planos');
   await p.close();
 });
@@ -387,7 +385,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   await pronto(p);
   // A média de 1.000 não é plano: o disponível continua 10.000.
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10000));
-  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(0));
+  assert.equal((await kpiDe(p, 'Planos sem lançamento')).valor, moeda(0));
   await irPara(p, 'mes');
   await p.click('[data-modo="planejar"]'); await sleep(150);
   assert.equal(await p.$eval('#pl-mercado', (e) => e.value), '', 'campo do plano começa vazio');
@@ -401,7 +399,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   assert.ok(plano && plano[3] === 1000, 'a sugestão só vira plano quando você usa');
   await irPara(p, 'inicio');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'agora o plano reserva 1.000');
-  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(1000));
+  assert.equal((await kpiDe(p, 'Planos sem lançamento')).valor, moeda(1000));
   await p.close();
 });
 
@@ -461,7 +459,7 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   assert.ok(cats.some((l) => l[0] === 'guardar' && l[2] === 'fixo'), 'a categoria Guardar foi criada');
   const planoLido = a.servidor.planilha.ler('orcamento').find((l) => Number(l[0]) === 2026 && l[1] === 'guardar' && l[2] === 11);
   assert.ok(planoLido && planoLido[3] === valor, 'o plano de Guardar foi gravado');
-  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(valor), 'a meta fica reservada no disponível');
+  assert.equal((await kpiDe(p, 'Planos sem lançamento')).valor, moeda(valor), 'a meta fica reservada no disponível');
   await p.click('[data-foco="meta-confirmar"]');
   await sincronizado(p);
   await sleep(200);

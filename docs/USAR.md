@@ -51,27 +51,25 @@ Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque n
 
 ### Início
 
-- **Disponível para gastar até o fim do mês:** quanto dá para gastar depois de guardar e reservar os planos. O cartão mostra a conta em linhas: **Renda** (recebida; se nada entrou ainda, prevista) − **Já saiu** = **Ainda na conta** − **Planos sem lançamento** − **Restante dos planos já iniciados** = **Disponível**. “Ainda na conta” é o dinheiro que entrou menos o que já saiu. “Planos sem lançamento” são categorias com plano e nenhum gasto. “Restante dos planos já iniciados” são categorias em que você já gastou algo, mas o plano é maior. O link **De onde vem esse valor?** abre a lista de cada categoria e um botão para **Ajustar planos**. O texto abaixo do número divide o disponível pelos dias que faltam. Se o valor ficar negativo, o texto avisa que os gastos, os planos e a economia já passam da renda disponível. Gastar menos que o plano aumenta a sobra.
-- **Ritmo do plano:** cartão separado do disponível. A barra compara o gasto das categorias de consumo com o plano delas e com o ritmo do mês: fica em **atenção** quando você está mais de 12 pontos à frente do mês, e em **acima** quando passa do plano. Guardar fica de fora. A barra não é a conta do disponível; ela só mostra o ritmo, e o plano total inclui o que você ainda não gastou.
-- **Números do mês:** renda do mês (**recebida** ou **prevista**), **já saiu** (gastos; inclui Guardar quando houver transferência), **ainda planejado** (planos e meta de Guardar) e **guardado** (com a meta, quando existe).
-- **Meta de economia:** a meta do mês, o que já foi guardado e o que falta. O campo abaixo da barra grava a meta (também dá para editá-la na tela Mês); **Confirmar** lança a transferência com a data de hoje. O valor já estava reservado no disponível, então confirmar só registra a transferência. Se a categoria Guardar ainda não existe, o cartão mostra uma sugestão de **80% da sua sobra média realizada dos últimos 3 meses fechados** e oferece criar a categoria já com esse valor. A sugestão não é automática: ela só vira meta quando você toca no botão ou grava o valor.
-- **Cobertura do plano:** aparece quando há categorias de consumo sem plano. Mostra **“Sem plano: R$ ...”**, o valor que está fora da barra e não é reservado no disponível, e oferece **Planejar agora**, pela média dos últimos 3 meses (ou pelo valor já lançado, quando não há média). A partir daí, o disponível passa a reservar esses planos.
+- **Disponível para gastar até o fim do mês:** quanto dá para gastar pela regra da planilha: **lançado; sem lançamento, o plano**. O cartão mostra **Renda** (recebida; se nada entrou ainda, prevista) − **Já saiu** = **Ainda na conta** − **Planos sem lançamento** = **Disponível**. “Planos sem lançamento” são categorias com plano e nenhum gasto ainda; elas entram como previsto. **Depois do primeiro lançamento, o plano daquela categoria deixa de contar**: só o realizado conta. O plano continua no **Ritmo do plano**, mas não desconta o disponível. O link **De onde vem esse valor?** mostra as categorias sem lançamento, o plano usado só no ritmo e as categorias acima do plano, com o botão **Ajustar planos**. O texto abaixo do número divide o disponível pelos dias que faltam.
+- **Ritmo do plano:** cartão separado do disponível. A barra compara o gasto das categorias de consumo com o plano delas e com o ritmo do mês: fica em **atenção** quando você está mais de 12 pontos à frente do mês, e em **acima** quando passa do plano. Guardar fica de fora. O plano aqui é **só ritmo**: o plano de uma categoria com lançamento não desconta o disponível; o que conta é o realizado.
+- **Números do mês:** renda do mês (**recebida** ou **prevista**), **já saiu** (gastos; inclui Guardar quando houver transferência), **planos sem lançamento** (o que ainda não tem gasto e entra como previsto) e **guardado** (com a meta, quando existe).
+- **Meta de economia:** a meta do mês, o que já foi guardado e o que falta. O campo abaixo da barra grava a meta (também dá para editá-la na tela Mês); **Confirmar** lança a transferência com a data de hoje. Enquanto a transferência não é lançada, a meta entra como plano sem lançamento; depois de confirmar, entra como realizado e o disponível não muda se o valor for o mesmo. Se a categoria Guardar ainda não existe, o cartão mostra uma sugestão de **80% da sua sobra média realizada dos últimos 3 meses fechados** e oferece criar a categoria já com esse valor. A sugestão não é automática: ela só vira meta quando você toca no botão ou grava o valor.
+- **Cobertura do plano:** aparece quando há categorias de consumo sem plano. Mostra **“Sem plano: R$ ...”**, o valor que está fora da barra, e oferece **Planejar agora**, pela média dos últimos 3 meses (ou pelo valor já lançado, quando não há média). Como essas categorias já têm lançamento, o plano novo entra no ritmo, mas não desconta o disponível; o que conta é o realizado.
 - **A vencer este mês:** contas fixas com plano e sem lançamento, sem Guardar. O botão **Confirmar** lança o valor do plano com a data de hoje.
 - **Avisos:** categorias de consumo que passaram do plano ou que estão gastando rápido demais. Guardar nunca entra como "passou do plano".
 
-### Sobra otimista e sobra realizada
+### Sobra e sobra realizada
 
-A **sobra otimista** que aparece na tela Mês não desconta o restante dos planos já iniciados. Ela é a conta: **Ainda na conta − planos sem lançamento**. Por isso pode ser bem maior que o **Disponível** do Início. O cartão **De onde vem o disponível** mostra a ponte completa:
+A **sobra** é o **Disponível**: renda − gastos, com o plano entrando **só nas categorias sem lançamento**. Depois do primeiro lançamento de uma categoria, o plano dela não entra mais na conta; só o realizado. Por isso o número da tela Mês é o mesmo do Início. O cartão **De onde vem o disponível** mostra:
 
 ```
 Ainda na conta
 − planos sem lançamento
-= sobra otimista
-− restante dos planos já iniciados
 = Disponível
 ```
 
-Se você não vai gastar o restante de algum plano, ajuste o valor em **Mês › Planejar**; o disponível sobe. Nos meses fechados, quando há dados reais, o app mostra a **sobra realizada** (renda recebida − gastos lançados) e a rotula "realizada"; sem dados reais, mostra "com previsto". O gráfico **Sobra mês a mês**, no fim do Início, marca os meses projetados com contorno e avisa que a sobra do mês atual é otimista.
+E, separado, o **plano usado no ritmo** das categorias que já têm lançamento e as categorias **acima do plano**. Esses planos não descontam o disponível; servem para comparar o ritmo. Se quiser mudar um plano, use **Ajustar planos**. Nos meses fechados, quando há dados reais, o app mostra a **sobra realizada** (renda recebida − gastos lançados) e a rotula "realizada"; sem dados reais, mostra "com previsto". O gráfico **Sobra mês a mês** usa a mesma regra.
 
 ### Extrato
 
@@ -84,9 +82,9 @@ Cada categoria com o que foi gasto, o plano e o ritmo. É aqui que você **plane
 - **Copiar de** (nome do mês anterior)**:** repete o plano do mês passado. O aviso mostra quantas categorias e o total; dá para **Desfazer**.
 - **Preencher com as médias:** grava como plano a média dos últimos 3 meses em todas as categorias que têm histórico. Só acontece se você tocar no botão, e o aviso mostra o total e oferece **Desfazer**.
 - **Usar sugestão:** a média de cada categoria aparece como **texto ao lado do campo**, com um botão **Usar sugestão**. O campo do plano fica vazio (placeholder `0,00`) até você digitar ou tocar em **Usar sugestão**. A sugestão **não entra nos totais** enquanto não virar plano.
-- **Guardar:** a linha mostra "Guardado", "A guardar · previsto R$ ...", "Faltam R$ ..." ou "Nada guardado". O plano dela é a meta; para mudar a meta, edite o plano aqui ou no cartão Meta de economia. Guardar entra como compromisso fixo; o disponível já desconta.
+- **Guardar:** a linha mostra "Guardado", "A guardar · previsto R$ ...", "Faltam R$ ..." ou "Nada guardado". O plano dela é a meta; para mudar a meta, edite o plano aqui ou no cartão Meta de economia. Enquanto a transferência não é lançada, a meta entra como plano sem lançamento; depois de confirmar, entra como realizado.
 
-O app nunca inventa previsão: categoria sem plano conta só o que foi lançado. A média é uma sugestão, não um plano; ela só entra nas contas depois que você usa. Apagar um plano não cancela a despesa: só deixa de reservá-la — o app avisa e oferece **Desfazer**.
+O app nunca inventa previsão: categoria sem plano conta só o que foi lançado. O plano de uma categoria só entra enquanto ela não tem lançamento; depois do primeiro lançamento, o plano fica só no ritmo e o que conta é o realizado. A média é uma sugestão, não um plano; ela só entra nas contas depois que você usa. Apagar um plano não cancela a despesa: só deixa de reservá-la — o app avisa e oferece **Desfazer**.
 
 ### Planilha (melhor no computador)
 

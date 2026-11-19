@@ -1,6 +1,6 @@
 {
   "name": "bsdesenv-financas",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "private": true,
   "description": "Controle financeiro pessoal no Google Sheets + Apps Script",
   "license": "MIT",

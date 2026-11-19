@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0 — 2026-11-19
+
+### Mudou
+- **Volta à regra da planilha:** o plano de uma categoria só entra enquanto ela não tem lançamento. Depois do primeiro lançamento, o plano deixa de contar e só o realizado conta.
+- **Disponível = sobra.** O número principal volta a ser a sobra da planilha (renda − gastos). A reserva do "restante dos planos já iniciados" foi removida; o que conta é o lançado e o plano das categorias sem lançamento.
+- **Planos sem lançamento.** O KPI e a linha do herói mostram só os planos das categorias sem nenhum gasto. É o "previsto" da planilha.
+- **De onde vem o disponível.** A folha mostra planos sem lançamento, o plano usado no ritmo (que não desconta o disponível) e as categorias acima do plano.
+- **Ritmo do plano.** O plano da barra é só referência de ritmo; o plano de uma categoria com lançamento não desconta o disponível.
+- **Mês.** "Gastos do mês" inclui lançado + previsto; "Sobra do mês" é a mesma do Início.
+
 ## 2.1.3 — 2026-11-18
 
 ### Corrigido

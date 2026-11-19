@@ -83,36 +83,30 @@ Campos de `resumo(ano, mes)`:
 | `rendaReal` | soma dos lançamentos das categorias de renda |
 | `rendaPlano` | soma dos planos das categorias de renda |
 | `renda` | soma, nas categorias de renda, do valor por categoria: o lançado; sem lançamento, o plano |
-| `rendaBase` | `rendaReal > 0 ? rendaReal : renda`: limite conservador, usa o que já entrou; se nada entrou, usa o plano |
 | `gastosConsumo` | valor por categoria das categorias de consumo (exclui Guardar) |
 | `gastoConsumoReal` | lançado nas categorias de consumo (exclui Guardar) |
 | `gastos` | todas as saídas, incluindo Guardar |
 | `gastoReal` | lançado em todas as saídas, incluindo Guardar |
 | `guardadoPlano` | plano de Guardar (a meta do mês) |
 | `guardadoReal` | lançado em Guardar (a transferência feita) |
-| `aRealizar` | soma de `max(0, plano − real)` de todas as categorias de saída; inclui Guardar |
-| `aRealizarConsumo` | o mesmo, só nas categorias de consumo |
-| `previsto` | `gastos − gastoReal`: a diferença agregada dos planos sem lançamento |
-| `aindaNaConta` | `rendaBase − gastoReal`: o dinheiro que já entrou menos o que já saiu |
-| `restanteIniciados` | `aRealizar − previsto`: o que falta nos planos de categorias que já tiveram algum lançamento |
-| `disponivel` | `rendaBase − gastoReal − aRealizar` (equivale a `sobraBase − restanteIniciados`) |
+| `previsto` | `gastos − gastoReal`: o plano das categorias sem lançamento |
+| `aindaNaConta` | `renda − gastoReal`: o dinheiro que já entrou menos o que já saiu |
+| `disponivel` | `renda − gastos` = `sobra` = `aindaNaConta − previsto` |
 | `porDia` | `disponivel / dias restantes` no mês atual; 0 nos demais |
-| `sobra` | `renda − gastos` (projeção; inclui Guardar) |
-| `sobraBase` | `rendaBase − gastoReal − previsto`: a sobra otimista do mês atual, com a renda recebida; é `aindaNaConta − previsto` |
-| `sobraSeGastarPlanos` | `renda − gastoReal − aRealizar` (se gastar tudo o que ainda está nos planos) |
+| `sobra` | `renda − gastos` (regra da v1; inclui Guardar) |
 | `sobraReal` | `rendaReal − gastoReal` (realizado) |
 | `planoGastos` e `gastoComPlano` | só categorias de consumo; alimentam a barra do plano |
 | `semPlano` e `semPlanoQtd` | só consumo, sem plano |
 | `qtdGastos` e `qtdConsumo` | quantidade de lançamentos de saída e de consumo |
 | `aVencer` | fixos com plano e sem lançamento, para o cartão "A vencer"; o cartão exclui Guardar |
 
-`previsto` e `aRealizar` não são a mesma coisa: `aRealizar` soma apenas o que falta em cada plano e não desconta o que passou dele; `previsto` é a diferença agregada entre `gastos` e `gastoReal`. A soma `previsto + restanteIniciados` é o `aRealizar`.
+`previsto` é a diferença agregada entre `gastos` e `gastoReal`: o plano das categorias que ainda não tiveram lançamento. O plano de uma categoria que já teve lançamento não entra em `gastos` (vale o realizado) e não desconta o disponível; ele só alimenta a barra de ritmo.
 
-A diferença central está entre `sobraBase` e `disponivel`: `sobraBase` responde "quanto sobra se o mês terminar como está previsto, sem gastar o restante dos planos já iniciados?" e `disponivel` responde "quanto posso gastar agora sem furar os planos nem a meta?". A ponte é `sobraBase − restanteIniciados = disponivel`. O `previsto` já está dentro da `sobraBase`; por isso não se desconta o `aRealizar` inteiro dela. Quando parte da renda ainda não entrou, `disponivel` é menor que `sobra`.
+`disponivel` é igual a `sobra`: a regra é a da v1, lançado; sem lançamento, o plano. O plano de uma categoria com lançamento não conta no disponível; só o realizado. A barra do ritmo ainda mostra o plano de todas as categorias de consumo, mas ele é só uma referência de ritmo, não uma reserva.
 
 - **Mês fechado:** `sobraReal` é o realizado. `sobra` continua sendo o valor por categoria (o plano quando não há lançamento). Nas telas de mês passado, o app usa `sobraReal` quando há renda/lançamento real e rotula "realizada"; sem dados reais, usa `sobra` e rotula "com previsto".
-- **Herói:** mostra a conta completa: `rendaBase − gastoReal = aindaNaConta`; `aindaNaConta − previsto = sobraBase`; `sobraBase − restanteIniciados = disponivel`. A sobra otimista não é o número principal; ela aparece na tela Mês e no gráfico anual. O link "De onde vem esse valor?" abre a folha com a mesma conta e a lista de categorias em planos sem lançamento, restante dos planos iniciados e acima do plano.
-- **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra.
+- **Herói:** mostra `renda − gastoReal = aindaNaConta` e `aindaNaConta − previsto = disponivel`. O link "De onde vem esse valor?" abre a folha com a mesma conta, as categorias sem lançamento, o plano usado no ritmo e as categorias acima do plano.
+- **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra. O plano aqui é só ritmo: não desconta o disponível.
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele. Guardar é sempre `ok`: guardar mais que a meta é bom.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.
 

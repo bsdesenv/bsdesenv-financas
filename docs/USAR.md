@@ -81,11 +81,12 @@ Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e
 
 Cada categoria com o que foi gasto, o plano e o ritmo. É aqui que você **planeja**:
 
-- **Copiar de** (nome do mês anterior)**:** repete o plano do mês passado.
-- **Usar as médias:** grava como plano a média dos últimos 3 meses. Só acontece se você tocar no botão.
+- **Copiar de** (nome do mês anterior)**:** repete o plano do mês passado. O aviso mostra quantas categorias e o total; dá para **Desfazer**.
+- **Preencher com as médias:** grava como plano a média dos últimos 3 meses em todas as categorias que têm histórico. Só acontece se você tocar no botão, e o aviso mostra o total e oferece **Desfazer**.
+- **Usar sugestão:** a média de cada categoria aparece como **texto ao lado do campo**, com um botão **Usar sugestão**. O campo do plano fica vazio (placeholder `0,00`) até você digitar ou tocar em **Usar sugestão**. A sugestão **não entra nos totais** enquanto não virar plano.
 - **Guardar:** a linha mostra "Guardado", "A guardar · previsto R$ ...", "Faltam R$ ..." ou "Nada guardado". O plano dela é a meta; para mudar a meta, edite o plano aqui ou no cartão Meta de economia. Guardar entra como compromisso fixo; o disponível já desconta.
 
-O app nunca inventa previsão: categoria sem plano conta só o que foi lançado. A média aparece como sugestão no campo. Apagar um plano não cancela a despesa: só deixa de reservá-la — o app avisa e oferece **Desfazer**.
+O app nunca inventa previsão: categoria sem plano conta só o que foi lançado. A média é uma sugestão, não um plano; ela só entra nas contas depois que você usa. Apagar um plano não cancela a despesa: só deixa de reservá-la — o app avisa e oferece **Desfazer**.
 
 ### Planilha (melhor no computador)
 

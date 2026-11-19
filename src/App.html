@@ -907,13 +907,16 @@ function telaPlanejar() {
     if (!lista.length) return '';
     return `<section><h2 class="grupo-titulo"><span>${GRUPOS[g]}</span><span></span></h2><div class="lista">${lista.map((c) => {
       const e = planoExp(c.id, S.ano, S.mes); const med = media3(c.id, S.ano, S.mes);
-      return `<div class="linha-plano">${mono(c, true)}<label class="lp-nome" for="pl-${esc(c.id)}">${esc(c.nome)}<span>${med ? 'média de 3 meses: ' + moeda(med) : 'sem histórico'}</span></label>`
-        + `<input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="${med ? num(med) : '0,00'}"></div>`;
+      const resumo = `${e ? 'plano atual: ' + moeda(e) : 'sem plano'}${med ? ' · sugestão: ' + moeda(med) : ''}`;
+      return `<div class="linha-plano">${mono(c, true)}<label class="lp-nome" for="pl-${esc(c.id)}">${esc(c.nome)}<span>${resumo}</span></label>`
+        + `<div class="lp-campo"><input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="0,00">`
+        + (med > 0 ? `<button type="button" class="link" tabindex="-1" data-acao="plano-sugestao" data-cat="${esc(c.id)}" data-valor="${med}" data-foco="sug-${esc(c.id)}">Usar sugestão</button>` : '')
+        + '</div></div>';
     }).join('')}</div></section>`;
   }).join('');
-  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média dos 3 meses aparece só como sugestão. Guardar entra como compromisso fixo; o disponível já desconta.</p>`
+  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média é só uma sugestão: ela não entra nas contas até você usar. Guardar entra como compromisso fixo; o disponível já desconta.</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
-    + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Usar as médias</button>'
+    + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Preencher com as médias</button>'
     + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
 }
 
@@ -1337,8 +1340,8 @@ function abrirCategoria(cid, ano, mes) {
         const inp = $('#fc-plano', el);
         if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
         const med = media3(cid, ano, mes);
-        inp.placeholder = med ? num(med) : '0,00';
-        $('#fc-plano-dica', el).textContent = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. ` : '') + 'Campo vazio = sem previsto nas contas.';
+        inp.placeholder = '0,00';
+        $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio = sem previsto nas contas. A sugestão não entra nas contas até você usar.';
       };
       const adicionar = () => {
         const msg = $('#fc-msg', el);
@@ -1361,6 +1364,14 @@ function abrirCategoria(cid, ano, mes) {
         if (f === 'fechar') fecharFolha();
         else if (f === 'adicionar') adicionar();
         else if (f === 'confirmar') confirmarPrevisto(cid, ano, mes);
+        else if (f === 'sugestao') {
+          const med = media3(cid, ano, mes);
+          if (!med) return;
+          const antes = planoExp(cid, ano, mes);
+          registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: med });
+          aviso(`Plano de ${c.nome}: ${moeda(med)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes || null }) });
+          atualizar();
+        }
         else if (f === 'repetir') {
           const v = paraNumero($('#fc-plano', el).value);
           if (!v) { aviso('Digite o valor do plano antes de repetir.'); return; }
@@ -1737,15 +1748,33 @@ const ACOES = {
   'exportar-json': () => exportarJSON(),
   'exportar-csv': () => exportarCSV(),
   importar: () => abrirImportar(),
+  'plano-sugestao': (el) => {
+    const c = catPorId(el.dataset.cat); const v = Number(el.dataset.valor);
+    if (!c || !(v > 0)) return;
+    const antes = planoExp(c.id, S.ano, S.mes);
+    registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v });
+    aviso(`Plano de ${c.nome}: ${moeda(v)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null }) });
+  },
   'plano-copiar': () => {
-    const ant = deChave(chaveMes(S.ano, S.mes) - 1); let n = 0;
-    for (const c of cats()) { const v = valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes); if (v > 0) { registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: arred(v) }); n++; } }
-    aviso(n ? `Plano copiado de ${MESES[ant.mes - 1]} (${n} categorias).` : `Nada para copiar de ${MESES[ant.mes - 1]}.`);
+    const ant = deChave(chaveMes(S.ano, S.mes) - 1);
+    const alvo = cats().map((c) => ({ c, antes: planoExp(c.id, S.ano, S.mes), v: arred(valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes)) }))
+      .filter((x) => x.v > 0 && x.v !== x.antes);
+    alvo.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }));
+    const total = alvo.reduce((a, x) => a + x.v, 0);
+    aviso(alvo.length ? `Plano copiado de ${MESES[ant.mes - 1]} em ${alvo.length} categoria${alvo.length > 1 ? 's' : ''}: ${moeda(total)}.` : `Nada para copiar de ${MESES[ant.mes - 1]}.`, {
+      acao: alvo.length ? 'Desfazer' : undefined,
+      fn: alvo.length ? () => alvo.forEach(({ c, antes }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null })) : undefined,
+    });
   },
   'plano-media': () => {
-    let n = 0;
-    for (const c of cats()) { const v = media3(c.id, S.ano, S.mes); if (v > 0) { registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }); n++; } }
-    aviso(n ? `Plano preenchido com as médias (${n} categorias).` : 'Ainda não há histórico para calcular médias.');
+    const alvo = cats().map((c) => ({ c, antes: planoExp(c.id, S.ano, S.mes), v: media3(c.id, S.ano, S.mes) }))
+      .filter((x) => x.v > 0 && x.v !== x.antes);
+    alvo.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }));
+    const total = alvo.reduce((a, x) => a + x.v, 0);
+    aviso(alvo.length ? `Plano preenchido com as médias em ${alvo.length} categoria${alvo.length > 1 ? 's' : ''}: ${moeda(total)}.` : 'Ainda não há histórico para calcular médias.', {
+      acao: alvo.length ? 'Desfazer' : undefined,
+      fn: alvo.length ? () => alvo.forEach(({ c, antes }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null })) : undefined,
+    });
   },
   'plano-limpar': () => {
     const antes = cats().map((c) => ({ c, v: planoExp(c.id, S.ano, S.mes) })).filter((x) => x.v);

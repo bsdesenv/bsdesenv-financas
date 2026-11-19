@@ -68,7 +68,7 @@ Para uma categoria num mês:
 | sem lançamento, com plano | o plano, marcado como "previsto" |
 | sem lançamento, sem plano | zero |
 
-É a regra da versão 1. Nada é estimado por conta própria: a média dos 3 meses anteriores só aparece como sugestão e só vira plano quando a pessoa grava ("Usar as médias"). Assim, apagar um lançamento ou um plano muda o total na hora.
+É a regra da versão 1. Nada é estimado por conta própria: a média dos 3 meses anteriores só aparece como sugestão ao lado do campo, com o botão "Usar sugestão", e só vira plano quando a pessoa grava (ou usa "Preencher com as médias"). O campo vazio não usa a média. Assim, apagar um lançamento ou um plano muda o total na hora.
 
 Três noções atravessam o app:
 

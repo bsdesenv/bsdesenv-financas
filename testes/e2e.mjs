@@ -368,6 +368,43 @@ await caso('de onde vem: separa planos sem lançamento e restante dos planos ini
   await p.close();
 });
 
+await caso('sugestão de média: aparece, mas só entra no plano quando você usa', async () => {
+  const dados = {
+    nome: 'Sugestão', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+    ],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  const b = dados.anos[2026];
+  for (const mes of [8, 9, 10]) {
+    b.lancamentos.push({ id: 's' + mes + 'r', mes, dia: 5, categoriaId: 'salario', descricao: '', valor: 10000 });
+    b.lancamentos.push({ id: 's' + mes + 'm', mes, dia: 6, categoriaId: 'mercado', descricao: '', valor: 1000 });
+  }
+  b.lancamentos.push({ id: 'n1', mes: 11, dia: 5, categoriaId: 'salario', descricao: '', valor: 10000 });
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'sugestao-media'));
+  await pronto(p);
+  // A média de 1.000 não é plano: o disponível continua 10.000.
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10000));
+  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(0));
+  await irPara(p, 'mes');
+  await p.click('[data-modo="planejar"]'); await sleep(150);
+  assert.equal(await p.$eval('#pl-mercado', (e) => e.value), '', 'campo do plano começa vazio');
+  assert.equal(await p.$eval('#pl-mercado', (e) => e.placeholder), '0,00', 'a sugestão não fica no placeholder');
+  const tela = await p.$eval('#tela', (e) => e.innerText);
+  assert.ok(tela.includes('sugestão: ' + moeda(1000)), 'a sugestão aparece como texto');
+  await p.click('[data-acao="plano-sugestao"][data-cat="mercado"]');
+  await sincronizado(p);
+  await sleep(200);
+  const plano = a.servidor.planilha.ler('orcamento').find((l) => l[1] === 'mercado' && l[2] === 11);
+  assert.ok(plano && plano[3] === 1000, 'a sugestão só vira plano quando você usa');
+  await irPara(p, 'inicio');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'agora o plano reserva 1.000');
+  assert.equal((await kpiDe(p, 'Ainda planejado')).valor, moeda(1000));
+  await p.close();
+});
+
 await caso('renda parcial: KPI mostra o plano e o disponível usa o que já entrou', async () => {
   const dados = {
     nome: 'Renda parcial', categorias: [

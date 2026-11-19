@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.3 — 2026-11-18
+
+### Corrigido
+- **A sugestão de média não entra mais nos totais.** O campo do plano começa vazio (placeholder `0,00`) e a média dos 3 meses aparece ao lado, como texto, com o botão **Usar sugestão**. Ela só vira plano quando você usa; até lá, não entra no gasto previsto, no disponível nem na sobra.
+- **Preencher com as médias** agora mostra quantas categorias foram preenchidas e o total, e oferece **Desfazer**. O botão antigo se chamava "Usar as médias".
+- **Copiar de** também mostra o total e oferece **Desfazer**.
+
 ## 2.1.2 — 2026-11-18
 
 ### Mudou

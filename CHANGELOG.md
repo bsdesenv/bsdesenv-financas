@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.1 — 2026-11-19
+
+### Mudou
+- **No celular, o anel de composição vira uma barra.** O herói do Início mostra uma barra horizontal compacta com as mesmas três partes do anel — **Já saiu**, **Planos sem lançamento** e **Disponível** —, com a mesma legenda e porcentagens. No computador, o anel continua. A regra de cálculo não mudou.
+
 ## 2.4.0 — 2026-11-19
 
 ### Novo

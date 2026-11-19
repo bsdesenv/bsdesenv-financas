@@ -258,6 +258,15 @@ await caso('topo: anel de composição e micrográficos nos KPIs', async () => {
   await p.close();
 });
 
+await caso('celular: anel vira barra de composição; no computador continua anel', async () => {
+  await irPara(cel, 'inicio');
+  assert.equal(await cel.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'no celular o anel some');
+  assert.equal(await cel.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'flex', 'no celular a barra aparece');
+  await irPara(pc, 'inicio');
+  assert.notEqual(await pc.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'no computador o anel fica');
+  assert.equal(await pc.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'none', 'no computador a barra some');
+});
+
 await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava depois', async () => {
   amb.falhar = true;
   await cel.tap('.inf-mais'); await folhaAberta(cel);

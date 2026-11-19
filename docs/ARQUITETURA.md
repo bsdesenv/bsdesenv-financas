@@ -66,7 +66,7 @@ O atalho `N` foca esse campo no computador; no celular, como o campo não existe
 
 ## Camada visual do Início
 
-O topo do Início é só exibição. `cartaoHeroi()` desenha o anel de composição a partir de `gastoReal`, `previsto` e `disponivel` (e a linha-ponte Renda/Ainda na conta); `cartaoKpis()` desenha os micrográficos — sparkline da renda dos últimos 6 meses, barras por dia do mês a partir dos lançamentos, lista das 3 maiores categorias sem lançamento e anel da meta de Guardar. O cálculo continua sendo o de `resumo(ano, mes)`, sem fórmula nova: vale a regra da v2.2.0 descrita abaixo.
+O topo do Início é só exibição. `cartaoHeroi()` desenha o anel de composição a partir de `gastoReal`, `previsto` e `disponivel` (e a linha-ponte Renda/Ainda na conta); no celular, o CSS troca o anel por uma barra compacta com as mesmas partes; `cartaoKpis()` desenha os micrográficos — sparkline da renda dos últimos 6 meses, barras por dia do mês a partir dos lançamentos, lista das 3 maiores categorias sem lançamento e anel da meta de Guardar. O cálculo continua sendo o de `resumo(ano, mes)`, sem fórmula nova: vale a regra da v2.2.0 descrita abaixo.
 
 ## Regras de cálculo
 

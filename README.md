@@ -5,7 +5,7 @@ Controle financeiro pessoal que roda no **Google Sheets + Apps Script**: rápido
 *Personal finance tracker built on Google Sheets + Apps Script (Portuguese UI). Your data stays in your own spreadsheet.*
 
 <p>
-  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar com anel de composição, números do mês com micrográficos, meta de economia, ritmo do plano e contas a vencer" width="260">
+  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar com barra de composição, números do mês com micrográficos, meta de economia, ritmo do plano e contas a vencer" width="260">
   <img src="docs/img/celular-lancar.png" alt="Novo lançamento no celular: teclado numérico, data e categorias" width="260">
   <img src="docs/img/celular-mes.png" alt="Mês no celular: cada categoria com gasto, plano e ritmo" width="260">
 </p>

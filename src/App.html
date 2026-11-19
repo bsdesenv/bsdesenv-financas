@@ -626,7 +626,12 @@ function cartaoHeroi(r) {
     const anelBg = r.renda > 0
       ? `conic-gradient(var(--acento) 0 ${pctSaiu}%, var(--atencao) ${pctSaiu}% ${corte}%, var(--ok) ${corte}% 100%)`
       : 'var(--trilho)';
-    const anel = `<div class="anel" style="background:${anelBg}" role="img" aria-label="Já saiu ${Math.round(pctSaiu)}%, planos sem lançamento ${Math.round(pctPlano)}%, disponível ${Math.round(pctLivre)}%"><div class="anel-centro"><strong>${Math.round(pctLivre)}%</strong><span>livre</span></div></div>`;
+    const rotuloComposicao = `Já saiu ${Math.round(pctSaiu)}%, planos sem lançamento ${Math.round(pctPlano)}%, disponível ${Math.round(pctLivre)}%`;
+    const anel = `<div class="anel" style="background:${anelBg}" role="img" aria-label="${rotuloComposicao}"><div class="anel-centro"><strong>${Math.round(pctLivre)}%</strong><span>livre</span></div></div>`;
+    const barraComposicao = `<div class="heroi-barra" role="img" aria-label="${rotuloComposicao}">`
+      + `<i style="width:${pctSaiu}%;background:var(--acento)"></i>`
+      + (r.previsto > 0 ? `<i style="width:${pctPlano}%;background:var(--atencao)"></i>` : '')
+      + `<i style="width:${pctLivre}%;background:var(--ok)"></i></div>`;
     const legenda = '<div class="heroi-legenda">'
       + `<div><i style="background:var(--acento)"></i><span>Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
       + (r.previsto > 0 ? `<div><i style="background:var(--atencao)"></i><span>Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong><em>${Math.round(pctPlano)}%</em></div>` : '')
@@ -636,7 +641,7 @@ function cartaoHeroi(r) {
       + `<h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
       + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
       + `<div class="heroi-bridge"><span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span><span>Ainda na conta <strong>${moeda(r.aindaNaConta)}</strong></span></div>`
-      + legenda
+      + legenda + barraComposicao
       + '<p class="heroi-nota">O plano só conta enquanto a categoria não tem lançamento. <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
       + `</div>${anel}</div></section>`;
   }

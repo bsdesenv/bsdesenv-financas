@@ -741,7 +741,7 @@ function cartaoMeta(r) {
       : '<button type="button" class="botao" data-acao="criar-guardar" data-foco="criar-guardar">Criar “Guardar”</button>';
     return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
       + '<p class="sub">Separe um valor antes de gastar. Enquanto a meta não é lançada, o app a desconta do disponível como plano sem lançamento; depois, entra o realizado.</p>'
-      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% da sua sobra média dos últimos ${sug.meses} meses fechados.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
+      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% do que sobrou da renda depois dos gastos de consumo nos últimos ${sug.meses} meses fechados.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
       + `<div class="acoes">${botao}</div></section>`;
   }
   const meta = planoExp(g.id, S.ano, S.mes);
@@ -1791,7 +1791,7 @@ function planejarSemPlano() {
     criados.push(c.id); total += valor;
   }
   if (!criados.length) { aviso('Nenhuma categoria de consumo sem plano para planejar.'); return; }
-  aviso(`Plano criado para ${criados.length} categoria${criados.length > 1 ? 's' : ''}: ${moeda(total)}. O disponível agora reserva esse valor.`, {
+  aviso(`Plano criado para ${criados.length} categoria${criados.length > 1 ? 's' : ''}: ${moeda(total)}. Como essas categorias já têm lançamento, o valor entra no ritmo, não no disponível.`, {
     acao: 'Desfazer',
     fn: () => criados.forEach((id) => registrar({ t: 'orc', ano, categoriaId: id, mes, valor: null })),
   });

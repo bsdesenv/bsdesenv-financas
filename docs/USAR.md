@@ -4,7 +4,7 @@ Um guia curto do dia a dia. Se ainda não instalou, comece por [INSTALAR.md](INS
 
 ## A ideia em uma frase
 
-Primeiro guardar, depois gastar: você diz quanto **planeja** gastar em cada categoria e quanto quer **guardar** no mês. O app reserva a meta de Guardar e os planos, **lança** o que gasta e recebe, e mostra o **disponível para gastar** até o fim do mês — uma conta conservadora, que usa a renda já recebida (ou a prevista, se nada entrou).
+Primeiro guardar, depois gastar: você diz quanto **planeja** gastar em cada categoria e quanto quer **guardar** no mês. O app **lança** o que gasta e recebe e mostra o **disponível para gastar** até o fim do mês: **renda − o que já saiu − os planos das categorias sem lançamento**. Cada categoria conta pelo que foi lançado; se ainda não teve lançamento, vale o plano. É uma conta conservadora, sem média inventada.
 
 ## Primeiro acesso
 
@@ -17,7 +17,7 @@ O app pede um nome (por exemplo "Finanças da casa") e um modelo de categorias:
 | **Autônomo** | o essencial, mais impostos, ferramentas de trabalho, rendas de serviço e Guardar |
 | **Do zero** | "Guardar", "Gastos" e "Renda"; você cria o resto depois |
 
-Todos os modelos já vêm com a categoria **Guardar**, um fixo especial. Em todos eles, o app reserva primeiro a meta de Guardar; o resto é o disponível para gastar. Se você importar um backup antigo sem essa categoria, o cartão **Meta de economia** oferece criá-la.
+Todos os modelos já vêm com a categoria **Guardar**, um fixo especial. Em todos eles, o app reserva primeiro a meta de Guardar e os planos das categorias que ainda não têm lançamento; o resto é o disponível para gastar. Se você importar um backup antigo sem essa categoria, o cartão **Meta de economia** oferece criá-la.
 
 Dá para mudar tudo depois em **Ajustes › Categorias**: renomear, reordenar, criar e apagar.
 
@@ -27,7 +27,7 @@ Dá para mudar tudo depois em **Ajustes › Categorias**: renomear, reordenar, c
 - **Variáveis:** o que muda conforme o uso (mercado, transporte, restaurante).
 - **Rendas:** o que entra (salário, serviços, outras rendas).
 
-Isso importa porque o app trata cada grupo de um jeito: no **disponível**, os planos ainda não gastos ficam reservados, inclusive os das variáveis parcialmente gastas; as variáveis também ganham alerta de ritmo.
+Isso importa porque o app trata cada grupo de um jeito: no **disponível**, só ficam reservados os planos das categorias que ainda não tiveram lançamento; depois do primeiro lançamento, vale o realizado. As variáveis também ganham alerta de ritmo.
 
 ## Guardar
 
@@ -57,7 +57,7 @@ Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque n
 - **Ritmo do plano:** cartão separado do disponível. A barra compara o gasto das categorias de consumo com o plano delas e com o ritmo do mês: fica em **atenção** quando você está mais de 12 pontos à frente do mês, e em **acima** quando passa do plano. Guardar fica de fora. No topo, **Ajustar plano** leva para **Mês › Planejar**. O cartão mostra `Plano = X% da renda do mês` e a meta de economia com o valor e o percentual da renda; **Ajustar meta** foca o campo da Meta de economia. O plano aqui é **só ritmo**: o plano de uma categoria com lançamento não desconta o disponível; o que conta é o realizado.
 - **Números do mês:** os quatro KPIs mantêm rótulos, valores e subs, agora com ícone e um micrográfico. **Renda do mês** (**recebida** ou **prevista**) mostra um sparkline dos últimos 6 meses; **já saiu** (gastos; inclui Guardar quando houver transferência) mostra barras por dia do mês, com hoje destacado; **planos sem lançamento** (o que ainda não tem gasto e entra como previsto) lista as 3 maiores categorias pendentes, ou “Nenhum plano pendente”; e **guardado** (com a meta, quando existe) mostra um anel de progresso da meta, ou “—” quando não há meta. No celular, os KPIs continuam em 2 colunas.
 - **Variáveis do mês:** só as categorias variáveis. O topo resume **Gasto**, **Plano** e **Ainda previsto** (o plano das variáveis que ainda não têm lançamento). O gráfico **“Para onde foi”** mostra as 5 maiores categorias variáveis do mês + **Outras**, com legenda e percentuais. No rodapé, **Lançar** abre o formulário completo e **Ajustar planos** leva para **Mês › Planejar**. A dica lembra: “Toque numa categoria para lançar ou ajustar o plano”.
-- **Meta de economia:** a meta do mês, o que já foi guardado e o que falta. Ao lado da meta aparece o percentual da renda (por exemplo, `Meta R$ 2.000,00 · 16,6% da renda`); **Limpar meta** remove o plano de Guardar do mês, com aviso e **Desfazer**. O campo abaixo da barra grava a meta (também dá para editá-la na tela Mês); **Confirmar** lança a transferência com a data de hoje. Enquanto a meta não é lançada, ela entra como plano sem lançamento; depois, entra o realizado e o disponível não muda se o valor for o mesmo. Se a categoria Guardar ainda não existe, o cartão mostra uma sugestão de **80% da sua sobra média realizada dos últimos 3 meses fechados** e oferece criar a categoria já com esse valor. A sugestão não é automática: ela só vira meta quando você toca no botão ou grava o valor.
+- **Meta de economia:** a meta do mês, o que já foi guardado e o que falta. Ao lado da meta aparece o percentual da renda (por exemplo, `Meta R$ 2.000,00 · 16,6% da renda`); **Limpar meta** remove o plano de Guardar do mês, com aviso e **Desfazer**. O campo abaixo da barra grava a meta (também dá para editá-la na tela Mês); **Confirmar** lança a transferência com a data de hoje. Enquanto a meta não é lançada, ela entra como plano sem lançamento; depois, entra o realizado e o disponível não muda se o valor for o mesmo. Se a categoria Guardar ainda não existe, o cartão mostra uma sugestão de **80% da sua sobra de consumo dos últimos 3 meses fechados** — a renda recebida menos os gastos de consumo, sem contar as transferências para Guardar — e oferece criar a categoria já com esse valor. A sugestão não é automática: ela só vira meta quando você toca no botão ou grava o valor.
 - **Cobertura do plano:** aparece quando há categorias de consumo sem plano. Mostra **“Sem plano: R$ ...”**, o valor que está fora da barra, e oferece **Planejar agora**, pela média dos últimos 3 meses (ou pelo valor já lançado, quando não há média). Como essas categorias já têm lançamento, o plano novo entra no ritmo, mas não desconta o disponível; o que conta é o realizado.
 - **A vencer este mês:** contas fixas com plano e sem lançamento, sem Guardar. O botão **Confirmar** lança o valor do plano com a data de hoje.
 - **Avisos:** categorias de consumo que passaram do plano ou que estão gastando rápido demais. Guardar nunca entra como "passou do plano".
@@ -82,7 +82,7 @@ Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e
 
 Cada categoria com o que foi gasto, o plano e o ritmo. É aqui que você **planeja**:
 
-- **Copiar de** (nome do mês anterior)**:** repete o plano do mês passado. O aviso mostra quantas categorias e o total; dá para **Desfazer**.
+- **Copiar de** (nome do mês anterior)**:** usa os valores do mês passado como plano deste mês — o que foi lançado e, nas categorias sem lançamento, o plano. O aviso mostra quantas categorias e o total; dá para **Desfazer**.
 - **Preencher com as médias:** grava como plano a média dos últimos 3 meses em todas as categorias que têm histórico. Só acontece se você tocar no botão, e o aviso mostra o total e oferece **Desfazer**.
 - **Usar sugestão:** a média de cada categoria aparece como **texto ao lado do campo**, com um botão **Usar sugestão**. O campo do plano fica vazio (placeholder `0,00`) até você digitar ou tocar em **Usar sugestão**. A sugestão **não entra nos totais** enquanto não virar plano.
 - **Guardar:** a linha mostra "Guardado", "A guardar · previsto R$ ...", "Faltam R$ ..." ou "Nada guardado". O plano dela é a meta; para mudar a meta, edite o plano aqui ou no cartão Meta de economia. Enquanto a transferência não é lançada, a meta entra como plano sem lançamento; depois de confirmar, entra como realizado.

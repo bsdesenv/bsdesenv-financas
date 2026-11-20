@@ -28,7 +28,7 @@ Descrição da playlist:
 "Tutoriais do Finanças para o perfil Computador, na ordem de uso. Os nomes e dados que aparecem na tela são fictícios."
 
 Visibilidade: todo vídeo sobe **privado**, com "Não é conteúdo para crianças". Público ou não listado é decisão de quem
-administra o canal. Em 19/11/2026, a pedido, a playlist e os cinco vídeos passaram para **Não listado**, como a série do SIG.
+administra o canal. Em 19/11/2026, a pedido, a playlist e os seis vídeos passaram para **Não listado**, como a série do SIG.
 
 Enviado em 19/11/2026: os seis vídeos ficaram **não listados**, marcados "Não é conteúdo para crianças", e entraram na playlist
 **Finanças · Tutoriais** (**não listada**, como a do SIG) na ordem C00..C05. Os vídeos também foram para não listado, senão o

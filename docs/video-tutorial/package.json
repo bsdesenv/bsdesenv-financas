@@ -1,0 +1,9 @@
+{
+  "name": "video-tutorial",
+  "private": true,
+  "type": "module",
+  "description": "Gravação de vídeos tutoriais narrados (Playwright + edge-tts + ffmpeg)",
+  "dependencies": {
+    "playwright": "1.65.0"
+  }
+}

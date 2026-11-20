@@ -1,0 +1,12 @@
+# Estado local e saída: nada disto vai ao git.
+node_modules/
+base/
+vagas/
+falas/
+video/
+saida/
+prototipo/
+# ffmpeg de gravação gerado por ferramentas.mjs e fotos de explorar.mjs
+ferramentas/
+explorar/
+__pycache__/

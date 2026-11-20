@@ -13,6 +13,7 @@
     "test:e2e": "node testes/e2e.mjs",
     "prints": "node testes/e2e.mjs --prints",
     "exemplo": "node testes/gerar-exemplo.mjs",
-    "push": "clasp push"
+    "push": "clasp push",
+    "video:servidor": "node docs/video-tutorial/servidor.mjs"
   }
 }

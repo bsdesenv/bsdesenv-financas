@@ -5,7 +5,7 @@ Manifesto do envio, versionado: a coluna Situação é o estado entre sessões. 
 
 Arquivos: `docs/video-tutorial/saida/<NN-assunto>.mp4`.
 Canal: @bsdesenvmidia (UCthghR94q4MwDLQFCC8YkuA).
-Playlist nova: **Finanças · Tutoriais** (uma só, com a série inteira na ordem de uso) — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A (criada em 19/11/2026, privada, descrição já gravada).
+Playlist nova: **Finanças · Tutoriais** (uma só, com a série inteira na ordem de uso) — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A (criada em 19/11/2026, não listada, descrição já gravada).
 Perfil: Computador (o layout de desktop do app; a série usa o perfil `web` do kit, 1920 × 1080).
 
 Fim fixo de toda descrição: " Os nomes e dados que aparecem na tela são fictícios."

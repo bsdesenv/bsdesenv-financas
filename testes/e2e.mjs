@@ -398,7 +398,7 @@ await caso('de onde vem: mostra planos sem lançamento e o plano usado no ritmo'
   const texto = await p.$eval('.folha .folha-corpo', (e) => e.innerText);
   assert.ok(texto.includes('Ainda na conta'), 'mostra o dinheiro que já entrou');
   assert.ok(texto.includes('Planos sem lançamento'), 'lista os planos sem lançamento');
-  assert.ok(texto.includes('Plano usado no ritmo'), 'mostra o plano das categorias já iniciadas sem descontá-lo');
+  assert.ok(texto.includes('Plano restante nas categorias com lançamento'), 'mostra o plano das categorias já iniciadas sem descontá-lo');
   assert.ok(texto.includes('Ajustar planos'), 'oferece ajustar os planos');
   await p.close();
 });

@@ -447,7 +447,7 @@ function linhaLanc(l, ano, mapa) {
 function notaCategoria(c, v, est) {
   if (ehGuardar(c)) {
     if (v.plano > 0 && v.real >= v.plano) return 'Guardado';
-    if (!v.real && v.plano) return `A guardar · previsto ${moeda(v.plano)}`;
+    if (!v.real && v.plano) return `Previsto ${moeda(v.plano)} · nada guardado`;
     if (v.plano > 0) return `Faltam ${moeda(v.plano - v.real)}`;
     return v.real ? 'Guardado' : 'Nada guardado';
   }
@@ -616,10 +616,13 @@ function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
     const sub = r.disponivel > 0
-      ? `No máximo ≈ ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dias`
-      : 'Os gastos, os planos e a economia já passam da renda disponível.';
-    const rendaLbl = r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista';
-    const rendaDet = r.rendaReal > 0 && r.rendaPlano > r.rendaReal ? ` (de ${moeda(r.rendaPlano)})` : '';
+      ? r.restantes === 1
+        ? `Até ${moeda(r.porDia)} neste último dia do mês`
+        : `Até ${moeda(r.porDia)} por dia nos próximos ${r.restantes} dias`
+      : 'O que já saiu e os planos sem lançamento já passam da renda do mês.';
+    const rendaPendente = !(r.rendaReal > 0) || r.renda > r.rendaReal + 0.004;
+    const rendaLbl = r.rendaReal > 0 ? (rendaPendente ? 'Renda do mês' : 'Renda recebida') : 'Renda prevista';
+    const rendaDet = r.rendaReal > 0 && rendaPendente ? ` (recebida ${moeda(r.rendaReal)})` : '';
     const pctOf = (v) => r.renda > 0 ? Math.max(0, Math.min(100, (v / r.renda) * 100)) : 0;
     const pctSaiu = pctOf(r.gastoReal); const pctPlano = pctOf(r.previsto); const pctLivre = pctOf(Math.max(0, r.disponivel));
     const corte = Math.min(100, pctSaiu + pctPlano);
@@ -640,9 +643,9 @@ function cartaoHeroi(r) {
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><div class="heroi-topo"><div class="heroi-principal">`
       + `<h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
       + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
-      + `<div class="heroi-bridge"><span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span><span>Ainda na conta <strong>${moeda(r.aindaNaConta)}</strong></span></div>`
+      + `<div class="heroi-bridge"><span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span><span>${rendaPendente ? 'Restante previsto' : 'Ainda na conta'} <strong>${moeda(r.aindaNaConta)}</strong></span></div>`
       + legenda + barraComposicao
-      + '<p class="heroi-nota">O plano só conta enquanto a categoria não tem lançamento. <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + '<p class="heroi-nota">O plano só desconta o disponível enquanto a categoria não tem lançamento. <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
       + `</div>${anel}</div></section>`;
   }
   if (r.fase === 'passado') {
@@ -651,9 +654,10 @@ function cartaoHeroi(r) {
     const renda = real && r.rendaReal > 0 ? r.rendaReal : r.renda;
     const gastos = real ? r.gastoReal : r.gastos;
     const pct = renda > 0 ? Math.round((sobra / renda) * 100) : 0;
+    const pctTxt = pct >= 0 ? `sobra de ${pct}% da renda` : `gastos ${Math.abs(pct)}% acima da renda`;
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
       + `<p class="numero-heroi${sobra < 0 ? ' negativo' : ''}">${moeda(sobra)}</p>`
-      + `<p class="sub">Renda de ${moeda(renda)} e gastos de ${moeda(gastos)}${renda > 0 ? ` · ${pct}% da renda ${pct >= 0 ? 'guardados' : 'a mais nos gastos'}` : ''} · ${real ? 'realizada' : 'com previsto'}.</p></section>`;
+      + `<p class="sub">Renda de ${moeda(renda)} e gastos de ${moeda(gastos)}${renda > 0 ? ` · ${pctTxt}` : ''} · ${real ? 'valores reais' : 'valores previstos'}.</p></section>`;
   }
   return `<section class="cartao g-heroi heroi" aria-labelledby="h-plano"><h2 id="h-plano" class="rotulo">Plano de ${m} de ${S.ano}</h2>`
     + `<p class="numero-heroi${r.sobra < 0 ? ' negativo' : ''}">${moeda(r.sobra)}</p>`
@@ -676,10 +680,10 @@ function cartaoRitmo(r) {
     + '<button type="button" class="link" data-acao="planejar" data-foco="ritmo-ajustar">Ajustar plano</button></div>'
     + `<div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
     + barra({ pct, ritmo: r.ritmo, estado, alta: true })
-    + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês</span></div>`
-    + `<p class="sub" style="margin-top:6px">Plano = ${pctRenda}% da renda do mês.</p>`
+    + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês decorrido</span></div>`
+    + `<p class="sub" style="margin-top:6px">Plano de consumo = ${pctRenda}% da renda do mês.</p>`
     + `<p class="sub" style="margin-top:4px">${meta > 0 ? `Meta de economia: ${moeda(meta)} (${pct1(pctMeta)}% da renda).` : 'Defina uma meta de economia para guardar antes de gastar.'} <button type="button" class="link" data-acao="meta-foco" data-foco="ritmo-meta">Ajustar meta</button></p>`
-    + '<p class="sub" style="margin-top:4px">A barra compara o gasto com o plano de consumo. Esse plano é só ritmo: depois do primeiro lançamento, ele não desconta o disponível; o disponível usa apenas os planos sem lançamento.</p></section>';
+    + '<p class="sub" style="margin-top:4px">A barra compara o gasto com o plano de consumo. Depois do primeiro lançamento de uma categoria, o plano dela deixa de descontar o disponível: ali, só o realizado conta.</p></section>';
 }
 function cartaoKpis(r) {
   let tiles;
@@ -695,23 +699,27 @@ function cartaoKpis(r) {
     tiles = [
       { rot: 'Renda do mês', v: moeda(r.rendaPlano || r.renda), s: r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', cls: 'ok', icone: 'setaDesce', visual: sparkline(valsRenda) },
       { rot: 'Já saiu', v: moeda(r.gastoReal), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, cls: '', icone: 'setaSobe', visual: barrasDia(S.ano, S.mes) },
-      { rot: 'Planos sem lançamento', v: moeda(r.previsto), s: r.previsto ? 'o que falta lançar' : 'nenhum', cls: '', icone: 'calendario', visual: listaPend },
+      { rot: 'Planos sem lançamento', v: moeda(r.previsto), s: r.previsto ? 'ainda não lançado' : 'nenhum', cls: '', icone: 'calendario', visual: listaPend },
       { rot: 'Guardado', v: moeda(r.guardadoReal), s: r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : g ? 'sem meta neste mês' : 'defina uma meta', cls: '', icone: 'cadeado', visual: anelMeta },
     ];
   } else if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
+    const guardou = r.guardadoReal > 0;
+    const faltou = !guardou && r.sobraReal < 0;
+    const pctDaRenda = r.rendaReal > 0 ? Math.round(((guardou ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) : null;
+    const rotDaRenda = pctDaRenda === null ? 'Da renda' : guardou ? 'Da renda, guardou' : faltou ? 'Da renda, faltou' : 'Da renda, sobrou';
     tiles = [
       { rot: 'Renda', v: moeda(r.rendaReal || r.renda), s: r.rendaReal ? 'recebida' : 'prevista', cls: 'ok', icone: 'setaDesce' },
       { rot: 'Gastos', v: moeda(r.gastoReal || r.gastos), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, cls: '', icone: 'setaSobe' },
-      { rot: 'Sobra', v: moeda(real ? r.sobraReal : r.sobra), s: real ? 'realizada' : 'com previsto', cls: (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok', icone: 'check' },
-      { rot: 'Da renda, guardou', v: r.rendaReal > 0 ? Math.round(((r.guardadoReal > 0 ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) + '%' : '—', s: r.guardadoReal > 0 ? 'guardado' : '', cls: '', icone: 'cadeado' },
+      { rot: 'Sobra', v: moeda(real ? r.sobraReal : r.sobra), s: real ? 'realizada' : 'com valores previstos', cls: (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok', icone: 'check' },
+      { rot: rotDaRenda, v: pctDaRenda === null ? '—' : (faltou ? Math.abs(pctDaRenda) : pctDaRenda) + '%', s: pctDaRenda === null ? 'sem renda no mês' : guardou ? 'guardado' : faltou ? 'a mais nos gastos' : 'sobra do mês', cls: '', icone: 'cadeado' },
     ];
   } else {
     tiles = [
       { rot: 'Renda prevista', v: moeda(r.renda), s: '', cls: 'ok', icone: 'calendario' },
       { rot: 'Gastos previstos', v: moeda(r.gastos), s: '', cls: '', icone: 'setaSobe' },
       { rot: 'Sobra prevista', v: moeda(r.sobra), s: '', cls: r.sobra < 0 ? 'acima' : 'ok', icone: 'check' },
-      { rot: 'Lançado até agora', v: moeda(r.gastoReal), s: 'compras já lançadas para este mês', cls: '', icone: 'setaDesce' },
+      { rot: 'Lançado até agora', v: moeda(r.gastoReal), s: 'lançamentos já feitos para este mês', cls: '', icone: 'setaDesce' },
     ];
   }
   const card = (t) => `<div class="cartao kpi"><div class="kpi-topo"><span class="rotulo">${esc(t.rot)}</span><span class="kpi-icone" aria-hidden="true">${ic(t.icone, 16)}</span></div><strong class="kpi-valor ${t.cls || ''}">${esc(t.v)}</strong>${t.s ? `<span class="sub">${esc(t.s)}</span>` : ''}${t.visual || ''}</div>`;
@@ -739,9 +747,10 @@ function cartaoMeta(r) {
     const botao = sug.valor > 0
       ? `<button type="button" class="botao" data-acao="criar-guardar" data-valor="${sug.valor}" data-foco="criar-guardar">Criar “Guardar” com ${moeda(sug.valor)}</button>`
       : '<button type="button" class="botao" data-acao="criar-guardar" data-foco="criar-guardar">Criar “Guardar”</button>';
+    const mesesTxt = sug.meses === 1 ? 'no último mês fechado' : `nos últimos ${sug.meses} meses fechados`;
     return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2></div>`
-      + '<p class="sub">Separe um valor antes de gastar. Enquanto a meta não é lançada, o app a desconta do disponível como plano sem lançamento; depois, entra o realizado.</p>'
-      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% do que sobrou da renda depois dos gastos de consumo nos últimos ${sug.meses} meses fechados.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
+      + '<p class="sub">Separe um valor antes de gastar. Enquanto você não registra a meta como lançamento, o app desconta esse valor do disponível como plano sem lançamento. Depois, entra o valor realizado.</p>'
+      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% da média do que sobrou da renda após os gastos de consumo ${mesesTxt}.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
       + `<div class="acoes">${botao}</div></section>`;
   }
   const meta = planoExp(g.id, S.ano, S.mes);
@@ -764,7 +773,7 @@ function cartaoMeta(r) {
 function cartaoCobertura(r) {
   if (!(r.semPlano > 0)) return '';
   return `<section class="cartao" aria-labelledby="h-cobertura"><div class="cartao-topo"><h2 id="h-cobertura">Cobertura do plano</h2></div>`
-    + `<p class="sub"><strong>Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''}.</strong> Esse valor fica fora da barra e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
+    + `<p class="sub"><strong>Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''}.</strong> Esse valor fica fora da barra do plano e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
     + '<div class="acoes"><button type="button" class="botao pequeno" data-acao="planejar-sem-plano" data-foco="planejar-sem-plano">Planejar agora</button></div></section>';
 }
 function cartaoAVencer(r) {
@@ -779,7 +788,7 @@ function calcularAvisos(r) {
   const lista = [];
   for (const { c, v } of r.porCat) {
     if (c.grupo !== 'renda' && !ehGuardar(c) && v.plano > 0 && v.real > v.plano + 0.004) {
-      lista.push({ tipo: 'acima', icone: 'setaSobe', html: `<strong>${esc(c.nome)} passou ${moeda(v.real - v.plano)} do plano.</strong> <span>${moeda(v.real)} gastos para ${moeda(v.plano)} planejados.</span>` });
+      lista.push({ tipo: 'acima', icone: 'setaSobe', html: `<strong>${esc(c.nome)}: ${moeda(v.real - v.plano)} acima do plano.</strong> <span>Gastos de ${moeda(v.real)}, ante ${moeda(v.plano)} planejados.</span>` });
     }
   }
   if (r.ritmo >= 0.25) {
@@ -799,7 +808,7 @@ function calcularAvisos(r) {
     if (melhor) {
       lista.push({
         tipo: melhor.dif > 0 ? 'atencao' : 'info', icone: melhor.dif > 0 ? 'setaSobe' : 'setaDesce',
-        html: `<strong>${esc(melhor.c.nome)} vai fechar perto de ${moeda(melhor.proj)}.</strong> <span>No ritmo atual, ${Math.round(Math.abs(melhor.dif) * 100)}% ${melhor.dif > 0 ? 'acima' : 'abaixo'} da média dos últimos 3 meses.</span>`,
+        html: `<strong>Projeção de ${esc(melhor.c.nome)}: ${moeda(melhor.proj)}.</strong> <span>No ritmo atual, ${Math.round(Math.abs(melhor.dif) * 100)}% ${melhor.dif > 0 ? 'acima' : 'abaixo'} da média dos últimos 3 meses.</span>`,
       });
     }
   }
@@ -824,9 +833,9 @@ function graficoVariaveis(r) {
   if (!total) return '';
   const top = itens.slice(0, 5); const resto = itens.slice(5).reduce((a, { v }) => a + v.real, 0);
   const seg = top.map(({ c, v }) => `<i class="cor-${corDe(c.id)}" style="width:${(v.real / total * 100).toFixed(2)}%;background:var(--c)" title="${esc(c.nome)}: ${moeda(v.real)}"></i>`).join('')
-    + (resto > 0 ? `<i style="width:${(resto / total * 100).toFixed(2)}%;background:var(--tinta-3)" title="Outras: ${moeda(resto)}"></i>` : '');
+    + (resto > 0 ? `<i style="width:${(resto / total * 100).toFixed(2)}%;background:var(--tinta-3)" title="Demais categorias: ${moeda(resto)}"></i>` : '');
   const leg = top.map(({ c, v }) => `<span><i class="cor-${corDe(c.id)}" style="background:var(--c)"></i>${esc(c.nome)} <strong>${Math.round(v.real / total * 100)}%</strong></span>`).join('')
-    + (resto > 0 ? `<span><i style="background:var(--tinta-3)"></i>Outras <strong>${Math.round(resto / total * 100)}%</strong></span>` : '');
+    + (resto > 0 ? `<span><i style="background:var(--tinta-3)"></i>Demais <strong>${Math.round(resto / total * 100)}%</strong></span>` : '');
   return `<div class="grafico-variaveis"><div class="gv-titulo"><span>Para onde foi</span><span>${moeda(total)}</span></div>`
     + `<div class="gv-barra" aria-hidden="true">${seg}</div><div class="gv-legenda">${leg}</div></div>`;
 }
@@ -885,7 +894,7 @@ function cartaoAno() {
   return `<section class="cartao g-ano" aria-labelledby="h-ano"><div class="cartao-topo"><h2 id="h-ano">Sobra mês a mês · ${S.ano}</h2></div>`
     + '<div class="legenda"><span><i style="background:var(--acento)"></i>sobrou</span><span><i style="background:var(--acima)"></i>faltou</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--tinta-3)"></i>projeção (contorno)</span></div>'
     + `<figure class="grafico-ano"><div class="ga-barras" style="--hp:${hp}px;--hn:${hn}px">${barras}</div>`
-    + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano}, contando o previsto: <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong>. A sobra do mês atual usa o plano só nas categorias sem lançamento.</figcaption></figure></section>`;
+    + `<figcaption class="sub" style="margin-top:8px">Acumulado em ${S.ano} (inclui projeções): <strong class="${acumulado < 0 ? 'txt-acima' : 'txt-ok'}">${moeda(acumulado)}</strong>. No mês atual, o plano entra só nas categorias sem lançamento.</figcaption></figure></section>`;
 }
 
 /* ---------- Extrato ---------- */
@@ -906,7 +915,7 @@ function filtrarExtrato() {
   return { itens, doAno, gastos: arred(gastos), rendas: arred(rendas), mapa };
 }
 function tituloDia(ano, mes, dia) {
-  if (!dia) return `Sem dia · ${MESES[mes - 1]}`;
+  if (!dia) return `Sem dia definido · ${MESES[mes - 1]}`;
   const h = hoje(); const d = new Date(ano, mes - 1, dia);
   const sem = d.toLocaleDateString('pt-BR', { weekday: 'long' });
   const base = `${sem}, ${dia} ${MESES_C[mes - 1]}`;
@@ -978,7 +987,7 @@ function telaAcompanhar(r) {
     return `<section><h2 class="grupo-titulo"><span>${GRUPOS[g]}</span><span>${num(feito)}${previsto ? ' de ' + num(previsto) : ''}</span></h2>`
       + `<div class="lista">${itens.map(({ c, v }) => linhaCat(c, v, r.ritmo, S.ano, S.mes)).join('')}</div></section>`;
   }).join('');
-  const legenda = r.fase === 'atual' ? `<p class="dica-ritmo"><i aria-hidden="true"></i>A marca nas barras dos variáveis é o dia de hoje (${Math.round(r.ritmo * 100)}% do mês).</p>` : '';
+  const legenda = r.fase === 'atual' ? `<p class="dica-ritmo"><i aria-hidden="true"></i>A marca nas barras das categorias variáveis indica o dia de hoje (${Math.round(r.ritmo * 100)}% do mês decorrido).</p>` : '';
   return legenda + blocos + `<div class="acoes"><button type="button" class="botao fantasma" data-acao="tela" data-tela="planilha" data-foco="ver-planilha">${ic('planilha', 18)}Ver o ano inteiro na planilha</button></div>`;
 }
 function telaPlanejar() {
@@ -995,7 +1004,7 @@ function telaPlanejar() {
         + '</div></div>';
     }).join('')}</div></section>`;
   }).join('');
-  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto. Campo vazio = sem previsto. A média é só uma sugestão: ela não entra nas contas até você usar. Guardar entra como compromisso fixo; o disponível já desconta.</p>`
+  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto; campo vazio significa sem valor previsto. A média é apenas uma sugestão e não entra nas contas até você usá-la. Guardar entra como compromisso fixo: o disponível já desconta o valor.</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
     + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Preencher com as médias</button>'
     + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
@@ -1062,7 +1071,7 @@ function telaPlanilha() {
     + `<div class="planilha-caixa"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
     + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
     + `<tfoot>${rodape('Total de saídas', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
-    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado como previsto e entra no total. Apague o plano para tirá-lo.</p>';
+    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado como previsto e entra no total. Apague o plano para tirar o previsto do total.</p>';
 }
 function posPlanilha() {
   if (!S.rolarPlanilha) return;
@@ -1100,11 +1109,11 @@ function telaAjustes() {
     + '<section class="cartao"><h2>Geral</h2>'
     + `<label class="campo">Nome do controle<input data-mudar="nome" data-foco="aj-nome" value="${esc(d.nome)}" maxlength="60" placeholder="Ex.: Casa, Pessoal"></label>`
     + `<div class="campo"><span>Aparência</span><div class="segmentado" role="group" aria-label="Tema">${Object.entries(temas).map(([k, v]) => `<button type="button" data-acao="tema" data-tema="${k}" data-foco="tema-${k}" aria-pressed="${(d.tema || 'auto') === k}">${v}</button>`).join('')}</div></div></section>`
-    + '<section class="cartao"><h2>Categorias</h2><p class="sub">A ordem daqui é a das listas e da planilha.</p>' + linhas
+    + '<section class="cartao"><h2>Categorias</h2><p class="sub">A ordem definida aqui vale para as listas e para a planilha.</p>' + linhas
     + '<div class="nova-cat"><label class="sr" for="nova-cat-nome">Nome da nova categoria</label><input class="entrada" id="nova-cat-nome" data-foco="nova-cat-nome" placeholder="Nova categoria" maxlength="60">'
     + `<label class="sr" for="nova-cat-grupo">Grupo da nova categoria</label><select class="entrada" id="nova-cat-grupo" data-foco="nova-cat-grupo">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === 'variavel' ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
     + `<button type="button" class="botao" data-acao="cat-nova" data-foco="cat-nova">${ic('mais', 18)}Adicionar</button></div></section>`
-    + `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que dá para abrir e ler.</p><div class="acoes">`
+    + `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que você pode abrir e ler.</p><div class="acoes">`
     + (d.planilha && d.planilha.url ? `<a class="botao" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir a planilha</a>` : '')
     + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
     + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}Exportar CSV</button>`
@@ -1211,7 +1220,7 @@ function abrirNovo(opc = {}) {
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e novo</button></footer>'
         : topoFolha('Novo lançamento')
           + '<div class="nv-fixo">' + segmento
-          + `<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,5”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" value="${esc(st.texto)}" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>`
+          + `<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4” ou “10 20,50”)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" value="${esc(st.texto)}" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>`
           + '</div><div class="folha-corpo">' + categorias + '<div class="datas" id="nv-datas"></div>' + descricao + '</div>'
           + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
@@ -1423,7 +1432,7 @@ function abrirCategoria(cid, ano, mes) {
         if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
         const med = media3(cid, ano, mes);
         inp.placeholder = '0,00';
-        $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio = sem previsto nas contas. A sugestão não entra nas contas até você usar.'
+        $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio significa sem valor previsto nas contas. A sugestão não entra nas contas até você usá-la.'
           + (v.plano > 0 ? ' <button type="button" class="link" data-f="apagar-plano">Apagar plano</button>' : '');
       };
       const adicionar = () => {
@@ -1459,7 +1468,7 @@ function abrirCategoria(cid, ano, mes) {
           const antes = planoExp(cid, ano, mes);
           if (!antes) return;
           registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: null });
-          aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }) });
+          aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }) });
           atualizar();
         }
         else if (f === 'repetir') {
@@ -1476,7 +1485,7 @@ function abrirCategoria(cid, ano, mes) {
         const antes = planoExp(cid, ano, mes);
         registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
         if (!v && antes > 0) {
-          aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', {
+          aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
             acao: 'Desfazer',
             fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
           });
@@ -1514,25 +1523,26 @@ function abrirDetalheReserva() {
         .sort((a, b) => (b.v.real - b.v.plano) - (a.v.real - a.v.plano));
       const totalIniciados = iniciados.reduce((a, { v }) => a + (v.plano - v.real), 0);
       const totalAcima = acima.reduce((a, { v }) => a + (v.real - v.plano), 0);
+      const rendaPendente = !(r.rendaReal > 0) || r.renda > r.rendaReal + 0.004;
       const linha = (c, detalhe, valor, classe = '') => `<div class="reserva-linha">${mono(c)}<div class="reserva-txt"><strong>${esc(c.nome)}</strong><span>${esc(detalhe)}</span></div><strong class="reserva-valor${classe ? ' ' + classe : ''}">${valor}</strong></div>`;
       const linhas = [
-        `<div><span>${r.rendaReal > 0 ? 'Renda recebida' : 'Renda prevista'}</span><strong>${moeda(r.renda)}</strong></div>`,
+        `<div><span>${r.rendaReal > 0 ? (rendaPendente ? 'Renda do mês' : 'Renda recebida') : 'Renda prevista'}</span><strong>${moeda(r.renda)}</strong></div>`,
         `<div><span>− Já saiu</span><strong>${moeda(r.gastoReal)}</strong></div>`,
-        `<div class="subtotal"><span>= ${r.rendaReal > 0 ? 'Ainda na conta' : 'Ainda previsto'}</span><strong>${moeda(r.aindaNaConta)}</strong></div>`,
+        `<div class="subtotal"><span>= ${rendaPendente ? 'Restante previsto' : 'Ainda na conta'}</span><strong>${moeda(r.aindaNaConta)}</strong></div>`,
         r.previsto > 0 ? `<div><span>− Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong></div>` : '',
         `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`,
       ].join('');
       const bloco = (titulo, total, texto, itens, fmt) => !itens.length ? ''
         : `<section><h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3><p class="sub">${texto}</p><div class="lista">${itens.map(fmt).join('')}</div></section>`;
-      el.innerHTML = topoFolha('De onde vem o disponível', `${Mes(mes)} de ${ano}`)
+      el.innerHTML = topoFolha('Como o disponível é calculado', `${Mes(mes)} de ${ano}`)
         + '<div class="folha-corpo">'
-        + '<p class="sub">O disponível é a renda menos o que já saiu e menos os planos das categorias que ainda não têm lançamento. Depois do primeiro lançamento, o plano daquela categoria deixa de contar; só o realizado conta.</p>'
+        + '<p class="sub">O disponível é a renda menos o que já saiu e menos os planos das categorias ainda sem lançamento. Depois do primeiro lançamento, o plano daquela categoria deixa de contar: conta só o realizado.</p>'
         + `<div class="conta-heroi" style="margin-top:0">${linhas}</div>`
-        + bloco('Planos sem lançamento', r.previsto, 'Categorias com plano e nenhum gasto ainda. Elas entram no disponível como previsto; quando você lançar, o plano deixa de contar e o realizado entra no lugar.', semLanc,
+        + bloco('Planos sem lançamento', r.previsto, 'Categorias com plano e nenhum lançamento ainda. Elas são descontadas do disponível como previsto; quando você lançar, o plano deixa de contar e o realizado entra no lugar.', semLanc,
           ({ c, v }) => linha(c, `plano ${moeda(v.plano)}`, moeda(v.plano)))
-        + bloco('Plano usado no ritmo', totalIniciados, 'Essas categorias já têm lançamento, então o plano não desconta o disponível. Ele só serve para comparar o ritmo na barra; o que conta é o realizado.', iniciados,
+        + bloco('Plano restante nas categorias com lançamento', totalIniciados, 'Essas categorias já têm lançamento, então o plano não desconta o disponível. Ele só serve para comparar o ritmo na barra; o que conta é o realizado.', iniciados,
           ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.plano - v.real)))
-        + bloco('Acima do plano', totalAcima, 'Categorias em que você gastou mais que o plano. O excesso já saiu; o plano não desconta o disponível.', acima,
+        + bloco('Acima do plano', totalAcima, 'Categorias em que você gastou mais do que o plano. O excesso já saiu; o plano não desconta o disponível.', acima,
           ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.real - v.plano), 'acima'))
         + '<div class="acoes"><button type="button" class="botao" data-f="ajustar">Ajustar planos</button></div>'
         + '</div>';
@@ -1572,7 +1582,7 @@ function abrirImportar() {
           dados = d;
           prev.innerHTML = `<div class="previa"><div><span class="sub">Categorias</span><strong>${d.categorias.length}</strong></div><div><span class="sub">Lançamentos</span><strong>${n}</strong></div><div><span class="sub">Anos</span><strong>${esc(Object.keys(d.anos).join(', ') || '—')}</strong></div></div>`
             + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
-            + '<label class="opcao"><input type="radio" name="im-modo" value="mesclar" checked><span><strong>Juntar com o que já existe</strong>O que tiver o mesmo identificador é atualizado; o resto é acrescentado.</span></label>'
+            + '<label class="opcao"><input type="radio" name="im-modo" value="mesclar" checked><span><strong>Juntar com o que já existe</strong>Itens com o mesmo identificador são atualizados; o resto é acrescentado.</span></label>'
             + '<label class="opcao"><input type="radio" name="im-modo" value="substituir"><span><strong>Substituir tudo</strong>Apaga o que está na planilha e coloca o conteúdo do arquivo. O Google guarda versões antigas em Arquivo › Histórico de versões.</span></label></div>';
           $('#im-botao', el).disabled = false;
         } catch (err) {
@@ -1595,7 +1605,7 @@ function abrirImportar() {
           let n = 0; for (const x of Object.values(S.dados.anos)) n += x.lancamentos.length;
           fecharFolha();
           if (!S.montado) montarApp(); else render();
-          aviso(`Importação concluída. A planilha tem agora ${n} lançamentos.`);
+          aviso(`Importação concluída. A planilha tem agora ${n} lançamento${n === 1 ? '' : 's'}.`);
         } catch (err) {
           aviso('Não deu para importar: ' + err.message, { tipo: 'erro' });
           b.disabled = false; b.textContent = 'Importar';
@@ -1692,7 +1702,7 @@ function mostrarBoasVindas() {
         + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="avancar">Continuar</button></div></div>';
       $('#bv-nome').focus();
     } else {
-      box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. O app reserva primeiro a meta de Guardar; o resto é o disponível para gastar. Dá para renomear, juntar ou criar outras a qualquer momento.</p>`
+      box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. O que você planeja guardar é descontado primeiro; o restante fica disponível para gastar. Dá para renomear, reordenar ou criar outras categorias a qualquer momento.</p>`
         + '<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend class="sr">Modelo de categorias</legend>'
         + Object.entries(MODELOS).map(([k, m]) => `<label class="opcao"><input type="radio" name="bv-modelo" value="${k}"${st.modelo === k ? ' checked' : ''}><span><strong>${m.nome}${m.cats.length > 2 ? ` · ${m.cats.length} categorias` : ''}</strong>${m.desc}</span></label>`).join('')
         + '</fieldset>'
@@ -1878,7 +1888,7 @@ const ACOES = {
   'plano-limpar': () => {
     const antes = cats().map((c) => ({ c, v: planoExp(c.id, S.ano, S.mes) })).filter((x) => x.v);
     antes.forEach(({ c }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null }));
-    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo. Isso não cancela a despesa; só deixa de reservá-la.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
+    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
   },
   recarregar: () => location.reload(),
 };
@@ -1891,7 +1901,7 @@ const MUDAR = {
     const antes = planoExp(cid, ano, mes);
     registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
     if (!v && antes > 0) {
-      aviso('Plano removido. Isso não cancela a despesa; só deixa de reservá-la.', {
+      aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
         acao: 'Desfazer',
         fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
       });

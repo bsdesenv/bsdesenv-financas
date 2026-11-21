@@ -95,7 +95,11 @@ npm test             # testes do servidor (Node 20+, sem dependências)
 npm i -D puppeteer   # uma vez, para os testes no navegador
 npm run test:e2e     # o app de verdade num Chrome sem janela, falando com o servidor de verdade
 npm run prints       # regrava os prints de docs/img com os dados fictícios
+npm run preview      # prévia local em http://localhost:4173, sem publicar no Apps Script
+npm run preview:prints  # prints de PC e celular em testes/saida/preview/
 ```
+
+A prévia usa os dados fictícios de `exemplos/dados-exemplo.json`. Para ver o seu backup sem enviar nada ao Google, rode `npm run preview -- --data=caminho/do/backup.json`.
 
 Para enviar o código direto para o Apps Script, use o [clasp](https://github.com/google/clasp): copie `.clasp.json.example` para `.clasp.json`, preencha o `scriptId` do seu projeto e rode `npx clasp push`.
 

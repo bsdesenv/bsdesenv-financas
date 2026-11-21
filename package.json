@@ -11,6 +11,8 @@
   "scripts": {
     "test": "node --test testes/servidor.test.mjs",
     "test:e2e": "node testes/e2e.mjs",
+    "preview": "node testes/preview.mjs",
+    "preview:prints": "node testes/preview.mjs --prints",
     "prints": "node testes/e2e.mjs --prints",
     "exemplo": "node testes/gerar-exemplo.mjs",
     "push": "clasp push",

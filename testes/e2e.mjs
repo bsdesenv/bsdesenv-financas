@@ -254,17 +254,22 @@ await caso('topo: anel de composição e micrográficos nos KPIs', async () => {
   assert.ok(await p.$('.kpi .spark'), 'sparkline da renda');
   assert.ok(await p.$('.kpi .mini-barras'), 'barras diárias');
   assert.ok(await p.$('.kpi .kpi-lista'), 'lista de planos');
-  assert.ok(await p.$('.kpi .kpi-anel'), 'anel da meta');
+  assert.ok(await p.$('.kpi .kpi-meta'), 'progresso da meta');
   await p.close();
 });
 
-await caso('celular: anel vira barra de composição; no computador continua anel', async () => {
+await caso('composição: celular e 1440 usam a barra; tela larga mantém o anel', async () => {
   await irPara(cel, 'inicio');
   assert.equal(await cel.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'no celular o anel some');
   assert.equal(await cel.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'flex', 'no celular a barra aparece');
   await irPara(pc, 'inicio');
-  assert.notEqual(await pc.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'no computador o anel fica');
-  assert.equal(await pc.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'none', 'no computador a barra some');
+  assert.equal(await pc.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'em 1440 o anel dá lugar à barra');
+  assert.equal(await pc.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'flex', 'em 1440 a barra usa a largura');
+  const largo = await abrir(amb, { width: 1728, height: 1000 }, montarPagina(amb, 'largo'));
+  await pronto(largo);
+  assert.notEqual(await largo.$eval('.heroi .anel', (e) => getComputedStyle(e).display), 'none', 'em tela larga o anel fica');
+  assert.equal(await largo.$eval('.heroi-barra', (e) => getComputedStyle(e).display), 'none', 'em tela larga a barra some');
+  await largo.close();
 });
 
 await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava depois', async () => {
@@ -283,10 +288,13 @@ await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava dep
   await sincronizado(cel);
 });
 
-await caso('computador: planejar com “1.500” grava 1500 e o Tab não perde o foco', async () => {
+await caso('computador: planejar digitando 150000 grava 1500 (máscara de centavos)', async () => {
   await irPara(pc, 'mes');
   await pc.click('[data-modo="planejar"]'); await sleep(100);
-  await substituir(pc, '#pl-mercado', '1.500');
+  await substituir(pc, '#pl-mercado', '150000');
+  assert.equal(await pc.$eval('#pl-mercado', (e) => e.value), '1.500,00', 'a máscara formata em centavos');
+  const altura = await pc.$eval('#pl-mercado', (e) => e.getBoundingClientRect().height);
+  assert.ok(altura <= 50, `o campo do plano tem ${altura}px, não é gigante`);
   await pc.keyboard.press('Tab'); await sleep(250); await sincronizado(pc);
   const orc = amb.servidor.planilha.ler('orcamento').find((l) => l[1] === 'mercado' && l[2] === 11);
   assert.equal(orc[3], 1500);
@@ -297,7 +305,8 @@ await caso('computador: planejar com “1.500” grava 1500 e o Tab não perde o
 await caso('computador: célula da planilha abre o painel e lança ali mesmo; setas navegam', async () => {
   await irPara(pc, 'planilha');
   await pc.click('td.cel[data-cat="mercado"][data-mes="11"]'); await folhaAberta(pc);
-  await pc.type('#fc-valor', '10');
+  await pc.type('#fc-valor', '1000');
+  assert.equal(await pc.$eval('#fc-valor', (e) => e.value), '10,00', 'a máscara vale também no painel da célula');
   await pc.keyboard.press('Enter'); await sleep(150);
   await pc.keyboard.press('Escape'); await semFolha(pc); await sincronizado(pc);
   assert.ok(amb.linhas().some((l) => l[6] === 10 && l[4] === 'mercado' && l[2] === 11), 'lançado na planilha');
@@ -432,6 +441,35 @@ await caso('variáveis do mês: resumo, gráfico e atalhos de lançar e ajustar 
   await p.close();
 });
 
+await caso('avisos: “Ver lançamentos” mostra as contas da categoria', async () => {
+  const dados = {
+    nome: 'Aviso', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'm1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: 'Feira', valor: 40 },
+      { id: 'm2', mes: 11, dia: 7, categoriaId: 'mercado', descricao: 'Padaria', valor: 33.24 },
+      { id: 'r1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: { mercado: { 11: 65 }, salario: { 11: 5000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'aviso-contas'));
+  await pronto(p);
+  await p.waitForSelector('.cats-avisos .aviso-detalhe summary');
+  const texto = await p.$eval('.cats-avisos .aviso-item p', (e) => e.textContent);
+  assert.match(texto, /Mercado passou/, 'o aviso nomeia a categoria');
+  await p.click('.cats-avisos .aviso-detalhe summary');
+  await p.waitForSelector('.cats-avisos .aviso-detalhe[open] .aviso-conta');
+  const contas = await p.$$eval('.cats-avisos .aviso-conta', (els) => els.map((e) => e.textContent));
+  assert.equal(contas.length, 2, 'mostra as duas contas da categoria');
+  assert.ok(contas.some((t) => t.includes('Feira')) && contas.some((t) => t.includes('Padaria')), 'descrições das contas');
+  await p.click('.cats-avisos .aviso-conta');
+  await folhaAberta(p);
+  await p.keyboard.press('Escape'); await semFolha(p);
+  await p.close();
+});
+
 await caso('sugestão de média: aparece, mas só entra no plano quando você usa', async () => {
   const dados = {
     nome: 'Sugestão', categorias: [
@@ -559,6 +597,19 @@ await caso('meta: mostra % da renda, ajusta pelo atalho e limpa a meta', async (
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'sem a meta, o disponível sobe');
   assert.ok(!(await p.$eval('#tela', (e) => e.innerText)).includes('Limpar meta'), 'o botão some');
   await p.close();
+});
+
+await caso('ajuda: “Como funciona” abre e leva à composição do disponível', async () => {
+  await irPara(pc, 'inicio');
+  await pc.click('[data-acao="como-funciona"]'); await folhaAberta(pc);
+  const texto = await pc.$eval('.folha', (e) => e.innerText);
+  assert.ok(texto.includes('Meta de economia') && texto.includes('Ritmo do plano'), 'conteúdo da ajuda');
+  await pc.click('.folha [data-f="reserva"]');
+  await pc.waitForFunction(() => {
+    const f = document.querySelector('.folha.aberta');
+    return f && f.innerText.includes('Como o disponível é calculado');
+  }, { timeout: 5000 });
+  await pc.keyboard.press('Escape'); await semFolha(pc);
 });
 
 await caso('cobertura do plano: planejar a categoria sem plano grava e limpa o “Sem plano”', async () => {

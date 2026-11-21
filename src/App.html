@@ -331,7 +331,12 @@ function resumo(ano, mes) {
     const v = celula(c.id, ano, mes);
     porCat.push({ c, v });
     qtd += v.qtd;
-    if (c.grupo === 'renda') { renda += v.valor; rendaReal += v.real; rendaPlano += v.plano || 0; }
+    if (c.grupo === 'renda') {
+      // No mês atual, receber não pode diminuir o disponível: vale o maior entre o
+      // plano da categoria e o que já entrou. Recebeu além do plano, o realizado soma.
+      renda += f === 'atual' && v.qtd ? Math.max(v.plano || 0, v.real) : v.valor;
+      rendaReal += v.real; rendaPlano += v.plano || 0;
+    }
     else {
       const guardar = c.id === gid;
       gastos += v.valor; gastoReal += v.real; qtdGastos += v.qtd;

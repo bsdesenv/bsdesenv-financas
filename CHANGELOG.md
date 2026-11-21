@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.3 — 2026-11-21
+
+### Corrigido
+- **Receber renda não derruba o disponível.** A regra “vale o lançado; sem lançamento, vale o plano” fazia a renda parcial **substituir** o plano: receber 200 numa categoria com plano de 400 tirava os 400 da conta e o disponível caía. Agora, nas rendas do mês atual, vale o **maior entre o plano e o que já entrou**: receber uma parte mantém o plano, e o que passar do plano soma. Nos meses fechados continua valendo o realizado.
+
 ## 2.5.2 — 2026-11-21
 
 ### Corrigido

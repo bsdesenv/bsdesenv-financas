@@ -4,7 +4,7 @@ Um guia curto do dia a dia. Se ainda não instalou, comece por [INSTALAR.md](INS
 
 ## A ideia em uma frase
 
-Primeiro guardar, depois gastar: você diz quanto **planeja** gastar em cada categoria e quanto quer **guardar** no mês. O app **lança** o que gasta e recebe e mostra o **disponível para gastar** até o fim do mês: **renda − o que já saiu − os planos das categorias sem lançamento**. Cada categoria conta pelo que foi lançado; se ainda não teve lançamento, vale o plano. É uma conta conservadora, sem média inventada.
+Primeiro guardar, depois gastar: você diz quanto **planeja** gastar em cada categoria e quanto quer **guardar** no mês. O app **lança** o que gasta e recebe e mostra o **disponível para gastar** até o fim do mês: **renda − o que já saiu − os planos das categorias sem lançamento**. Cada categoria de gasto conta pelo que foi lançado; se ainda não teve lançamento, vale o plano. Nas **rendas**, vale o maior entre o plano e o que já entrou: receber uma parte não derruba o disponível, e o que passar do plano soma. É uma conta conservadora, sem média inventada.
 
 ## Primeiro acesso
 

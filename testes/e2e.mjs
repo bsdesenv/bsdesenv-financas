@@ -121,7 +121,7 @@ function livreEsperado(d, ano, mes) {
   let renda = 0; let gastos = 0;
   for (const c of d.categorias) {
     const teve = doMes(c.id).length > 0; const r = real(c.id); const p = plano(c.id);
-    if (c.grupo === 'renda') renda += teve ? r : p;
+    if (c.grupo === 'renda') renda += teve ? Math.max(p, r) : p;
     else gastos += teve ? r : p;
   }
   return arred(renda - gastos);
@@ -347,6 +347,36 @@ await caso('cache: não mistura outro app e lançar em renda aumenta o disponív
   await pc2.close();
 });
 
+await caso('renda com plano: lançar abaixo do plano não derruba o disponível', async () => {
+  const dados = {
+    nome: 'Renda com plano', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 2 },
+      { id: 'outras-rendas', nome: 'Outras Rendas', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'r1', mes: 11, dia: 5, categoriaId: 'salario', descricao: '', valor: 10000 },
+    ], orcamento: { salario: { 11: 10000 }, mercado: { 11: 100 }, 'outras-rendas': { 11: 400 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'renda-plano'));
+  await pronto(p);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'antes: salário 10.000 + plano de Outras Rendas 400 − mercado 100');
+  await p.evaluate(() => {
+    registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'renda extra', valor: 200 } });
+  });
+  await sincronizado(p);
+  await p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(10300));
+  const linha = a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 200);
+  assert.ok(linha, 'renda de 200 gravada em Outras Rendas');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'recebeu 200 de um plano de 400: o disponível mantém o plano (não cai)');
+  await p.evaluate((v) => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'extra', valor: v } }), 300);
+  await sincronizado(p);
+  await p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(10400));
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10400), 'recebidos 500 no total (além do plano de 400): o que passou do plano soma');
+  await p.close();
+});
+
 await caso('computador: planejar digitando 150000 grava 1500 (máscara de centavos)', async () => {
   await irPara(pc, 'mes');
   await pc.click('[data-modo="planejar"]'); await sleep(100);
@@ -566,7 +596,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   await p.close();
 });
 
-await caso('renda parcial: KPI mostra o plano e o disponível usa o que já entrou', async () => {
+await caso('renda parcial: receber não derruba o disponível; o plano de renda segue valendo', async () => {
   const dados = {
     nome: 'Renda parcial', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -584,7 +614,7 @@ await caso('renda parcial: KPI mostra o plano e o disponível usa o que já entr
   const renda = await kpiDe(p, 'Renda do mês');
   assert.equal(renda.valor, moeda(10000), 'o KPI mostra a renda planejada');
   assert.match(renda.sub, /5\.000,00 recebid|recebid[ao] R\$\s?5\.000,00 de R\$\s?10\.000,00/, `sub da renda: ${renda.sub}`);
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(3500), '5.000 recebidos − 500 gastos − 1.000 a realizar');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8500), 'recebeu 5.000 de um plano de 10.000: o disponível mantém o plano (10.000 − 500 − 1.000)');
   await p.close();
 });
 

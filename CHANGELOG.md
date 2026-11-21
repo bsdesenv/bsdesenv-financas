@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.5.0 — 2026-11-21
+
+### Novo
+- **Avisos com lançamentos.** Cada aviso ganhou **Ver lançamentos (N)**: um acordeão com data, descrição e valor de cada conta da categoria no mês. Tocar numa conta abre a edição. O texto voltou ao formato direto: “Gasolina passou R$ ... do plano. R$ ... gastos para R$ ... planejados.”
+- **Como funciona.** Nova folha explica disponível, meta de economia, ritmo e avisos, com atalho para a composição do disponível. No celular, os textos longos de Meta e Ritmo saem dos cartões e ficam nela.
+- **Prévia local.** `npm run preview` abre o app com a planilha fictícia em `localhost:4173`, sem publicar; `npm run preview:prints` gera prints de PC e celular em `testes/saida/preview/`.
+
+### Mudou
+- **Início sem espaços mortos.** Os cartões absorvem a altura da linha em vez de deixar ar; o ano cresce para preencher o cartão; o grid de 12 colunas começa em 1280 px, e entre 640–1279 o conteúdo usa a largura toda.
+- **Composição do herói.** No PC, uma tabela compacta mostra Renda, Já saiu, Ainda na conta, Planos e Disponível. Em 1280–1599 o anel dá lugar à barra para não truncar os rótulos; a partir de 1600 o anel volta. No celular, continua a barra.
+- **KPIs e ano.** Guardado ganhou barra de progresso, “faltam R$ ...”, percentual e sparkline de 6 meses. O gráfico do ano ganhou rodapé com média mensal, melhor e pior mês.
+- **Variáveis do mês.** Lista completa no PC/tablet, média dos últimos 3 meses e Avisos dentro do cartão; no celular ficam as 4 primeiras categorias, 2 avisos e o link **Ver todas**.
+- **Máscara de valores.** Todos os campos de valor (plano, meta, edição, painel da categoria e célula da planilha) funcionam como o teclado do celular: os dígitos entram nos centavos, sem vírgula. `129000` vira **1.290,00**.
+- **Planejar.** Os campos de valor tinham 128 px de altura por causa de um `flex` no eixo errado; agora têm 44 px e as linhas ficaram compactas.
+
 ## 2.4.1 — 2026-11-19
 
 ### Mudou

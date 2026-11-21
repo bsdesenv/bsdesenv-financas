@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.4 — 2026-11-21
+
+### Corrigido
+- **Renda lançada volta a mudar o disponível.** A 2.5.3 passou a usar o maior entre o plano e o recebido, e aí lançar uma renda abaixo do plano não mexia em nada. Agora a renda segue a mesma regra dos gastos, em todo o app: o plano vale só até o primeiro lançamento da categoria. A partir daí vale a soma dos lançamentos, e cada novo lançamento muda o disponível na hora. As sugestões continuam fora das contas até você usá-las.
+- **Mesma regra em todos os lugares.** O cartão **Renda do mês** mostrava o plano mesmo depois de a renda ser lançada; agora mostra o mesmo valor do disponível (“recebida R$ … · prevista R$ …” quando ainda há renda planejada sem lançamento). O fechamento dos meses passados, os números do mês e o gráfico do ano também usam essa regra, igual à tabela da planilha.
+
 ## 2.5.3 — 2026-11-21
 
 ### Corrigido

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.2 — 2026-11-21
+
+### Corrigido
+- **Outros vs Outras Rendas.** O lançamento rápido e o campo de valor reconhecem categorias de renda mesmo quando o formulário está em Gasto; a lista de categorias do novo lançamento mostra todas e a escolha da categoria ajusta o tipo. Assim “200 outras rendas” entra em **Outras Rendas** (renda) e soma ao disponível, em vez de cair em **Outros** (gasto).
+
 ## 2.5.1 — 2026-11-21
 
 ### Corrigido

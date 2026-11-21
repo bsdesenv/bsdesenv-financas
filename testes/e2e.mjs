@@ -334,6 +334,17 @@ await caso('cache: não mistura outro app e lançar em renda aumenta o disponív
   const linha = a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 10);
   assert.ok(linha, 'lançamento gravado em Outras Rendas');
   await p.close();
+
+  const pc2 = await abrir(a, PC, montarPagina(a, 'cache-quick'));
+  await pronto(pc2);
+  await pc2.click('#quick');
+  await pc2.type('#quick', '200 outras rendas');
+  await pc2.keyboard.press('Enter');
+  await sincronizado(pc2);
+  await pc2.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(1110));
+  const rapido = a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 200);
+  assert.ok(rapido, 'lançamento rápido também encontra Outras Rendas');
+  await pc2.close();
 });
 
 await caso('computador: planejar digitando 150000 grava 1500 (máscara de centavos)', async () => {

@@ -332,9 +332,8 @@ function resumo(ano, mes) {
     porCat.push({ c, v });
     qtd += v.qtd;
     if (c.grupo === 'renda') {
-      // No mês atual, receber não pode diminuir o disponível: vale o maior entre o
-      // plano da categoria e o que já entrou. Recebeu além do plano, o realizado soma.
-      renda += f === 'atual' && v.qtd ? Math.max(v.plano || 0, v.real) : v.valor;
+      // Mesma regra dos gastos: com lançamento, vale a soma dos lançamentos; sem, o plano.
+      renda += v.valor;
       rendaReal += v.real; rendaPlano += v.plano || 0;
     }
     else {
@@ -693,9 +692,7 @@ function cartaoHeroi(r) {
   }
   if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
-    const sobra = real ? r.sobraReal : r.sobra;
-    const renda = real && r.rendaReal > 0 ? r.rendaReal : r.renda;
-    const gastos = real ? r.gastoReal : r.gastos;
+    const sobra = r.sobra; const renda = r.renda; const gastos = r.gastos;
     const pct = renda > 0 ? Math.round((sobra / renda) * 100) : 0;
     const pctTxt = pct >= 0 ? `sobra de ${pct}% da renda` : `gastos ${Math.abs(pct)}% acima da renda`;
     return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
@@ -749,7 +746,7 @@ function cartaoKpis(r) {
       + (valsGuardado.some((v) => v > 0) ? sparkline(valsGuardado, 'var(--ok)') : '')
       + '</div>';
     tiles = [
-      { rot: 'Renda do mês', v: moeda(r.rendaPlano || r.renda), s: r.rendaReal > 0 ? (r.rendaPlano > r.rendaReal ? `recebida ${moeda(r.rendaReal)} de ${moeda(r.rendaPlano)}` : `recebida ${moeda(r.rendaReal)}`) : 'prevista', cls: 'ok', icone: 'setaDesce', visual: sparkline(valsRenda) },
+      { rot: 'Renda do mês', v: moeda(r.renda), s: r.rendaReal > 0 ? (r.renda > r.rendaReal + 0.004 ? `recebida ${moeda(r.rendaReal)} · prevista ${moeda(r.renda - r.rendaReal)}` : 'recebida') : 'prevista', cls: 'ok', icone: 'setaDesce', visual: sparkline(valsRenda) },
       { rot: 'Já saiu', v: moeda(r.gastoReal), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, cls: '', icone: 'setaSobe', visual: barrasDia(S.ano, S.mes) },
       { rot: 'Planos sem lançamento', v: moeda(r.previsto), s: r.previsto ? 'ainda não lançado' : 'nenhum', cls: '', icone: 'calendario', visual: listaPend },
       { rot: 'Guardado', v: moeda(r.guardadoReal), s: r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : '', cls: '', icone: 'cadeado', visual: metaVisual },
@@ -757,13 +754,13 @@ function cartaoKpis(r) {
   } else if (r.fase === 'passado') {
     const real = r.qtdGastos > 0 || r.rendaReal > 0;
     const guardou = r.guardadoReal > 0;
-    const faltou = !guardou && r.sobraReal < 0;
-    const pctDaRenda = r.rendaReal > 0 ? Math.round(((guardou ? r.guardadoReal : r.sobraReal) / r.rendaReal) * 100) : null;
+    const faltou = !guardou && r.sobra < 0;
+    const pctDaRenda = r.renda > 0 ? Math.round(((guardou ? r.guardadoReal : r.sobra) / r.renda) * 100) : null;
     const rotDaRenda = pctDaRenda === null ? 'Da renda' : guardou ? 'Da renda, guardou' : faltou ? 'Da renda, faltou' : 'Da renda, sobrou';
     tiles = [
-      { rot: 'Renda', v: moeda(r.rendaReal || r.renda), s: r.rendaReal ? 'recebida' : 'prevista', cls: 'ok', icone: 'setaDesce' },
-      { rot: 'Gastos', v: moeda(r.gastoReal || r.gastos), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, cls: '', icone: 'setaSobe' },
-      { rot: 'Sobra', v: moeda(real ? r.sobraReal : r.sobra), s: real ? 'realizada' : 'com valores previstos', cls: (real ? r.sobraReal : r.sobra) < 0 ? 'acima' : 'ok', icone: 'check' },
+      { rot: 'Renda', v: moeda(r.renda), s: r.rendaReal ? 'recebida' : 'prevista', cls: 'ok', icone: 'setaDesce' },
+      { rot: 'Gastos', v: moeda(r.gastos), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, cls: '', icone: 'setaSobe' },
+      { rot: 'Sobra', v: moeda(r.sobra), s: real ? 'realizada' : 'com valores previstos', cls: r.sobra < 0 ? 'acima' : 'ok', icone: 'check' },
       { rot: rotDaRenda, v: pctDaRenda === null ? '—' : (faltou ? Math.abs(pctDaRenda) : pctDaRenda) + '%', s: pctDaRenda === null ? 'sem renda no mês' : guardou ? 'guardado' : faltou ? 'a mais nos gastos' : 'sobra do mês', cls: '', icone: 'cadeado' },
     ];
   } else {
@@ -951,7 +948,7 @@ function cartaoAno() {
   const meses = Array.from({ length: 12 }, (_, i) => {
     const rr = resumo(S.ano, i + 1);
     const real = rr.fase === 'passado' && (rr.qtdGastos > 0 || rr.rendaReal > 0);
-    const sobra = real ? rr.sobraReal : rr.sobra;
+    const sobra = rr.sobra;
     return { mes: i + 1, sobra, fase: rr.fase, real };
   });
   const mp = Math.max(0, ...meses.map((m) => m.sobra)); const mn = Math.max(0, ...meses.map((m) => -m.sobra));
@@ -1053,10 +1050,8 @@ function kpisMes(r) {
       + `<div class="${sobra < 0 ? 'alerta' : ''}"><span>Sobra planejada</span><strong>${num(sobra)}</strong></div></div>`;
   }
   const atual = r.fase === 'atual';
-  const temReal = r.rendaReal > 0 || r.gastoReal > 0;
-  const renda = atual ? r.renda : r.fase === 'passado' ? (r.rendaReal || r.renda) : r.renda;
-  const gastosKpi = atual ? r.gastos : r.fase === 'futuro' ? r.gastos : (temReal ? r.gastoReal : r.gastos);
-  const sobraKpi = atual ? r.sobra : r.fase === 'futuro' ? r.sobra : (temReal ? r.sobraReal : r.sobra);
+  // Mesma regra em todos os meses: com lançamento vale o lançado; sem, o plano.
+  const renda = r.renda; const gastosKpi = r.gastos; const sobraKpi = r.sobra;
   return `<div class="kpis-mes"><div><span>Renda</span><strong class="txt-ok">${num(renda)}</strong></div>`
     + `<div><span>${atual ? 'Gastos do mês' : r.fase === 'futuro' ? 'Gastos previstos' : 'Gastos'}</span><strong>${num(gastosKpi)}</strong></div>`
     + `<div class="${sobraKpi < 0 ? 'alerta' : ''}"${atual ? ' title="Renda − gastos; o plano só entra nas categorias sem lançamento"' : ''}><span>${atual ? 'Sobra do mês' : r.fase === 'futuro' ? 'Sobra prevista' : 'Sobra'}</span><strong>${num(sobraKpi)}</strong></div></div>`;

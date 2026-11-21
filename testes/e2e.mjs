@@ -112,7 +112,7 @@ const kpiDe = (p, rotulo) => p.$$eval('.kpi', (els, r) => {
 }, rotulo);
 const esperarHeroi = (p, valor) => p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, valor);
 
-/** Regra da v1: lançado; sem lançamento, o plano. Plano de categoria com lançamento não conta. */
+/** Regra única (gastos e rendas): lançado; sem lançamento, o plano. Plano de categoria com lançamento não conta. */
 function livreEsperado(d, ano, mes) {
   const b = d.anos[ano];
   const doMes = (cid) => b.lancamentos.filter((l) => l.mes === mes && l.categoriaId === cid);
@@ -121,7 +121,7 @@ function livreEsperado(d, ano, mes) {
   let renda = 0; let gastos = 0;
   for (const c of d.categorias) {
     const teve = doMes(c.id).length > 0; const r = real(c.id); const p = plano(c.id);
-    if (c.grupo === 'renda') renda += teve ? Math.max(p, r) : p;
+    if (c.grupo === 'renda') renda += teve ? r : p;
     else gastos += teve ? r : p;
   }
   return arred(renda - gastos);
@@ -347,7 +347,7 @@ await caso('cache: não mistura outro app e lançar em renda aumenta o disponív
   await pc2.close();
 });
 
-await caso('renda com plano: lançar abaixo do plano não derruba o disponível', async () => {
+await caso('renda com plano: o primeiro lançamento substitui o plano; cada lançamento seguinte soma', async () => {
   const dados = {
     nome: 'Renda com plano', categorias: [
       { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
@@ -362,18 +362,15 @@ await caso('renda com plano: lançar abaixo do plano não derruba o disponível'
   const p = await abrir(a, PC, montarPagina(a, 'renda-plano'));
   await pronto(p);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'antes: salário 10.000 + plano de Outras Rendas 400 − mercado 100');
-  await p.evaluate(() => {
-    registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'renda extra', valor: 200 } });
-  });
-  await sincronizado(p);
-  await p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(10300));
-  const linha = a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 200);
-  assert.ok(linha, 'renda de 200 gravada em Outras Rendas');
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'recebeu 200 de um plano de 400: o disponível mantém o plano (não cai)');
-  await p.evaluate((v) => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'extra', valor: v } }), 300);
-  await sincronizado(p);
-  await p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(10400));
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10400), 'recebidos 500 no total (além do plano de 400): o que passou do plano soma');
+  const lancar = (v) => p.evaluate((x) => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'renda extra', valor: x } }), v);
+  await lancar(200); await sincronizado(p);
+  await esperarHeroi(p, moeda(10100));
+  assert.ok(a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 200), 'renda de 200 gravada em Outras Rendas');
+  const kpi = await kpiDe(p, 'Renda do mês');
+  assert.equal(kpi.valor, moeda(10200), 'o KPI segue a mesma regra: 10.000 + 200 lançados');
+  await lancar(300); await sincronizado(p);
+  await esperarHeroi(p, moeda(10400));
+  assert.equal((await kpiDe(p, 'Renda do mês')).valor, moeda(10500), 'cada nova renda lançada soma no KPI');
   await p.close();
 });
 
@@ -596,7 +593,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   await p.close();
 });
 
-await caso('renda parcial: receber não derruba o disponível; o plano de renda segue valendo', async () => {
+await caso('renda parcial: com lançamento vale o recebido, não o plano', async () => {
   const dados = {
     nome: 'Renda parcial', categorias: [
       { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
@@ -612,9 +609,8 @@ await caso('renda parcial: receber não derruba o disponível; o plano de renda 
   const p = await abrir(a, PC, montarPagina(a, 'renda-parcial'));
   await pronto(p);
   const renda = await kpiDe(p, 'Renda do mês');
-  assert.equal(renda.valor, moeda(10000), 'o KPI mostra a renda planejada');
-  assert.match(renda.sub, /5\.000,00 recebid|recebid[ao] R\$\s?5\.000,00 de R\$\s?10\.000,00/, `sub da renda: ${renda.sub}`);
-  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8500), 'recebeu 5.000 de um plano de 10.000: o disponível mantém o plano (10.000 − 500 − 1.000)');
+  assert.equal(renda.valor, moeda(5000), 'o KPI mostra o que foi lançado');
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(3500), 'recebidos 5.000: o disponível usa o lançado (5.000 − 500 − 1.000)');
   await p.close();
 });
 

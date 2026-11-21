@@ -288,6 +288,54 @@ await caso('sem conexão: guarda no aparelho, sobrevive a recarregar e grava dep
   await sincronizado(cel);
 });
 
+await caso('cache: não mistura outro app e lançar em renda aumenta o disponível', async () => {
+  const dados = {
+    nome: 'Cache', categorias: [
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 1 },
+      { id: 'outras-rendas', nome: 'Outras Rendas', grupo: 'renda', ordem: 2 },
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'r1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+      { id: 'g1', mes: 11, dia: 2, categoriaId: 'mercado', descricao: '', valor: 100 },
+    ], orcamento: { salario: { 11: 1000 }, mercado: { 11: 100 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, CEL, montarPagina(a, 'cache-antigo'));
+  await pronto(p);
+  const velho = {
+    planilha: { id: 'outro-app', nome: 'Outro', url: '' },
+    revisao: 1,
+    categorias: [{ id: 'renda-extra', nome: 'Renda Extra', grupo: 'renda', ordem: 1 }],
+    anos: { 2026: { lancamentos: [{ id: 'x1', mes: 11, dia: 1, categoriaId: 'renda-extra', descricao: '', valor: 9999 }], orcamento: {} } },
+  };
+  const filaVelha = { planilha: 'outro-app', ops: [{ t: 'lanc', l: { id: 'x2', ano: 2026, mes: 11, dia: 1, categoriaId: 'renda-extra', descricao: '', valor: 50 } }] };
+  await p.evaluate(({ cache, fila }) => {
+    localStorage.clear();
+    localStorage.setItem('bf:cache', JSON.stringify(cache));
+    localStorage.setItem('bf:fila', JSON.stringify(fila));
+  }, { cache: velho, fila: filaVelha });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await pronto(p);
+  const estado = await p.evaluate(() => ({
+    cats: S.dados.categorias.map((c) => c.id),
+    fila: S.fila.length,
+    hero: document.querySelector('.numero-heroi').textContent,
+  }));
+  assert.ok(estado.cats.includes('outras-rendas') && !estado.cats.includes('renda-extra'), 'categorias do servidor, não do cache antigo');
+  assert.equal(estado.fila, 0, 'fila de outro app é ignorada');
+  assert.equal(estado.hero, moeda(900), 'disponível inicial');
+  await p.tap('.inf-mais'); await folhaAberta(p);
+  await p.tap('[data-f="tipo"][data-v="renda"]'); await sleep(80);
+  await p.tap('[data-f="cat"][data-v="outras-rendas"]'); await sleep(80);
+  await digitarTeclado(p, ['1', '0', '0', '0']);
+  await p.tap('#nv-salvar'); await semFolha(p); await sincronizado(p);
+  await p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, moeda(910));
+  const linha = a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 10);
+  assert.ok(linha, 'lançamento gravado em Outras Rendas');
+  await p.close();
+});
+
 await caso('computador: planejar digitando 150000 grava 1500 (máscara de centavos)', async () => {
   await irPara(pc, 'mes');
   await pc.click('[data-modo="planejar"]'); await sleep(100);

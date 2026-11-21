@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1 — 2026-11-21
+
+### Corrigido
+- **Cache de outro app.** O armazenamento local agora é separado por implantação. Categorias, tema e fila de outro app (como “Renda Extra” de um exemplo) não aparecem mais no seu controle. A fila antiga só é migrada quando pertence à mesma planilha.
+- **Renda no disponível.** Com a categoria de renda correta (por exemplo, “Outras Rendas”), o lançamento soma ao **Disponível** em vez de diminuir. O teste de ponta a ponta cobre esse cenário.
+
 ## 2.5.0 — 2026-11-21
 
 ### Novo

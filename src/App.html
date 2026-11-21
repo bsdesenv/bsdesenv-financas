@@ -122,10 +122,23 @@ const S = {
   busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
-   navegador: é só um reforço. A garantia é a planilha. */
+   navegador: é só um reforço. A garantia é a planilha.
+   O Apps Script compartilha o localStorage entre todos os apps do mesmo
+   script.google.com; por isso a chave inclui a implantação (ou o caminho
+   local). Sem isso, um app de exemplo poderia mostrar categorias e filas
+   de outro projeto. */
+const ESCOPO = (() => {
+  try {
+    const m = String(location.pathname || '').match(/\/s\/([^/]+)/);
+    if (m) return m[1];
+    return location.protocol === 'file:' ? 'arquivo:' + location.pathname : location.hostname + ':' + location.pathname;
+  } catch (e) { return 'app'; }
+})();
 const LS = {
-  ler(k) { try { return JSON.parse(localStorage.getItem('bf:' + k)); } catch (e) { return null; } },
-  gravar(k, v) { try { localStorage.setItem('bf:' + k, JSON.stringify(v)); } catch (e) { /* cheio ou bloqueado */ } },
+  ler(k) { try { return JSON.parse(localStorage.getItem('bf:' + ESCOPO + ':' + k)); } catch (e) { return null; } },
+  gravar(k, v) { try { localStorage.setItem('bf:' + ESCOPO + ':' + k, JSON.stringify(v)); } catch (e) { /* cheio ou bloqueado */ } },
+  lerAntigo(k) { try { return JSON.parse(localStorage.getItem('bf:' + k)); } catch (e) { return null; } },
+  apagarAntigo(k) { try { localStorage.removeItem('bf:' + k); } catch (e) { /* bloqueado */ } },
 };
 function persistirFila() { LS.gravar('fila', { planilha: S.dados && S.dados.planilha ? S.dados.planilha.id : null, ops: S.fila }); }
 let tCache = 0;
@@ -2080,12 +2093,20 @@ function mostrarErroCarga(e) {
 }
 let tRecarga = 0;
 let tentativasCarga = 0;
-async function carregarDoServidor({ inicial = false, filaSalva = null } = {}) {
+async function carregarDoServidor({ inicial = false, filaSalva = null, filaAntiga = null } = {}) {
   try {
     const d = JSON.parse(await chamar('carregar'));
+    let antigasRecuperadas = 0;
+    if (filaAntiga && filaAntiga.planilha === d.planilha.id && Array.isArray(filaAntiga.ops)) {
+      const vistos = new Set(S.fila.map((op) => JSON.stringify(op)));
+      const antigas = filaAntiga.ops.filter((op) => !vistos.has(JSON.stringify(op)));
+      if (antigas.length) S.fila = S.fila.concat(antigas);
+      antigasRecuperadas = antigas.length;
+      LS.apagarAntigo('fila');
+    }
     const pend = S.fila.length ? S.fila : (filaSalva && filaSalva.planilha === d.planilha.id && Array.isArray(filaSalva.ops) ? filaSalva.ops : []);
     for (const op of pend) { try { aplicarOp(d, op); } catch (err) { /* operação velha que não se aplica */ } }
-    const recuperadas = inicial && !S.fila.length ? pend.length : 0;
+    const recuperadas = inicial && !S.fila.length ? pend.length : (inicial ? antigasRecuperadas : 0);
     S.fila = pend.slice();
     S.dados = d; S.versao++;
     S.offline = false; S.falhas = 0; S.atualizando = false; S.ultimaSync = Date.now(); tentativasCarga = 0;
@@ -2102,7 +2123,7 @@ async function carregarDoServidor({ inicial = false, filaSalva = null } = {}) {
       if (!tentativasCarga) aviso('Sem conexão com a planilha. Mostrando a última cópia deste aparelho.', { tipo: 'erro' });
       tentativasCarga++;
       clearTimeout(tRecarga);
-      tRecarga = setTimeout(() => carregarDoServidor({ inicial, filaSalva }), [3, 6, 15, 30, 60][Math.min(tentativasCarga - 1, 4)] * 1000);
+      tRecarga = setTimeout(() => carregarDoServidor({ inicial, filaSalva, filaAntiga }), [3, 6, 15, 30, 60][Math.min(tentativasCarga - 1, 4)] * 1000);
     } else {
       mostrarErroCarga(e);
     }
@@ -2124,6 +2145,7 @@ async function iniciar() {
   aplicarTema(LS.ler('tema') || 'auto');
   const cache = LS.ler('cache');
   const filaSalva = LS.ler('fila');
+  const filaAntiga = LS.lerAntigo('fila');
   if (cache && Array.isArray(cache.categorias) && cache.categorias.length && cache.anos) {
     S.dados = cache;
     if (filaSalva && filaSalva.planilha === (cache.planilha || {}).id && Array.isArray(filaSalva.ops)) {
@@ -2134,7 +2156,7 @@ async function iniciar() {
     montarApp();
   }
   hist.replace({ tela: S.tela, n: 0 });
-  await carregarDoServidor({ inicial: true, filaSalva });
+  await carregarDoServidor({ inicial: true, filaSalva, filaAntiga });
   lerAtalhosDaUrl();
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verificarNovidades(); });

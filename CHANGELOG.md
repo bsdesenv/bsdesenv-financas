@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1 — 2026-11-22
+
+### Mudou
+- **Tema azul de volta.** O acento principal volta ao índigo original, com superfícies frias e o mapa de calor nas cores anteriores.
+- **Ícone azul.** O ícone do app e as capturas foram atualizados para a paleta azul.
+
 ## 2.6.0 — 2026-11-22
 
 ### Novo

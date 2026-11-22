@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img alt="Versão" src="https://img.shields.io/github/package-json/v/bsdesenv/bsdesenv-financas?style=flat-square&color=176B52&label=vers%C3%A3o"></a>
+  <a href="CHANGELOG.md"><img alt="Versão" src="https://img.shields.io/github/package-json/v/bsdesenv/bsdesenv-financas?style=flat-square&color=4338CA&label=vers%C3%A3o"></a>
   <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/github/license/bsdesenv/bsdesenv-financas?style=flat-square&color=047857&label=licen%C3%A7a"></a>
   <img alt="Google Sheets" src="https://img.shields.io/badge/Google%20Sheets-34A853?style=flat-square&logo=googlesheets&logoColor=white">
   <img alt="Apps Script" src="https://img.shields.io/badge/Apps%20Script-4285F4?style=flat-square&logo=googleappsscript&logoColor=white">
@@ -46,7 +46,9 @@
 - **Planilha anual mais fácil de navegar no celular:** rolagem indicada, categorias fixas e acesso por teclado.
 - **Planejamento mais enxuto:** a explicação dos cálculos fica disponível para expandir sem ocupar a tela toda.
 
-As regras financeiras permanecem iguais. Veja os detalhes no [changelog](CHANGELOG.md#260--2026-11-22) e no guia [Como usar](docs/USAR.md).
+**Atualização 2.6.1:** o tema azul/índigo e o ícone original voltaram, mantendo o layout novo.
+
+As regras financeiras permanecem iguais. Veja os detalhes no [changelog](CHANGELOG.md#261--2026-11-22) e no guia [Como usar](docs/USAR.md).
 
 ## Comece em 10 minutos
 

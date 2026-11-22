@@ -162,7 +162,7 @@ if (PRINTS) {
   await bv.screenshot({ path: path.join(PRINTS, 'primeiro-acesso.png') });
   const icone = await browser.newPage();
   await icone.setViewport({ width: 192, height: 192 });
-  await icone.setContent('<body style="margin:0;background:transparent"><div style="width:192px;height:192px;border-radius:44px;background:#176B52;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding-bottom:44px;box-sizing:border-box"><i style="width:26px;height:50px;border-radius:8px;background:#A8E4C5"></i><i style="width:26px;height:88px;border-radius:8px;background:#fff"></i><i style="width:26px;height:34px;border-radius:8px;background:#A8E4C5"></i></div></body>');
+  await icone.setContent('<body style="margin:0;background:transparent"><div style="width:192px;height:192px;border-radius:44px;background:#4338CA;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding-bottom:44px;box-sizing:border-box"><i style="width:26px;height:50px;border-radius:8px;background:#A5B4FC"></i><i style="width:26px;height:88px;border-radius:8px;background:#fff"></i><i style="width:26px;height:34px;border-radius:8px;background:#A5B4FC"></i></div></body>');
   await icone.screenshot({ path: path.join(PRINTS, 'icone-192.png'), omitBackground: true });
   await icone.close();
   console.log('prints gravados em docs/img/');

@@ -3,79 +3,79 @@
    Tokens — contraste orientado a WCAG AA nos dois temas
    ===================================================================== */
 :root {
-  --fundo: #F3F5F1; --cartao: #FFFEFC; --cartao-2: #F8FAF7;
-  --tinta: #18251F; --tinta-2: #46574E; --tinta-3: #607168;
-  --linha: #DCE5DE; --linha-2: #EAF0EB; --trilho: #E6ECE7;
-  --chip: #EEF4EF; --chip-borda: #D2DED5;
-  --acento: #176B52; --acento-tinta: #FFFFFF; --acento-fraco: #E6F2EB; --acento-forte: #14513F;
-  --gasto: #336C83;
-  --calor-acima: #C55D3C; --calor-abaixo: #648CA6;
-  --ok: #16764C; --acima: #B5472E; --atencao: #96620F;
-  --aviso-fundo: #FFF5E6; --aviso-borda: #F1D8AD; --aviso-tinta: #80520B;
-  --ok-fundo: #E9F5ED; --ok-borda: #B9DEC6; --ok-tinta: #155A3B;
+  --fundo: #F4F6F9; --cartao: #FFFFFF; --cartao-2: #F8FAFC;
+  --tinta: #0E1525; --tinta-2: #475467; --tinta-3: #5B6B7F;
+  --linha: #E4E8EE; --linha-2: #EEF1F5; --trilho: #EAEEF3;
+  --chip: #EEF1F6; --chip-borda: #D9DEE6;
+  --acento: #4338CA; --acento-tinta: #FFFFFF; --acento-fraco: #EEF0FF; --acento-forte: #3730A3;
+  --gasto: #4338CA;
+  --calor-acima: #EA580C; --calor-abaixo: #4F46E5;
+  --ok: #047857; --acima: #C2410C; --atencao: #B45309;
+  --aviso-fundo: #FFF5E6; --aviso-borda: #F6DDB5; --aviso-tinta: #8A4B08;
+  --ok-fundo: #ECFDF5; --ok-borda: #BBF0D6; --ok-tinta: #065F46;
   --perigo: #B42318;
-  --nav: rgba(255, 254, 252, .94); --veu: rgba(18, 29, 23, .46);
-  --toast: #18251F; --toast-tinta: #FFFFFF; --toast-acao: #A8E4C5;
-  --sombra: 0 1px 2px rgba(24, 37, 31, .04), 0 8px 24px rgba(24, 37, 31, .055);
-  --sombra-forte: 0 18px 50px rgba(13, 26, 19, .22);
+  --nav: rgba(255, 255, 255, .94); --veu: rgba(10, 14, 22, .45);
+  --toast: #0E1525; --toast-tinta: #FFFFFF; --toast-acao: #A5B4FC;
+  --sombra: 0 1px 2px rgba(14, 21, 37, .05), 0 8px 24px rgba(14, 21, 37, .06);
+  --sombra-forte: 0 18px 50px rgba(14, 21, 37, .22);
   --raio: 18px; --raio-m: 13px; --raio-p: 9px;
   --fonte: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --fundo: #0E1511; --cartao: #151E19; --cartao-2: #1A2720;
-    --tinta: #EAF1EB; --tinta-2: #B7C6BB; --tinta-3: #91A397;
-    --linha: #2A3930; --linha-2: #202D25; --trilho: #2B3A31;
-    --chip: #1D2A23; --chip-borda: #35463A;
-    --acento: #65C99A; --acento-tinta: #0C1710; --acento-fraco: #19382A; --acento-forte: #9AE0B9;
-    --gasto: #7AB6CC;
-    --calor-acima: #F09978; --calor-abaixo: #8FBED4;
-    --ok: #66D3A0; --acima: #FFA184; --atencao: #F1C36D;
-    --aviso-fundo: #302514; --aviso-borda: #59431D; --aviso-tinta: #F1CB80;
-    --ok-fundo: #142D21; --ok-borda: #235238; --ok-tinta: #91DEB1;
-    --perigo: #FF8B80;
-    --nav: rgba(21, 30, 25, .94); --veu: rgba(0, 0, 0, .62);
-    --toast: #EAF1EB; --toast-tinta: #18251F; --toast-acao: #14513F;
-    --sombra: 0 1px 2px rgba(0, 0, 0, .28), 0 8px 24px rgba(0, 0, 0, .2);
+    --fundo: #0B0F17; --cartao: #131A26; --cartao-2: #18202E;
+    --tinta: #E8ECF3; --tinta-2: #B3BDCC; --tinta-3: #8C98AA;
+    --linha: #232C3B; --linha-2: #1C2433; --trilho: #232D3C;
+    --chip: #1C2433; --chip-borda: #2C3646;
+    --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340; --acento-forte: #C7CCFF;
+    --gasto: #9AA3FF;
+    --calor-acima: #FB923C; --calor-abaixo: #818CF8;
+    --ok: #34D399; --acima: #FB923C; --atencao: #FBBF24;
+    --aviso-fundo: #2A1F0E; --aviso-borda: #4A3615; --aviso-tinta: #F5C67A;
+    --ok-fundo: #0D2A20; --ok-borda: #15402F; --ok-tinta: #6EE7B7;
+    --perigo: #F87171;
+    --nav: rgba(19, 26, 38, .94); --veu: rgba(0, 0, 0, .6);
+    --toast: #E8ECF3; --toast-tinta: #0E1525; --toast-acao: #3730A3;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
     --sombra-forte: 0 18px 50px rgba(0, 0, 0, .55);
     color-scheme: dark;
   }
 }
 :root[data-tema="escuro"] {
-  --fundo: #0E1511; --cartao: #151E19; --cartao-2: #1A2720;
-  --tinta: #EAF1EB; --tinta-2: #B7C6BB; --tinta-3: #91A397;
-  --linha: #2A3930; --linha-2: #202D25; --trilho: #2B3A31;
-  --chip: #1D2A23; --chip-borda: #35463A;
-  --acento: #65C99A; --acento-tinta: #0C1710; --acento-fraco: #19382A; --acento-forte: #9AE0B9;
-  --gasto: #7AB6CC;
-  --calor-acima: #F09978; --calor-abaixo: #8FBED4;
-  --ok: #66D3A0; --acima: #FFA184; --atencao: #F1C36D;
-  --aviso-fundo: #302514; --aviso-borda: #59431D; --aviso-tinta: #F1CB80;
-  --ok-fundo: #142D21; --ok-borda: #235238; --ok-tinta: #91DEB1;
-  --perigo: #FF8B80;
-  --nav: rgba(21, 30, 25, .94); --veu: rgba(0, 0, 0, .62);
-  --toast: #EAF1EB; --toast-tinta: #18251F; --toast-acao: #14513F;
-  --sombra: 0 1px 2px rgba(0, 0, 0, .28), 0 8px 24px rgba(0, 0, 0, .2);
+  --fundo: #0B0F17; --cartao: #131A26; --cartao-2: #18202E;
+  --tinta: #E8ECF3; --tinta-2: #B3BDCC; --tinta-3: #8C98AA;
+  --linha: #232C3B; --linha-2: #1C2433; --trilho: #232D3C;
+  --chip: #1C2433; --chip-borda: #2C3646;
+  --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340; --acento-forte: #C7CCFF;
+  --gasto: #9AA3FF;
+  --calor-acima: #FB923C; --calor-abaixo: #818CF8;
+  --ok: #34D399; --acima: #FB923C; --atencao: #FBBF24;
+  --aviso-fundo: #2A1F0E; --aviso-borda: #4A3615; --aviso-tinta: #F5C67A;
+  --ok-fundo: #0D2A20; --ok-borda: #15402F; --ok-tinta: #6EE7B7;
+  --perigo: #F87171;
+  --nav: rgba(19, 26, 38, .94); --veu: rgba(0, 0, 0, .6);
+  --toast: #E8ECF3; --toast-tinta: #0E1525; --toast-acao: #3730A3;
+  --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
   --sombra-forte: 0 18px 50px rgba(0, 0, 0, .55);
   color-scheme: dark;
 }
 
 /* Cores das categorias (escolhidas pelo id; no escuro, versões claras) */
-.cor-0 { --c: #176B52; } .cor-1 { --c: #176B87; } .cor-2 { --c: #B5472E; } .cor-3 { --c: #3757A4; } .cor-4 { --c: #A23A5B; }
-.cor-5 { --c: #96620F; } .cor-6 { --c: #6941A5; } .cor-7 { --c: #117C76; } .cor-8 { --c: #8B3F8F; } .cor-9 { --c: #5B7C28; }
+.cor-0 { --c: #4338CA; } .cor-1 { --c: #047857; } .cor-2 { --c: #C2410C; } .cor-3 { --c: #1D4ED8; } .cor-4 { --c: #BE123C; }
+.cor-5 { --c: #B45309; } .cor-6 { --c: #6D28D9; } .cor-7 { --c: #0F766E; } .cor-8 { --c: #A21CAF; } .cor-9 { --c: #4D7C0F; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) .cor-0 { --c: #67D4A2; } :root:not([data-tema="claro"]) .cor-1 { --c: #74C4DD; }
-  :root:not([data-tema="claro"]) .cor-2 { --c: #FDB08A; } :root:not([data-tema="claro"]) .cor-3 { --c: #9BB4FF; }
-  :root:not([data-tema="claro"]) .cor-4 { --c: #F5A3BC; } :root:not([data-tema="claro"]) .cor-5 { --c: #EAC56C; }
-  :root:not([data-tema="claro"]) .cor-6 { --c: #C4A5F2; } :root:not([data-tema="claro"]) .cor-7 { --c: #68D6C9; }
-  :root:not([data-tema="claro"]) .cor-8 { --c: #E5A6E5; } :root:not([data-tema="claro"]) .cor-9 { --c: #B8D77B; }
+  :root:not([data-tema="claro"]) .cor-0 { --c: #A5B4FC; } :root:not([data-tema="claro"]) .cor-1 { --c: #6EE7B7; }
+  :root:not([data-tema="claro"]) .cor-2 { --c: #FDBA74; } :root:not([data-tema="claro"]) .cor-3 { --c: #93C5FD; }
+  :root:not([data-tema="claro"]) .cor-4 { --c: #FDA4AF; } :root:not([data-tema="claro"]) .cor-5 { --c: #FCD34D; }
+  :root:not([data-tema="claro"]) .cor-6 { --c: #C4B5FD; } :root:not([data-tema="claro"]) .cor-7 { --c: #5EEAD4; }
+  :root:not([data-tema="claro"]) .cor-8 { --c: #F0ABFC; } :root:not([data-tema="claro"]) .cor-9 { --c: #BEF264; }
 }
-:root[data-tema="escuro"] .cor-0 { --c: #67D4A2; } :root[data-tema="escuro"] .cor-1 { --c: #74C4DD; }
-:root[data-tema="escuro"] .cor-2 { --c: #FDB08A; } :root[data-tema="escuro"] .cor-3 { --c: #9BB4FF; }
-:root[data-tema="escuro"] .cor-4 { --c: #F5A3BC; } :root[data-tema="escuro"] .cor-5 { --c: #EAC56C; }
-:root[data-tema="escuro"] .cor-6 { --c: #C4A5F2; } :root[data-tema="escuro"] .cor-7 { --c: #68D6C9; }
-:root[data-tema="escuro"] .cor-8 { --c: #E5A6E5; } :root[data-tema="escuro"] .cor-9 { --c: #B8D77B; }
+:root[data-tema="escuro"] .cor-0 { --c: #A5B4FC; } :root[data-tema="escuro"] .cor-1 { --c: #6EE7B7; }
+:root[data-tema="escuro"] .cor-2 { --c: #FDBA74; } :root[data-tema="escuro"] .cor-3 { --c: #93C5FD; }
+:root[data-tema="escuro"] .cor-4 { --c: #FDA4AF; } :root[data-tema="escuro"] .cor-5 { --c: #FCD34D; }
+:root[data-tema="escuro"] .cor-6 { --c: #C4B5FD; } :root[data-tema="escuro"] .cor-7 { --c: #5EEAD4; }
+:root[data-tema="escuro"] .cor-8 { --c: #F0ABFC; } :root[data-tema="escuro"] .cor-9 { --c: #BEF264; }
 
 /* =====================================================================
    Base

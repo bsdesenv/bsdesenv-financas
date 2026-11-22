@@ -112,8 +112,6 @@ npm run preview:prints  # prints de PC e celular em testes/saida/preview/
 
 A prévia usa os dados fictícios de `exemplos/dados-exemplo.json`. Para ver o seu backup sem enviar nada ao Google, rode `npm run preview -- --data=caminho/do/backup.json`.
 
-Para enviar o código direto para o Apps Script, use o [clasp](https://github.com/google/clasp): copie `.clasp.json.example` para `.clasp.json`, preencha o `scriptId` do seu projeto e rode `npx clasp push`.
-
 </details>
 
 ## Licença

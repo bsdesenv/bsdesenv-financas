@@ -6,8 +6,6 @@
 
 # --- Ferramentas ---
 node_modules/
-.clasp.json
-.clasprc.json
 /testes/saida/
 .DS_Store
 Thumbs.db

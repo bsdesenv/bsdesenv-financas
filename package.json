@@ -15,7 +15,6 @@
     "preview:prints": "node testes/preview.mjs --prints",
     "prints": "node testes/e2e.mjs --prints",
     "exemplo": "node testes/gerar-exemplo.mjs",
-    "push": "clasp push",
     "video:servidor": "node docs/video-tutorial/servidor.mjs"
   }
 }

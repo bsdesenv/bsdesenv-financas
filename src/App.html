@@ -502,7 +502,7 @@ function notaCategoria(c, v, est) {
   const resta = moeda(v.plano - v.real);
   return est === 'atencao' ? `Acima do ritmo · restam ${resta}` : `Restam ${resta}`;
 }
-function linhaCat(c, v, ritmo, ano, mes, extra = false, mostrarMedia = false) {
+function linhaCat(c, v, ritmo, ano, mes, extra = false, mostrarMedia = false, extraPc = false) {
   const est = estadoCategoria(c, v, ritmo);
   const mostrado = v.fase === 'atual' ? v.real : v.valor;
   const pct = v.plano > 0 ? (v.real / v.plano) * 100 : mostrado > 0 ? 100 : 0;
@@ -514,7 +514,7 @@ function linhaCat(c, v, ritmo, ano, mes, extra = false, mostrarMedia = false) {
   const mediaTxt = med > 0
     ? `<span class="lc-media so-desktop">média 3m <strong>${moeda(med)}</strong>${dif !== null ? ` · <em class="${dif > 0 ? 'txt-acima' : 'txt-ok'}">${dif > 0 ? '+' : ''}${Math.round(dif)}%</em>` : ''}</span>`
     : '';
-  return `<button type="button" class="linha-cat${extra ? ' cats-extra' : ''}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${mes}" data-foco="lc-${esc(c.id)}">`
+  return `<button type="button" class="linha-cat${extra ? ' cats-extra' : ''}${extraPc ? ' cats-extra-pc' : ''}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${mes}" data-foco="lc-${esc(c.id)}">`
     + mono(c)
     + `<span class="lc-corpo"><span class="lc-topo"><span class="lc-nome">${esc(c.nome)}</span>`
     + `<span class="lc-valores"><strong class="${est === 'acima' ? 'txt-acima' : ''}">${num(mostrado)}</strong>${v.plano && v.fase !== 'futuro' ? ' / ' + num(v.plano) : ''}</span></span>`
@@ -930,7 +930,7 @@ function cartaoCategorias(r) {
     itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.valor > 0).sort((a, b) => b.v.valor - a.v.valor);
   }
   const corpo = itens.length
-    ? `<div class="lista-cats">${itens.map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4, r.fase === 'atual')).join('')}</div>${extra}`
+    ? `<div class="lista-cats">${itens.map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4, r.fase === 'atual', i >= 6)).join('')}</div>${extra}`
     : vazio(r.fase === 'futuro' ? 'Nenhum gasto planejado para este mês.' : 'Nada lançado neste mês ainda.', r.fase !== 'futuro');
   return `<section class="cartao g-cats" aria-labelledby="h-cats"><div class="cartao-topo"><h2 id="h-cats">${titulo}</h2>`
     + `<button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-todas">Ver todas</button></div>${corpo}</section>`;

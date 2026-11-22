@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.2 — 2026-11-22
+
+### Mudou
+- **Variáveis do mês no computador.** O cartão passa a mostrar no máximo 6 categorias, mantendo a altura alinhada aos cartões laterais; as demais ficam na tela do mês, pelo **Ver todas**.
+
 ## 2.6.1 — 2026-11-22
 
 ### Mudou

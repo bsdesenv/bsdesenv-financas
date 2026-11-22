@@ -8,12 +8,12 @@
 
 <p align="center">
   <strong>Seu controle financeiro, dentro do seu Google Sheets.</strong><br>
-  Lance em segundos no celular, planeje no computador e mantenha os dados na sua planilha.<br>
+  Interface renovada para PC e celular: lance em segundos, planeje com clareza e mantenha os dados na sua planilha.<br>
   <sub>Sem mensalidade, sem anúncio, sem servidor de terceiros.</sub>
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img alt="Versão" src="https://img.shields.io/github/package-json/v/bsdesenv/bsdesenv-financas?style=flat-square&color=4338CA&label=vers%C3%A3o"></a>
+  <a href="CHANGELOG.md"><img alt="Versão" src="https://img.shields.io/github/package-json/v/bsdesenv/bsdesenv-financas?style=flat-square&color=176B52&label=vers%C3%A3o"></a>
   <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/github/license/bsdesenv/bsdesenv-financas?style=flat-square&color=047857&label=licen%C3%A7a"></a>
   <img alt="Google Sheets" src="https://img.shields.io/badge/Google%20Sheets-34A853?style=flat-square&logo=googlesheets&logoColor=white">
   <img alt="Apps Script" src="https://img.shields.io/badge/Apps%20Script-4285F4?style=flat-square&logo=googleappsscript&logoColor=white">
@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/img/computador-inicio.png" alt="Início no computador: lançamento rápido, disponível com anel de composição, números do mês, meta de economia e ritmo do plano" width="860">
+  <img src="docs/img/computador-inicio.png" alt="Início no computador: lançamento rápido, resumo do disponível, indicadores do mês, categorias e ritmo do plano" width="860">
 </p>
 
 > **A regra em uma frase:** cada categoria conta pelo que foi lançado; se ainda não teve lançamento, vale o plano. O **disponível** é renda − o que já saiu − os planos sem lançamento.
@@ -38,6 +38,15 @@
 - **Tudo na tela.** Disponível, ritmo, meta e cobertura do plano.
 - **Sincronizado.** Celular e computador não se sobrescrevem; offline funciona.
 - **Acessível.** Contraste AA, toque de 44 px e teclado.
+
+## Novidades da versão 2.6.0
+
+- **Layout atualizado** para desktop, tablet e celular, com os temas claro e escuro alinhados.
+- **Indicadores legíveis em telas estreitas:** valores do mês não são cortados nem em 320 px.
+- **Planilha anual mais fácil de navegar no celular:** rolagem indicada, categorias fixas e acesso por teclado.
+- **Planejamento mais enxuto:** a explicação dos cálculos fica disponível para expandir sem ocupar a tela toda.
+
+As regras financeiras permanecem iguais. Veja os detalhes no [changelog](CHANGELOG.md#260--2026-11-22) e no guia [Como usar](docs/USAR.md).
 
 ## Comece em 10 minutos
 

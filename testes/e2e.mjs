@@ -84,9 +84,9 @@ async function abrir(amb, vp, url, { tema, contexto } = {}) {
   paginas.push(p);
   return p;
 }
-/** Espera a fonte Inter (Google Fonts) chegar, para os prints saírem com a tipografia certa. */
+/** Espera a fonte DM Sans (Google Fonts) chegar, para os prints saírem com a tipografia certa. */
 async function fontes(p) {
-  await p.waitForFunction(() => document.fonts.check('600 16px Inter'), { timeout: 20000 }).catch(() => console.log('  (aviso: Inter não carregou; print com fonte do sistema)'));
+  await p.waitForFunction(() => document.fonts.check('600 16px "DM Sans"'), { timeout: 20000 }).catch(() => console.log('  (aviso: DM Sans não carregou; print com fonte do sistema)'));
   await p.evaluate(() => document.fonts.ready);
   await sleep(150);
 }
@@ -162,7 +162,7 @@ if (PRINTS) {
   await bv.screenshot({ path: path.join(PRINTS, 'primeiro-acesso.png') });
   const icone = await browser.newPage();
   await icone.setViewport({ width: 192, height: 192 });
-  await icone.setContent('<body style="margin:0;background:transparent"><div style="width:192px;height:192px;border-radius:44px;background:#4338CA;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding-bottom:44px;box-sizing:border-box"><i style="width:26px;height:50px;border-radius:8px;background:#A5B4FC"></i><i style="width:26px;height:88px;border-radius:8px;background:#fff"></i><i style="width:26px;height:34px;border-radius:8px;background:#A5B4FC"></i></div></body>');
+  await icone.setContent('<body style="margin:0;background:transparent"><div style="width:192px;height:192px;border-radius:44px;background:#176B52;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding-bottom:44px;box-sizing:border-box"><i style="width:26px;height:50px;border-radius:8px;background:#A8E4C5"></i><i style="width:26px;height:88px;border-radius:8px;background:#fff"></i><i style="width:26px;height:34px;border-radius:8px;background:#A8E4C5"></i></div></body>');
   await icone.screenshot({ path: path.join(PRINTS, 'icone-192.png'), omitBackground: true });
   await icone.close();
   console.log('prints gravados em docs/img/');
@@ -814,7 +814,25 @@ await caso('celular: nenhuma tela passa da largura da tela', async () => {
     await irPara(cel, t);
     const largura = await cel.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
     assert.ok(largura[0] <= largura[1], `${t}: ${largura[0]}px > ${largura[1]}px`);
+    if (t === 'planilha') {
+      const regiao = await cel.$eval('.planilha-caixa', (e) => ({ role: e.getAttribute('role'), tabindex: e.getAttribute('tabindex'), label: e.getAttribute('aria-label') }));
+      assert.equal(regiao.role, 'region', 'a tabela tem uma região de rolagem nomeada');
+      assert.equal(regiao.tabindex, '0', 'a tabela pode receber foco por teclado');
+      assert.match(regiao.label, /rolável na horizontal/);
+    }
   }
+});
+
+await caso('celular estreito: indicadores do mês mostram valores completos em 320 px', async () => {
+  const estreito = await abrir(amb, { ...CEL, width: 320, height: 720 }, url);
+  await pronto(estreito); await irPara(estreito, 'mes');
+  const kpis = await estreito.$$eval('.kpis-mes strong', (els) => els.map((e) => ({
+    texto: e.textContent,
+    excede: e.scrollWidth > e.clientWidth + 1,
+  })));
+  assert.equal(kpis.length, 3, 'os três indicadores continuam disponíveis');
+  assert.ok(kpis.every((k) => !k.excede && !k.texto.includes('…')), JSON.stringify(kpis));
+  await estreito.close();
 });
 
 await caso('celular: com a barra do navegador, o lançamento mostra categorias, teclado e Salvar inteiros', async () => {

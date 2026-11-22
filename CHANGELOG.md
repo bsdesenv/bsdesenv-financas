@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.6.0 — 2026-11-22
+
+### Novo
+- **Interface renovada para computador, tablet e celular.** Uma identidade visual mais clara, com tema claro/escuro coerente e distinção textual e visual entre valores gastos, planos sem lançamento e disponível.
+- **Planejamento mais direto.** A explicação de como os planos entram nos cálculos pode ser expandida quando necessário, deixando os indicadores e as ações mais próximos.
+- **Planilha anual acessível no celular.** A rolagem horizontal fica dentro de uma região nomeada, focável por teclado, com uma dica de navegação; a coluna de categorias e os meses continuam visíveis durante a comparação.
+
+### Mudou
+- **Painel adaptável.** Cartões e navegação se reorganizam para cada largura; em telas intermediárias, os indicadores laterais aproveitam duas colunas e o cabeçalho do computador fica mais compacto.
+- **Números do mês em telas estreitas.** Em 320 px, Renda e Gastos dividem a primeira linha e Sobra ocupa a largura toda, sem truncar valores.
+- **Capturas atualizadas.** As imagens do README e o ícone do projeto agora correspondem à interface e à paleta atuais.
+
+### Acessibilidade
+- **Mais contraste e nomes claros.** O texto secundário, os meses do gráfico anual e a região rolável da planilha foram ajustados para leitura visual, teclado e tecnologia assistiva.
+
+### Mantido
+- **Regras financeiras inalteradas.** Disponível, planos, rendas, lançamentos e sincronização seguem os mesmos cálculos e fluxos da versão anterior.
+
 ## 2.5.4 — 2026-11-21
 
 ### Corrigido

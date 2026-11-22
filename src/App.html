@@ -587,7 +587,7 @@ function renderTopo() {
       + (foraDoMes ? '<button type="button" class="botao fantasma pequeno" data-acao="mes-hoje" data-foco="mes-hoje">Hoje</button>' : '') + '</div>';
   }
   $('#topo').innerHTML = `<div class="topo-esq">${esq}</div><div class="topo-dir">`
-    + `<form class="busca-rapida so-desktop" id="quick-form" aria-label="Lançamento rápido">${ic('raio', 18)}<label class="sr" for="quick">Lançamento rápido</label><input id="quick" data-foco="quick" data-digitar="quick" value="${esc(S.quick)}" placeholder="Lançar rápido: “32,90 mercado padaria”" autocomplete="off"><kbd>N</kbd></form>`
+    + `<form class="busca-rapida so-desktop" id="quick-form" aria-label="Lançamento rápido">${ic('raio', 18)}<label class="sr" for="quick">Lançamento rápido</label><input id="quick" data-foco="quick" data-digitar="quick" value="${esc(S.quick)}" placeholder="Ex.: 32,90 mercado" autocomplete="off"><kbd>N</kbd></form>`
     + `<button type="button" class="botao primario so-desktop" data-acao="novo" data-foco="novo-topo">${ic('mais', 18)}Novo lançamento</button>`
     + '<button type="button" class="sinc so-celular" id="sinc-topo" data-acao="sincronizar"></button></div>';
 }
@@ -662,22 +662,22 @@ function cartaoHeroi(r) {
     const pctSaiu = pctOf(r.gastoReal); const pctPlano = pctOf(r.previsto); const pctLivre = pctOf(Math.max(0, r.disponivel));
     const corte = Math.min(100, pctSaiu + pctPlano);
     const anelBg = r.renda > 0
-      ? `conic-gradient(var(--acento) 0 ${pctSaiu}%, var(--atencao) ${pctSaiu}% ${corte}%, var(--ok) ${corte}% 100%)`
+      ? `conic-gradient(var(--gasto) 0 ${pctSaiu}%, var(--atencao) ${pctSaiu}% ${corte}%, var(--ok) ${corte}% 100%)`
       : 'var(--trilho)';
     const rotuloComposicao = `Já saiu ${Math.round(pctSaiu)}%, planos sem lançamento ${Math.round(pctPlano)}%, disponível ${Math.round(pctLivre)}%`;
     const anel = `<div class="anel" style="background:${anelBg}" role="img" aria-label="${rotuloComposicao}"><div class="anel-centro"><strong>${Math.round(pctLivre)}%</strong><span>livre</span></div></div>`;
     const barraComposicao = `<div class="heroi-barra" role="img" aria-label="${rotuloComposicao}">`
-      + `<i style="width:${pctSaiu}%;background:var(--acento)"></i>`
+      + `<i style="width:${pctSaiu}%;background:var(--gasto)"></i>`
       + (r.previsto > 0 ? `<i style="width:${pctPlano}%;background:var(--atencao)"></i>` : '')
       + `<i style="width:${pctLivre}%;background:var(--ok)"></i></div>`;
     const legenda = '<div class="heroi-legenda so-celular">'
-      + `<div><i style="background:var(--acento)"></i><span>Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
+      + `<div><i style="background:var(--gasto)"></i><span>Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
       + (r.previsto > 0 ? `<div><i style="background:var(--atencao)"></i><span>Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong><em>${Math.round(pctPlano)}%</em></div>` : '')
       + `<div><i style="background:var(--ok)"></i><span>Disponível</span><strong>${moeda(r.disponivel)}</strong><em>${Math.round(pctLivre)}%</em></div>`
       + '</div>';
     const composicao = `<div class="heroi-composicao so-desktop" aria-label="Composição do disponível">`
       + `<div><i style="background:var(--tinta-3)"></i><span>${rendaLbl}${rendaDet}</span><strong>${moeda(r.renda)}</strong><em>100%</em></div>`
-      + `<div><i style="background:var(--acento)"></i><span>− Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
+      + `<div><i style="background:var(--gasto)"></i><span>− Já saiu</span><strong>${moeda(r.gastoReal)}</strong><em>${Math.round(pctSaiu)}%</em></div>`
       + `<div class="subtotal"><i style="background:var(--trilho)"></i><span>= ${rendaPendente ? 'Restante previsto' : 'Ainda na conta'}</span><strong>${moeda(r.aindaNaConta)}</strong><em></em></div>`
       + (r.previsto > 0 ? `<div><i style="background:var(--atencao)"></i><span>− Planos sem lançamento</span><strong>${moeda(r.previsto)}</strong><em>${Math.round(pctPlano)}%</em></div>` : '')
       + `<div class="total"><i style="background:var(--ok)"></i><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong><em>${Math.round(pctLivre)}%</em></div>`
@@ -687,7 +687,7 @@ function cartaoHeroi(r) {
       + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
       + `<div class="heroi-bridge so-celular"><span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span><span>${rendaPendente ? 'Restante previsto' : 'Ainda na conta'} <strong>${moeda(r.aindaNaConta)}</strong></span></div>`
       + legenda + composicao + barraComposicao
-      + '<p class="heroi-nota">O plano só desconta o disponível enquanto a categoria não tem lançamento. <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + '<p class="heroi-nota"><span class="so-desktop">O plano só desconta o disponível enquanto a categoria não tem lançamento.</span><span class="so-celular">Planos sem lançamento já reduzem o disponível.</span> <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
       + `</div>${anel}</div></section>`;
   }
   if (r.fase === 'passado') {
@@ -962,7 +962,7 @@ function cartaoAno() {
     const hPos = m.sobra > 0 && mp ? Math.max(2, (m.sobra / mp) * 100) : 0;
     const hNeg = m.sobra < 0 && mn ? Math.max(2, (-m.sobra / mn) * 100) : 0;
     const extra = m.real ? ' (realizada)' : ' (projeção)';
-    return `<button type="button" class="ga-mes ${m.fase}${!m.real && m.fase !== 'futuro' ? ' futuro' : ''}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
+    return `<button type="button" class="ga-mes ${m.fase}${!m.real && m.fase !== 'futuro' ? ' futuro' : ''}${m.mes === S.mes ? ' sel' : ''}" data-acao="ir-mes" data-mes="${m.mes}" data-foco="ga-${m.mes}" title="${esc(Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}" aria-label="${esc(MesC(m.mes) + ' — ' + Mes(m.mes) + ': ' + moeda(m.sobra) + extra)}">`
       + `<span class="ga-col"><span class="ga-pos"><i style="height:${hPos.toFixed(1)}%"></i></span><span class="ga-neg"><i style="height:${hNeg.toFixed(1)}%"></i></span></span><span class="ga-rot">${MesC(m.mes)}</span></button>`;
   }).join('');
   const melhor = meses.reduce((a, m) => (m.sobra > a.sobra ? m : a), meses[0]);
@@ -1082,7 +1082,8 @@ function telaPlanejar() {
         + '</div></div>';
     }).join('')}</div></section>`;
   }).join('');
-  return `<p class="sub" style="margin-top:12px">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto; campo vazio significa sem valor previsto. A média é apenas uma sugestão e não entra nas contas até você usá-la. Guardar entra como compromisso fixo: o disponível já desconta o valor.</p>`
+  return '<details class="planejar-ajuda"><summary>Como os planos entram nos cálculos</summary>'
+    + '<p class="sub">Enquanto uma categoria não tem lançamento no mês, o plano entra nas contas como previsto; campo vazio significa sem valor previsto. A média é apenas uma sugestão e não entra nas contas até você usá-la. Guardar entra como compromisso fixo: o disponível já desconta o valor.</p></details>'
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
     + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Preencher com as médias</button>'
     + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
@@ -1118,8 +1119,8 @@ function telaPlanilha() {
         let estilo = '';
         if (S.calor && media && v.fase === 'passado' && v.qtd > 0) {
           const q = v.real / media;
-          if (q >= 1.15) estilo = `background-color:rgba(234,88,12,${Math.min(0.32, (q - 1) * 0.45).toFixed(2)})`;
-          else if (q <= 0.85) estilo = `background-color:rgba(79,70,229,${Math.min(0.22, (1 - q) * 0.4).toFixed(2)})`;
+          if (q >= 1.15) estilo = `background-color:color-mix(in srgb, var(--calor-acima) ${Math.min(32, (q - 1) * 45).toFixed(1)}%, var(--cartao))`;
+          else if (q <= 0.85) estilo = `background-color:color-mix(in srgb, var(--calor-abaixo) ${Math.min(22, (1 - q) * 40).toFixed(1)}%, var(--cartao))`;
         }
         const mini = v.fase === 'atual' && v.qtd && v.plano > 0 && g !== 'renda'
           ? `<span class="mini"><i class="${v.real > v.plano ? 'acima' : ''}" style="width:${Math.min(100, (v.real / v.plano) * 100).toFixed(0)}%"></i></span>` : '';
@@ -1144,9 +1145,10 @@ function telaPlanilha() {
   if (!cats().length) return vazio('Crie categorias em Ajustes para ver a planilha.', false);
   return '<div class="planilha-ferramentas">'
     + `<div class="segmentado" role="group" aria-label="Visualização">${seg(false, 'Valores')}${seg(true, 'Mapa de calor')}</div>`
-    + '<div class="legenda"><span><i style="background:rgba(234,88,12,.3)"></i>acima da média da categoria</span><span><i style="background:rgba(79,70,229,.2)"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto (plano sem lançamento)</span></div>'
+    + '<div class="legenda"><span><i style="background:color-mix(in srgb,var(--calor-acima) 32%,var(--cartao))"></i>acima da média da categoria</span><span><i style="background:color-mix(in srgb,var(--calor-abaixo) 22%,var(--cartao))"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto (plano sem lançamento)</span></div>'
     + `<button type="button" class="botao pequeno" data-acao="exportar-csv" data-foco="exp-csv" style="margin-left:auto">${ic('baixar', 16)}Exportar CSV</button></div>`
-    + `<div class="planilha-caixa"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
+    + `<p class="planilha-dica so-celular" id="planilha-dica">${ic('dir', 16)}Deslize para consultar os meses; as categorias ficam fixas.</p>`
+    + `<div class="planilha-caixa" role="region" tabindex="0" aria-label="Planilha anual de ${ano}, rolável na horizontal" aria-describedby="planilha-dica"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
     + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
     + `<tfoot>${rodape('Total de saídas', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
     + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado como previsto e entra no total. Apague o plano para tirar o previsto do total.</p>';

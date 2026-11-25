@@ -6,7 +6,8 @@
 |---|---|
 | `src/Codigo.gs` | Servidor (Apps Script): serve a página, lê e grava as abas, aplica operações |
 | `src/Index.html` | Esqueleto da página; junta `Estilos` e `App` com `incluir()` |
-| `src/Estilos.html` | Visual: tokens de cor (claro e escuro), layout de celular e de computador |
+| `src/Estilos.html` | Visual: tokens de cor (claro e escuro), layout de celular e de computador, fonte DM Sans embutida |
+| `docs/fontes/DM-Sans-OFL.txt` | Licença SIL OFL 1.1 da DM Sans, embutida no `Estilos.html` |
 | `src/App.html` | O app no navegador: estado, sincronização, cálculos, telas |
 | `src/appsscript.json` | Manifesto: fuso, permissão mínima e configuração do app da Web |
 | `versao.json` | Canal de versões lido pelo app: versão, tag, novidades e SHA-256 dos arquivos |
@@ -83,7 +84,7 @@ A categoria de economia é a que `catGuardar()` devolve. A função centraliza a
 - É criada com `{ id: 'guardar', nome: 'Guardar', grupo: 'fixo', ordem: menor ordem dos fixos − 1 }` pelos modelos de primeiro acesso e pelas ações que precisam dela (`criar-guardar` e `meta-sugestao`, quando ainda não existe).
 - O **plano** mensal dela é a meta de economia; o **lançamento** nela é a transferência feita.
 - Fica fora da barra de gastos, dos avisos de "passou do plano" e de "Sem plano". O que foi guardado entra em "já saiu"; o que falta para a meta entra em "falta guardar", que o disponível desconta. Um resgate (lançamento negativo) não aumenta o que falta guardar.
-- O cartão "Contas a pagar" não a mostra; a transferência é confirmada no cartão "Meta de economia".
+- O bloco "Contas" de "O que falta pagar" não a mostra. Ela tem bloco próprio, "Guardar", com o botão que lança a transferência; a meta fica em "Plano do mês".
 - A chave `categoriaGuardar` da aba `config` guarda o id dela. `fixarGuardar()` grava a chave uma vez, ao abrir, se ainda não existir; por isso renomear não a perde. `salvarCfg_` valida a chave: a categoria precisa existir e não pode ser de renda.
 - `salvarCat_` recusa virar renda para a categoria de economia. `apagarCat_` recusa apagá-la, e o botão de apagar fica desabilitado em Ajustes (`ehGuardar`).
 - `importar_` leva `config.categoriaGuardar` do backup, se a categoria existir e não for de renda. No modo mesclar, só quando ainda não há uma escolhida.
@@ -93,7 +94,7 @@ A categoria de economia é a que `catGuardar()` devolve. A função centraliza a
 
 No computador, a barra do topo é um campo de lançamento rápido de gasto. `lancarRapido()` usa `interpretarLinha()` — o mesmo interpretador do campo de valor do formulário completo — para separar valor, categoria e descrição; grava no mês em exibição (no mês atual, com a data de hoje; em outro mês, sem dia, e o aviso diz o mês) e mostra o aviso com **Desfazer**. Um valor muito acima do habitual abre o formulário completo, que pede confirmação. Se a categoria não for reconhecida, abre o formulário completo com o texto (`abrirNovo({ texto })`), sem gravar nada.
 
-O atalho `N` foca esse campo no computador; no celular, como o campo não existe, abre o formulário completo. **Novo lançamento** e `Ctrl+K` sempre abrem o formulário completo. Na tela Início, o cartão **Variáveis do mês** resume **Gasto**, **Plano** e **Ainda nos planos** apenas das categorias variáveis e desenha **“Para onde foi”** com as 5 maiores categorias variáveis do mês + **Demais**. São agregações de exibição da regra descrita em "Regras de cálculo".
+O atalho `N` foca esse campo no computador; no celular, como o campo não existe, abre o formulário completo. **Novo lançamento** e `Ctrl+K` sempre abrem o formulário completo. Na tela Início, o bloco **Plano do mês** mostra as categorias variáveis, e **Onde foi** desenha as 6 maiores saídas do mês + **Demais categorias**. São agregações de exibição da regra descrita em "Regras de cálculo".
 
 ## Avisos e Desfazer
 
@@ -105,7 +106,25 @@ O atalho `N` foca esse campo no computador; no celular, como o campo não existe
 
 ## Camada visual do Início
 
-O topo do Início é só exibição. `cartaoHeroi()` desenha o anel de composição a partir de `jaSaiu`, `reservado` e `disponivel`, e a composição linha a linha (renda − já saiu − contas a pagar − falta guardar − ainda nos planos); no celular, o CSS troca o anel por uma barra compacta com as mesmas partes. `cartaoKpis()` desenha os micrográficos: sparkline da renda dos últimos 6 meses, barras por dia do mês, as 3 maiores reservas do mês e o anel da meta de Guardar. Para quem já usava o app, o herói mostra uma vez o aviso "As contas do mês mudaram na versão 2.8.0", com o disponível pela regra antiga e pela nova (`legado.disponivel`). O cálculo é o de `resumo(ano, mes)`, descrito abaixo.
+`telaInicio()` monta o Início pela fase do mês (`resumo(ano, mes).fase`). Cada bloco é uma função que devolve HTML a partir de `resumo()`. Os blocos, em ordem:
+
+| Fase | Blocos |
+|---|---|
+| `atual` | `cartaoHeroi` · `cartaoPagar` · `cartaoPlanoMes` · `cartaoOndeFoi` · `cartaoUltimos` |
+| `passado` | `cartaoHeroi` (sobra realizada e fechamento) · `cartaoOndeFoi` · `cartaoUltimos` |
+| `futuro` | `cartaoHeroi` · `cartaoCategorias` · `cartaoUltimos` |
+
+Depois dos blocos vem o link `Ver <ano> na Planilha`. Sem plano, renda nem saída prevista no mês atual, `cartaoPagar` não aparece e o herói mostra o estado vazio.
+
+- `cartaoHeroi(r)`: o disponível, com o anel e a barra de composição, desenhados a partir de `jaSaiu`, `reservado` e `disponivel`. No CSS do celular, o anel vira uma barra compacta com as mesmas partes. No mês atual, traz `notaFechamentoAnterior()` (o aviso de pendências do mês anterior) e `avisoMudanca()`, o aviso único da 2.8.0, que usa `legado.disponivel` e fica guardado em `localStorage`. Desde a 3.0.0, ele só aparece quando o cache local do aparelho era de uma versão anterior à 2.8.0 (`aviso-2.8.0-mostrar`, gravado em `iniciar()`): quem instala depois nunca conheceu a regra antiga. No mês passado, mostra a sobra realizada e o chip "Mês fechado", a partir de `fechamentoDe()`.
+- `cartaoPagar(r)`: "O que falta pagar", com três grupos de `porCat`. **Contas** são as saídas `fixo` que não são Guardar (ações `confirmar` e `encerrar`, com os rótulos Confirmar e Quitar). **Guardar** é a categoria de `catGuardar()` (ação `confirmar`, rótulo Guardar). **A receber** são as rendas com falta (rótulos Recebi e Não vem). O total do título é `contasAPagar + faltaGuardar`.
+- `cartaoPlanoMes(r)`: o ritmo do consumo (`planoGastos`, `gastoComPlano`, `ritmo` e a situação de `estadoCategoria`); a meta de Guardar (`planoExp`, `celReal`, `sugestaoMeta()`) com o campo `data-mudar="plano"`; as categorias variáveis (`linhaCat`); a cobertura (`semPlano`, `semPlanoQtd`) e `blocoAvisos(r)`, alimentado por `calcularAvisos(r)`.
+- `cartaoOndeFoi(r)`: as 6 maiores saídas, sem Guardar, e "Demais categorias", em barras com nome, valor e percentual, sem depender de cor. No mês passado, o título é "Para onde foi o dinheiro".
+- `cartaoCategorias(r)`: só nos meses futuros, com o plano de cada categoria.
+- `cartaoUltimos()`: os 6 lançamentos mais recentes do mês.
+- `cartaoAno()`: o gráfico "Sobra mês a mês" fica no topo da Planilha (`telaPlanilha()`), não mais no Início. Usa a sobra realizada dos meses passados e o disponível dos demais.
+
+Os números de todos os blocos vêm de `resumo(ano, mes)`, descrito em "Regras de cálculo".
 
 ## Regras de cálculo
 
@@ -135,7 +154,7 @@ Campos de `resumo(ano, mes)`:
 | `porDia` | `disponivel / dias restantes`, em reais inteiros, no mês atual; 0 nos demais |
 | `pendencias` | num mês passado: o que falta dos fixos, de Guardar e da renda, e os planos de variáveis sem nenhum lançamento |
 | `legado.disponivel` | a regra até a 2.7 (o lançado substitui o plano no primeiro lançamento), só para o aviso "O que mudou" |
-| `planoGastos`, `gastoComPlano`, `semPlano`, `semPlanoQtd` | só categorias de consumo (sem Guardar); alimentam o Ritmo do plano e a Cobertura do plano |
+| `planoGastos`, `gastoComPlano`, `semPlano`, `semPlanoQtd` | só categorias de consumo (sem Guardar); alimentam o ritmo e o "Sem plano" do bloco Plano do mês |
 | `porCat` | por categoria: `real`, `plano`, `falta`, `encerrada`, `qtd`, `tipo` e `valor` (o lançado ou, sem lançamento, o plano, usado nas células da planilha) |
 
 Consequências, cobertas pelos testes de domínio:
@@ -154,15 +173,51 @@ Consequências, cobertas pelos testes de domínio:
 - **mês passado:** `sobraRealizada` ("Sobra realizada"), com as pendências à parte;
 - **mês futuro:** a mesma fórmula do disponível, com o nome "Sobra prevista".
 
-A Planilha usa a mesma regra no rodapé (meses fechados: só o lançado; mês atual e futuros: com o que falta dos planos). O gráfico "Sobra mês a mês" mostra a sobra realizada dos meses fechados, a partir do primeiro mês com lançamentos, e o mês atual e os futuros em contorno; a média, o melhor e o pior mês usam só os meses fechados.
+A Planilha usa a mesma regra no rodapé (meses fechados: só o lançado; mês atual e futuros: com o que falta dos planos). O gráfico "Sobra mês a mês", no topo da Planilha (`cartaoAno()`), mostra a sobra realizada dos meses fechados, a partir do primeiro mês com lançamentos, e o mês atual e os futuros em contorno; a média, o melhor e o pior mês usam só os meses fechados.
 
 **Médias e sugestões.** `media3()`, por `mediaRealizada()`, é a média do lançado nos 3 meses fechados antes do mês planejado: sem o mês corrente e sem planos; mês sem lançamento conta zero, a partir do primeiro mês com dados. Ela alimenta "Usar sugestão", "Preencher com as médias", "Planejar agora", as projeções dos avisos e a confirmação de valor fora do normal.
 
 **Valor digitado.** Um único leitor (`paraNumero` e `paraNumeros`) para todos os campos: aceita "1200", "1.200", "12,00", "R$ 89,90" e o sinal "−" que o app mostra; vários valores separados por espaço ou "+"; só o asterisco multiplica ("36*4"), e "1200x10" é recusado com uma dica. O teclado numérico do celular é o único lugar em que os dígitos entram nos centavos. O tipo **Estorno** grava o valor negativo numa categoria de gasto. Valor muito acima do habitual (mais de 10× a média de 3 meses da categoria e acima de R$ 5.000; sem histórico, acima de R$ 100.000) pede uma segunda confirmação.
 
-- **Ritmo do plano:** cartão separado; usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra. A barra é só ritmo; a reserva do que falta de cada plano está no disponível.
+- **Ritmo do plano:** primeiro item do bloco Plano do mês (`cartaoPlanoMes`); usa `planoGastos` e `gastoComPlano` (só consumo, sem Guardar). Fica `acima` quando o gasto passa o plano; `atencao` quando `planoGastos > 0` e o gasto passa mais de 12 pontos percentuais do ritmo do mês; senão `ok`. Guardar não entra. A barra é só ritmo; a reserva do que falta de cada plano está no disponível.
 - **Ritmo:** a marca nas barras é o dia de hoje sobre os dias do mês. Uma categoria variável fica "acima do ritmo" quando já usou mais de 12 pontos percentuais além dele. Guardar é sempre `ok`: guardar mais do que a meta é bom.
 - **Mapa de calor:** cada mês fechado é comparado com a média dos meses fechados da própria categoria no ano (a partir de 3 meses). Acima de 15% fica laranja; abaixo de −15%, azul.
+
+## Fechamento do mês
+
+Um mês passado pode ser fechado. O fechamento é uma marca na aba `config`: a chave `fechado:AAAA-MM`, com a **sobra realizada** como valor (texto numérico, com até duas casas). Ela é uma operação `cfg` como as outras: entra na fila e vai ao servidor.
+
+- **Servidor:** `salvarCfg_` valida a chave (`RE_FECHADO`, com ano entre 1900 e 2200) e o valor (`RE_VALOR_FECHADO`). Valor vazio apaga o fechamento. `fechados_(cfg)` devolve o mapa `{ 'AAAA-MM': valor }`, e `carregar()` o envia no campo `fechados` (via `paraCliente_`).
+- **Navegador:** `aplicarOp` grava a chave `fechado:` em `d.fechados`. `fechamentoDe(ano, mes)` devolve a sobra guardada ou `null`, e `mesFechado()` diz se o mês está fechado.
+- **Folha:** `abrirFechamento(ano, mes)` lista as pendências de `resumo().pendencias.itens`. Cada uma tem três ações: `feito` (lança o valor que falta, sem dia), `nao` (`encerrarCategoria`, que deixa de reservar o que faltava) e `depois` (só no estado da folha). O botão `fechar-mes` fica desabilitado enquanto há pendências. Quando não há nenhuma, grava `fechado:` com `sobraRealizada.toFixed(2)`. O aviso de fechamento oferece Desfazer, que volta ao valor anterior.
+- **Mudança em mês fechado:** `pedirConfirmacaoFechado(meses, estado)` faz o primeiro toque avisar e pede o segundo. O `estado` guarda a chave dos meses já avisados. Vale para editar, apagar e lançar pela Planilha. Depois da mudança, `atualizarFechamento(ano, mes)` regrava a marca com a sobra nova, se ela mudou. Os Desfazer dessas ações também chamam `atualizarFechamento`.
+- **Alterado depois:** se a `sobraRealizada` atual é diferente da marca, o herói mostra "Alterado depois do fechamento" e o link "Fechar de novo". Isso acontece quando outro aparelho ou a própria planilha muda o mês.
+- **Backup:** o backup gerado pelo app leva em `config` só `tema` e `marcas`. A importação aceita `config.fechados`, mas o backup ainda não o grava.
+
+## Navegação e links
+
+- **Mês:** `irParaMes(ano, mes)` troca o mês, reescreve o endereço com `hist.replace` e renderiza. Por isso, andar de mês não cria entradas no histórico. As setas usam `mudarMes(±1)`. `abrirSeletorMes()` é a folha **Escolher mês**: setas de ano, grade de 12 meses (`data-f="mes"`), **Hoje** e **Copiar link deste mês**, que aparece quando há `S.dados.urlApp`.
+- **Endereço:** `parametros(estado)` monta `{ tela, ano, mes }`. Com `google.script.history`, dentro do Apps Script, `push` e `replace` usam essa API. Fora dele, usam `history.pushState` e `history.replaceState` com `?tela=…&ano=…&mes=…`. `irPara(tela)` faz `hist.push`, que cria uma entrada; `irParaMes` faz `hist.replace`.
+- **Atalhos de entrada:** `lerAtalhosDaUrl()` aplica `ano` (1900 a 2200), `mes` (1 a 12), `tela` (uma das chaves de `TELAS`) e `novo` (abre `abrirNovo` com a categoria, se ela existir). No Apps Script, os parâmetros vêm de `google.script.url.getLocation`. Na página comum, vêm de `BUSCA_INICIAL`, capturada quando o script carrega. `iniciar()` chama `hist.replace` antes de carregar os dados, e esse replace reescreve `location.search`. Por isso a busca é guardada antes.
+
+## Modo exemplo
+
+`entrarExemplo()` troca `S.dados` por `gerarDadosExemplo(h)`: um controle fictício de 12 meses até o mês atual, com as categorias do modelo Essencial. O gerador usa uma sequência pseudoaleatória com semente fixa, então os valores são sempre os mesmos. A planilha real fica em `S.exemplo.real`. `planilha`, `urlApp`, `versaoApp` e `scriptId` são copiados para o exemplo, para os links continuarem funcionando.
+
+Com `S.exemplo` definido:
+
+- `registrar()` aplica a operação só na memória e não a põe em `S.fila`.
+- `persistirFila()`, `salvarCache()` e `LS.gravar()` não gravam nada. O cache e o localStorage ficam como estavam.
+- `enviar()` não faz nada, e `verificarAtualizacao()` sai cedo.
+- A importação é recusada, com o aviso para usar **Começar do zero**.
+- A faixa `#faixa-exemplo`, no topo da coluna, mostra o aviso e o botão `sair-exemplo`.
+
+`sairExemplo()` fecha as folhas abertas, restaura `S.dados` com a planilha real e volta às boas-vindas. Se houver operações na fila, elas são enviadas.
+
+## Fonte e cores
+
+- **Fonte:** a DM Sans (SIL Open Font License 1.1) está embutida no início de `src/Estilos.html`, num `@font-face` com `src` em `data:font/woff2;base64`. Cobre os pesos 400 a 700, usa `font-display: swap` e tem `unicode-range` no subconjunto latino. As barras `/` do base64 estão escapadas como `\/`, que o CSS lê como `/`. A licença fica em `docs/fontes/DM-Sans-OFL.txt`. A variável `--fonte` usa a DM Sans e, de reserva, a fonte do sistema. O app não consulta o Google Fonts. Os tamanhos de texto usam `rem`, então acompanham a fonte padrão do navegador.
+- **Cores das categorias:** `corCat(id)` devolve um índice de 0 a 7, que vira a classe `.cor-N` em `Estilos.html`, com variantes para o modo escuro. As categorias que não são de renda seguem a ordem da lista (`i % 8`). As de renda começam no índice 3. Um id fora da lista cai num índice pelo nome (`corDe(id) % 8`). O mapa fica no cache de `M()`, que é zerado quando `S.versao` ou o dia muda. Verde, âmbar e vermelho ficam só para situação.
 
 ## Segurança
 
@@ -176,7 +231,7 @@ A Planilha usa a mesma regra no rodapé (meses fechados: só o lançado; mês at
 ## Testes
 
 - `testes/gas-mock.mjs` imita `SpreadsheetApp`, `LockService` e `HtmlService`, inclusive o que a planilha faz com texto que parece número ou fórmula. O `Codigo.gs` de verdade roda dentro do Node.
-- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema e as marcas), data inválida, `onEdit` a página, as marcas `encerrada:` na `config` e a compatibilidade com o `Codigo.gs` da versão anterior.
+- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema e as marcas), data inválida, `onEdit` a página, as marcas `encerrada:` e os fechamentos `fechado:` na `config`, e a compatibilidade com o `Codigo.gs` da versão anterior.
 - `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões.
 - `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado). Cobre também os recursos da 2.8.0 (quitar, encerrar no mês, não vem mais, estorno, lançamento rápido em outro mês, `1200x10`, valor fora do normal, aviso único) e da 2.8.1 (avisos fora da folha, repetir até dezembro com confirmação, proteção de grupo e de Guardar, importação com prévia, Desfazer em pilha e acessibilidade).
 - `testes/versao.test.mjs` confere o `versao.json` contra o `package.json`, o `VERSAO_APP`, o changelog e os hashes dos arquivos.

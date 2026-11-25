@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/img/computador-inicio.png" alt="Início no computador: lançamento rápido, resumo do disponível, indicadores do mês, categorias e ritmo do plano" width="860">
+  <img src="docs/img/computador-inicio.png" alt="Início no computador: disponível para gastar, o que falta pagar, plano do mês, onde foi o dinheiro e últimos lançamentos" width="860">
 </p>
 
 > **A regra em uma frase:** o **disponível** é a renda do mês − o que já saiu − o que ainda está reservado: as contas a pagar, o que falta guardar e o que resta dos planos. Gastar dentro de um plano não muda o disponível, e receber parte de uma renda prevista também não.
@@ -35,10 +35,22 @@
 
 - **Sua planilha, no seu Drive.** Sem servidor, mensalidade ou anúncio.
 - **Lançamento em segundos.** `32,90 mercado padaria` + `Enter`; no celular, `+`.
-- **Tudo na tela.** Disponível, ritmo, meta e cobertura do plano.
+- **Início por perguntas.** Quanto dá para gastar, o que falta pagar, como estão os planos e para onde foi o dinheiro.
+- **Fechamento do mês.** Veja as pendências e feche o mês com a sobra realizada.
+- **Escolha o mês num toque.** Toque no nome do mês e vá direto a ele.
+- **Dados de exemplo.** Explore o app antes de começar. Nada é gravado.
 - **Sincronizado.** Celular e computador não se sobrescrevem; offline funciona.
 - **Acessível.** Contraste AA, toque de 44 px e teclado.
 - **Atualiza em um clique.** O app avisa quando há versão nova; você confirma e o instalador troca o código, guardando antes uma cópia de segurança. Quem preferir atualiza à mão.
+
+## Novidades da versão 3.0.0
+
+- **Início por perguntas.** O Início responde, nesta ordem: quanto posso gastar, o que falta pagar, como estou nos planos e para onde foi o dinheiro. O gráfico do ano foi para a Planilha.
+- **Fechar o mês.** Num mês que passou, as pendências aparecem uma a uma. Ao fechar, o mês guarda a sobra realizada.
+- **Escolher o mês num toque.** Toque no nome do mês, escolha na grade e copie o link do mês.
+- **Ver com dados de exemplo.** No primeiro acesso, explore um controle fictício. Nada é gravado.
+- **Planejar com retorno.** O plano mostra quando foi salvo, e "Copiar de" traz o plano ou o que foi lançado.
+- **Fonte e cores.** A DM Sans vem com o app, e cada categoria ganha uma cor pela posição na lista.
 
 ## Novidades da versão 2.7.0
 
@@ -66,7 +78,7 @@ Se o Google mostrar o aviso de app não verificado, o passo a passo está em [In
 ## Veja por dentro
 
 <p align="center">
-  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível, composição da renda, números do mês, meta de economia e ritmo do plano" width="250">
+  <img src="docs/img/celular-inicio.png" alt="Início no celular: disponível para gastar, com a composição da renda, e o que falta pagar" width="250">
   <img src="docs/img/celular-lancar.png" alt="Novo lançamento no celular: teclado numérico, data e categorias" width="250">
   <img src="docs/img/celular-mes.png" alt="Mês no celular: cada categoria com gasto, plano e ritmo" width="250">
 </p>

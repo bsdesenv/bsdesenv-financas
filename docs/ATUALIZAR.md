@@ -31,6 +31,14 @@ A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`
 - O **orçamento** passa a se chamar **plano**. Até a 2.7, a regra das contas era a da versão 1: vale o que foi lançado e, numa categoria sem lançamento, o plano. A 2.8.0 mudou essa regra (veja "Da 2.7 para a 2.8").
 - Editar a planilha à mão passa a ser seguro: o app grava operações sobre o que está na planilha e percebe as edições.
 
+## Da 2.8 para a 3.0
+
+A 3.0 muda o **Início**, que agora se organiza por perguntas, e traz o **fechamento do mês**, a **escolha do mês** e os **dados de exemplo**. A fonte DM Sans passa a vir com o app.
+
+Nos dados, aparece só uma linha nova por mês fechado, na aba `config` (`fechado:AAAA-MM`, com a sobra realizada). A 2.8 preserva essas linhas se você voltar.
+
+**Voltar para a 2.8.1:** reimplante o código dela no mesmo endereço. Os dados continuam válidos.
+
 ## Da 2.7 para a 2.8
 
 A 2.8.0 muda as contas do mês, não os dados. Nenhuma aba nem coluna nova.

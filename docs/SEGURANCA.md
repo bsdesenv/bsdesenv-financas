@@ -53,7 +53,8 @@ O instalador é um **projeto Apps Script separado**, publicado pela bsdesenv, pa
 |---|---|---|
 | Google (Sheets e Apps Script) | guardar os dados e servir o app | os dados da sua planilha, na sua conta |
 | GitHub (`raw.githubusercontent.com`, `cdn.jsdelivr.net`) | arquivos de versão e o ícone do app | o IP e o horário do acesso |
-| Google Fonts | fonte DM Sans | o IP e o horário do acesso |
+
+A partir da 3.0.0, a fonte DM Sans vem embutida no próprio app (no `src/Estilos.html`, com a licença em `docs/fontes/DM-Sans-OFL.txt`), e o app não consulta mais o Google Fonts. Antes da 3.0.0, a fonte vinha do Google Fonts, e o navegador enviava a ele o IP e o horário do acesso. A página do instalador, que é um projeto separado, ainda carrega a fonte do Google Fonts.
 
 Não há analytics, rastreadores, cookies de terceiros nem envio de dados para a bsdesenv.
 

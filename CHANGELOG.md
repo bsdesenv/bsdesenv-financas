@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.0 — 2026-11-25
+
+### Novo
+- **Início por perguntas.** O Início responde, nesta ordem: quanto posso gastar, o que falta pagar (contas, meta de Guardar e rendas a receber, com Confirmar, Quitar e Recebi), como estou nos planos (ritmo, meta e categorias variáveis num só cartão) e onde foi o dinheiro (barras com valor e percentual). Os números repetidos saíram, e o gráfico do ano foi para a Planilha.
+- **Fechar o mês.** Num mês que passou, "Fechar outubro" lista os planos que ficaram sem lançamento, um por um: foi pago, não aconteceu ou depois. O mês fechado guarda a sobra realizada, e mudar um lançamento dele pede confirmação.
+- **Escolher o mês num toque.** Tocar no nome do mês abre a grade dos 12 meses, com o ano e "Hoje". O endereço do app acompanha o mês, e "Copiar link deste mês" leva direto a ele.
+- **Ver com dados de exemplo.** No primeiro acesso, dá para explorar um controle fictício completo sem gravar nada. O passo opcional "Seu mês" já deixa a renda, a moradia, a meta e o que foi gasto antes de começar.
+- **Planejar com retorno.** O plano mostra "salvo" ao gravar; "Copiar de" pergunta se é para copiar o plano ou o que foi lançado; "Preencher com as médias" e "Limpar o mês" mostram antes o que vai mudar.
+
+### Mudou
+- **A fonte vem com o app.** A DM Sans está embutida (licença em `docs/fontes`): o app não consulta mais o Google Fonts e abre mesmo com a rede lenta. Os tamanhos de texto acompanham a fonte padrão do navegador.
+- **Cores das categorias.** Cada categoria ganha a cor pela posição na lista, sem repetir vizinhas e sem os tons de alerta: verde, âmbar e vermelho ficam só para situação.
+- **Busca do Extrato com escopo.** Com texto na busca, dá para escolher entre o mês e o ano inteiro.
+- **Backup mais completo.** O arquivo de backup leva também os meses fechados e a categoria de economia.
+- **Aviso da 2.8.0 só para quem conheceu a regra antiga.** Quem instala agora não vê mais o aviso "As contas do mês mudaram na versão 2.8.0".
+
+### Acessibilidade
+- O mapa de calor da Planilha mostra ▲ e ▼ além da cor.
+- "Onde foi" usa barras com nome, valor e percentual, sem depender de cor.
+
 ## 2.8.1 — 2026-11-25
 
 ### Corrigido

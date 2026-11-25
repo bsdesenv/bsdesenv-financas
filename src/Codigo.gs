@@ -19,7 +19,7 @@
  * "somente esta planilha".
  */
 
-var VERSAO_APP = '2.8.1';
+var VERSAO_APP = '3.0.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {

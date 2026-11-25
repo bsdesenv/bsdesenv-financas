@@ -896,10 +896,10 @@ button.onde-linha:hover { background: var(--cartao-2); }
 .onde-barra i { display: block; height: 100%; border-radius: inherit; background: var(--acento); }
 .calor-marca { margin-left: 3px; font-size: 0.625rem; vertical-align: super; color: var(--tinta-2); }
 .planilha-ano { margin-bottom: 16px; }
-/* Em tela estreita, os botões da conta descem para a linha de baixo em vez de apertar o nome. */
+/* Em tela estreita, os botões da conta descem juntos para a linha de baixo, à direita, em vez de apertar o nome. */
 .item-vencer { flex-wrap: wrap; }
 .item-vencer .iv-txt { flex: 1 1 140px; }
-.item-vencer .botao:first-of-type { margin-left: auto; }
+.iv-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
 @media (min-width: 640px) and (max-width: 1279.98px) {
   .g-pagar { grid-area: pagar; } .g-planos { grid-area: planos; } .g-onde { grid-area: onde; }
   .grade-inicio.fase-atual { grid-template-areas: "heroi heroi" "pagar pagar" "planos planos" "onde ultimos"; }

@@ -791,7 +791,7 @@ function telaInicio() {
 }
 /** Aviso único da 2.8.0, para quem já usava o app: a regra mudou e o número também. */
 function avisoMudanca(r) {
-  if (S.exemplo || LS.ler('aviso-2.8.0') || !(chaveMes(S.ano, S.mes) > inicioDados())) return '';
+  if (S.exemplo || !LS.ler('aviso-2.8.0-mostrar') || LS.ler('aviso-2.8.0') || !(chaveMes(S.ano, S.mes) > inicioDados())) return '';
   const igual = Math.abs(r.legado.disponivel - r.disponivel) < 0.005;
   return '<div class="nota nota-info aviso-mudanca"><p><strong>As contas do mês mudaram na versão 2.8.0.</strong> '
     + 'Agora o que falta de cada plano fica reservado até você lançar tudo ou encerrar a categoria no mês, e receber parte de uma renda prevista não derruba o número. '
@@ -910,7 +910,7 @@ function sugestaoMeta() {
 /** "O que falta pagar?": contas fixas, meta de Guardar e rendas a receber do mês, com as ações de cada uma. */
 function cartaoPagar(r) {
   const dados = (c) => `data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}"`;
-  const item = (c, detalhe, botoes) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>${detalhe}</span></div>${botoes}</div>`;
+  const item = (c, detalhe, botoes) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>${detalhe}</span></div><div class="iv-acoes">${botoes}</div></div>`;
   const bloco = (titulo, total, itens) => (itens.length ? `<h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3>${itens.join('')}` : '');
   const doGrupo = (fn) => r.porCat.filter(({ c, v }) => fn(c) && v.falta > 0);
   const contas = doGrupo((c) => c.grupo === 'fixo' && !ehGuardar(c)).map(({ c, v }) => item(c,
@@ -2277,7 +2277,7 @@ function cartaoAtualizacoes() {
     + `<div class="acoes" id="atu-acoes">${acoesAtualizacaoHtml()}</div>`
     + `<label class="marcar interruptor"><input type="checkbox" role="switch" data-mudar="atualizacao-auto" data-foco="atu-auto"${atualizacaoAuto() ? ' checked' : ''}>Procurar novas versões automaticamente</label>`
     + '<p class="sub">Uma vez por dia o app consulta o GitHub para saber se há versão nova. Nenhum dado seu é enviado.</p>'
-    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados financeiros ficam só na sua planilha, no Google Drive. O navegador também busca a fonte no Google Fonts, o ícone no GitHub e, se o aviso de versão estiver ligado, uma vez por dia o arquivo de versões no GitHub ou no jsDelivr: esses serviços veem o seu endereço IP, nenhum dado da planilha. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
+    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados financeiros ficam só na sua planilha, no Google Drive. A fonte vem com o app. Fora do Google, o navegador só busca o ícone no GitHub e, se o aviso de versão estiver ligado, uma vez por dia o arquivo de versões no GitHub ou no jsDelivr: esses serviços veem o seu endereço IP, nenhum dado da planilha. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
 }
 /** Atualiza só o cartão (a área viva continua a mesma, para o leitor de tela anunciar) e, se preciso, o resto da tela. */
 function pintarAtualizacao(redesenhar) {
@@ -2448,7 +2448,7 @@ function baixar(nome, conteudo, tipo) {
 }
 const hojeIso = () => { const h = hoje(); return isoData(h.ano, h.mes, h.dia); };
 function exportarJSON() {
-  const d = { versao: 3, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), config: { tema: S.dados.tema || 'auto', marcas: S.dados.marcas || {} }, categorias: S.dados.categorias, anos: S.dados.anos };
+  const d = { versao: 3, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), config: { tema: S.dados.tema || 'auto', marcas: S.dados.marcas || {}, fechados: S.dados.fechados || {}, categoriaGuardar: S.dados.categoriaGuardar || '' }, categorias: S.dados.categorias, anos: S.dados.anos };
   baixar(`financas-backup-${hojeIso()}.json`, JSON.stringify(d, null, 1), 'application/json');
 }
 function exportarCSV() {
@@ -3041,6 +3041,8 @@ function lerAtalhosDaUrl() {
 async function iniciar() {
   aplicarTema(LS.ler('tema') || 'auto');
   const cache = LS.ler('cache');
+  // Só quem usou uma versão anterior à 2.8.0 neste aparelho conheceu a regra antiga e vê o aviso da mudança.
+  if (cache && compararVersoes(cache.versaoApp || '0', '2.8.0') < 0) LS.gravar('aviso-2.8.0-mostrar', true);
   const filaSalva = LS.ler('fila');
   const filaAntiga = LS.lerAntigo('fila');
   if (cache && Array.isArray(cache.categorias) && cache.categorias.length && cache.anos) {

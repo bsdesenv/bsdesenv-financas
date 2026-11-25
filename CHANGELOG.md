@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.7.1 — 2026-11-25
+
+### Corrigido
+- **O app volta a abrir depois de atualizar.** Na 2.7.0 ele ficava parado em "Abrindo sua planilha…". Ao servir a página, o Google tira os comentários do código e confundiu a barra dupla de três endereços com um comentário, cortando as linhas; o script inteiro deixou de rodar. Os endereços foram reescritos e um teste novo (`testes/htmlservice.test.mjs`) barra o problema antes de qualquer publicação. Se a sua instalação ficou travada na 2.7.0, abra o instalador com o ID do seu projeto (fica em **Configurações do projeto**, no editor): `https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec?script=ID_DO_PROJETO`.
+
 ## 2.7.0 — 2026-11-24
 
 ### Novo

@@ -12,7 +12,11 @@ const Mes = (m) => cap(MESES[m - 1]);
 const MesC = (m) => cap(MESES_C[m - 1]);
 const GRUPOS = { fixo: 'Fixos', variavel: 'Variáveis', renda: 'Rendas' };
 const ORDEM_GRUPOS = ['fixo', 'variavel', 'renda'];
-const URL_PROJETO = 'https://github.com/bsdesenv/bsdesenv-financas';
+/* Endereços aqui usam https:\/\/ (para o JavaScript, é a mesma barra dupla). O Google tira os
+   comentários deste script antes de servir a página e às vezes confunde a barra dupla de um
+   endereço com começo de comentário, cortando a linha: foi o que travou a 2.7.0.
+   A regra completa está em testes/htmlservice.test.mjs. */
+const URL_PROJETO = 'https:\/\/github.com/bsdesenv/bsdesenv-financas';
 const _moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const _num = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const arred = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -1742,7 +1746,7 @@ const REPO = 'bsdesenv/bsdesenv-financas';
 const URL_CHANGELOG = URL_PROJETO + '/blob/main/CHANGELOG.md';
 /* Instalador da bsdesenv (pasta instalador/ do repositório): atualiza este projeto com um
    clique. O link leva só os IDs do projeto e da implantação; nenhum dado da planilha. */
-const URL_INSTALADOR = 'https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec';
+const URL_INSTALADOR = 'https:\/\/script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec';
 const ID_GOOGLE = /^[A-Za-z0-9_-]{20,120}$/;
 function urlInstalador() {
   const d = S.dados || {};
@@ -1750,8 +1754,8 @@ function urlInstalador() {
   const impl = (/\/macros\/(?:u\/\d+\/)?s\/([A-Za-z0-9_-]{20,120})\/exec/.exec(d.urlApp || '') || [])[1];
   return `${URL_INSTALADOR}?script=${encodeURIComponent(d.scriptId)}${impl ? '&implantacao=' + encodeURIComponent(impl) : ''}`;
 }
-const urlRaw = (ref, caminho) => `https://raw.githubusercontent.com/${REPO}/${ref}/${caminho}`;
-const urlJsDelivr = (ref, caminho) => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${caminho}`;
+const urlRaw = (ref, caminho) => `https:\/\/raw.githubusercontent.com/${REPO}/${ref}/${caminho}`;
+const urlJsDelivr = (ref, caminho) => `https:\/\/cdn.jsdelivr.net/gh/${REPO}@${ref}/${caminho}`;
 const TEMPO_BUSCA = 8000;
 const VALIDADE_OK = 24 * 3600 * 1000;
 const VALIDADE_ERRO = 10 * 60 * 1000;
@@ -1912,8 +1916,8 @@ function abrirAtualizar() {
   if (!nova) return;
   const st = { fase: 'carregando', m: null, erro: '', feitos: new Set(), erros: {}, copiando: -1, manual: null, aviso: '' };
   const d = S.dados;
-  const urlEditor = /^[A-Za-z0-9_-]+$/.test(d.scriptId || '') ? `https://script.google.com/home/projects/${d.scriptId}/edit` : '';
-  const urlReload = /^https:\/\/script\.google\.com\//.test(d.urlApp || '') ? d.urlApp : '';
+  const urlEditor = /^[A-Za-z0-9_-]+$/.test(d.scriptId || '') ? `https:\/\/script.google.com/home/projects/${d.scriptId}/edit` : '';
+  const urlReload = String(d.urlApp || '').startsWith('https:\/\/script.google.com/') ? d.urlApp : '';
   abrirFolha({
     tipo: 'atualizar',
     montar(el) {

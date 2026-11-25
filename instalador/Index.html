@@ -73,7 +73,7 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
 (function () {
   var SCRIPT = document.body.getAttribute('data-script') || '';
   var IMPL = document.body.getAttribute('data-implantacao') || '';
-  var URL_CONFIG = 'https://script.google.com/home/usersettings';
+  var URL_CONFIG = 'https:\/\/script.google.com/home/usersettings';
   var raiz = document.getElementById('conteudo');
 
   // Todo texto vindo do servidor ou do GitHub passa por aqui antes de entrar no HTML.
@@ -83,8 +83,9 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
     });
   }
   // Só aceita links do Google em https para botões (o servidor já os monta, mas a página confere).
+  // Sem barra dupla fora de comentário (por isso [/] e https:\/\/): ver testes/htmlservice.test.mjs.
   function link(url) {
-    return /^https:\/\/(script|docs|drive)\.google\.com\//.test(url || '') ? esc(url) : '#';
+    return /^https:\/\/(script|docs|drive)\.google\.com[/]/.test(url || '') ? esc(url) : '#';
   }
   function maior(a, b) {
     var x = a.split('.').map(Number), y = b.split('.').map(Number);

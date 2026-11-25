@@ -98,7 +98,7 @@ function avaliarTemplate(nome, incluir) {
 }
 
 /** Carrega o src/Codigo.gs num contexto isolado, com as APIs falsas. */
-export function criarServidor(abasIniciais = {}) {
+export function criarServidor(abasIniciais = {}, opcoes = {}) {
   const planilha = criarPlanilha(abasIniciais);
   const meta = [];
   const saida = (conteudo) => {
@@ -126,7 +126,7 @@ export function criarServidor(abasIniciais = {}) {
     },
   };
   vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(SRC, 'Codigo.gs'), 'utf8'), ctx, { filename: 'Codigo.gs' });
+  vm.runInContext(opcoes.codigo ?? fs.readFileSync(path.join(SRC, 'Codigo.gs'), 'utf8'), ctx, { filename: 'Codigo.gs' });
   return { ctx, planilha, meta };
 }
 

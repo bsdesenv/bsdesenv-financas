@@ -19,7 +19,7 @@
  * "somente esta planilha".
  */
 
-var VERSAO_APP = '2.7.1';
+var VERSAO_APP = '2.8.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -273,6 +273,7 @@ function paraCliente_(m) {
     revisao: Number(m.cfg.revisao) || 0,
     nome: m.cfg.nome || m.cfg.titular || '',
     tema: TEMAS.indexOf(m.cfg.tema) >= 0 ? m.cfg.tema : 'auto',
+    marcas: marcas_(m.cfg),
     atualizadoEm: m.cfg.atualizadoEm || '',
     categorias: m.cats.slice().sort(function (a, b) { return a.ordem - b.ordem; }),
     anos: anos,
@@ -393,8 +394,46 @@ function salvarOrc_(m, op) {
   m.sujo.orcamento = true;
 }
 
+/** Marca "encerrada": categoria dada como resolvida num mês (chave na aba config). */
+var RE_MARCA = /^encerrada:(\d{4})-(0[1-9]|1[0-2]):([A-Za-z0-9][A-Za-z0-9_-]{0,59})$/;
+
+/** A chave parece uma marca (mesmo que o formato esteja errado)? */
+function ehMarca_(chave) {
+  return typeof chave === 'string' && chave.indexOf('encerrada:') === 0;
+}
+
+/** Interpreta uma chave de marca: { ano, mes, categoriaId } ou null se não for válida. */
+function lerMarca_(chave) {
+  var r = RE_MARCA.exec(String(chave));
+  if (!r) return null;
+  var ano = Number(r[1]);
+  if (ano < 1900 || ano > 2200) return null;
+  return { ano: ano, mes: Number(r[2]), categoriaId: r[3] };
+}
+
+/** Todas as marcas presentes na configuração: { chave: '1' }. */
+function marcas_(cfg) {
+  var out = {};
+  Object.keys(cfg).forEach(function (k) {
+    if (ehMarca_(k) && lerMarca_(k) && cfg[k] === '1') out[k] = '1';
+  });
+  return out;
+}
+
 function salvarCfg_(m, chave, valor) {
-  if (chave === 'nome') {
+  if (ehMarca_(chave)) {
+    var marca = lerMarca_(chave);
+    if (!marca) throw new Error('marca inválida: ' + chave);
+    var vazio = valor === '' || valor === null || valor === undefined || valor === false || valor === 0;
+    if (vazio) {
+      delete m.cfg[chave];
+    } else if (valor === '1' || valor === true || valor === 1) {
+      if (!mapaIds_(m.cats)[marca.categoriaId]) throw new Error('categoria inexistente: ' + marca.categoriaId);
+      m.cfg[chave] = '1';
+    } else {
+      throw new Error('valor de marca inválido');
+    }
+  } else if (chave === 'nome') {
     m.cfg.nome = texto_(valor).trim().slice(0, 60);
   } else if (chave === 'tema') {
     if (TEMAS.indexOf(valor) < 0) throw new Error('tema inválido');
@@ -460,6 +499,15 @@ function importar_(m, op) {
     m.cats = cats;
     m.lanc = lanc;
     m.orc = orc;
+    Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k)) delete m.cfg[k]; });
+  }
+  var marcas = d.config && d.config.marcas;
+  if (marcas && typeof marcas === 'object') {
+    var idsFinais = mapaIds_(m.cats);
+    Object.keys(marcas).forEach(function (k) {
+      var mc = lerMarca_(k);
+      if (mc && String(marcas[k]) === '1' && idsFinais[mc.categoriaId]) m.cfg[k] = '1';
+    });
   }
   var nome = texto_(d.nome || d.titular).trim();
   var nomeAtual = m.cfg.nome || m.cfg.titular;

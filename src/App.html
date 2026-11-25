@@ -250,7 +250,7 @@ const S = {
   dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
   atualizacao: null, verificandoAtu: null,
   montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
-  busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
+  busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
    navegador: é só um reforço. A garantia é a planilha.
@@ -730,7 +730,7 @@ function renderTopo() {
     const h = hoje();
     const foraDoMes = S.ano !== h.ano || S.mes !== h.mes;
     esq = `<div class="navmes"><button type="button" class="icone" data-acao="mes-ant" data-foco="mes-ant" aria-label="Mês anterior">${ic('esq')}</button>`
-      + `<div class="navmes-txt"><span class="navmes-nome">${esc(S.dados.nome || 'Minhas finanças')}</span><h1>${Mes(S.mes)} ${S.ano}</h1></div>`
+      + `<div class="navmes-txt"><span class="navmes-nome">${esc(S.dados.nome || 'Minhas finanças')}</span><h1><button type="button" class="titulo-mes" data-acao="seletor-mes" data-foco="seletor-mes" aria-haspopup="dialog">${Mes(S.mes)} ${S.ano}</button></h1></div>`
       + `<button type="button" class="icone" data-acao="mes-prox" data-foco="mes-prox" aria-label="Próximo mês">${ic('dir')}</button>`
       + (foraDoMes ? '<button type="button" class="botao fantasma pequeno" data-acao="mes-hoje" data-foco="mes-hoje">Hoje</button>' : '') + '</div>';
   }
@@ -1089,7 +1089,7 @@ function cartaoAno() {
 /* ---------- Extrato ---------- */
 function filtrarExtrato() {
   const q = normal(S.busca.trim());
-  const doAno = Boolean(q);
+  const doAno = Boolean(q) && S.buscaNoAno;
   const b = S.dados.anos[S.ano];
   const mapa = mapaCats();
   let itens = b ? b.lancamentos.filter((l) => doAno || l.mes === S.mes) : [];
@@ -1122,10 +1122,12 @@ function renderExtrato(tela) {
   }
   const f = (id, txt) => `<button type="button" class="chip" data-acao="filtro" data-filtro="${id}" data-foco="filtro-${id}" aria-pressed="${S.filtro === id}">${txt}</button>`;
   const opcoes = cats().map((c) => `<option value="${esc(c.id)}"${S.filtroCat === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('');
+  const esc2 = (id, txt, ligado) => `<button type="button" class="chip" data-acao="escopo-busca" data-escopo="${id}" data-foco="escopo-${id}" aria-pressed="${ligado}">${txt}</button>`;
   $('#extrato-filtros').innerHTML = f('tudo', 'Tudo') + f('gastos', 'Saídas') + f('rendas', 'Rendas')
+    + (S.busca.trim() ? esc2('mes', 'Neste mês', !S.buscaNoAno) + esc2('ano', 'Em ' + S.ano, S.buscaNoAno) : '')
     + `<label class="chip chip-select"><span class="sr">Categoria</span><select data-mudar="filtro-cat" data-foco="filtro-cat"><option value="">Todas as categorias</option>${opcoes}</select></label>`;
   const r = filtrarExtrato();
-  $('#extrato-resumo').innerHTML = `<div class="resumo-faixa"><div><span class="sub">${r.itens.length} lançamento${r.itens.length === 1 ? '' : 's'}${r.doAno ? ' em ' + S.ano : ''}</span><strong>${moeda(r.gastos)}</strong><span class="sub">em saídas</span></div>`
+  $('#extrato-resumo').innerHTML = `<div class="resumo-faixa"><div><span class="sub">${r.itens.length} lançamento${r.itens.length === 1 ? '' : 's'} em ${r.doAno ? S.ano : MESES[S.mes - 1]}</span><strong>${moeda(r.gastos)}</strong><span class="sub">em saídas</span></div>`
     + `<div style="text-align:right"><span class="sub">&nbsp;</span><strong class="txt-ok">${moeda(r.rendas)}</strong><span class="sub">em rendas</span></div></div>`;
   if (!r.itens.length) {
     $('#extrato-lista').innerHTML = r.doAno ? vazio(`Nada encontrado para “${S.busca.trim()}” em ${S.ano}.`, false) : vazio(`Nada lançado em ${MESES[S.mes - 1]} com esses filtros.`);
@@ -2478,11 +2480,18 @@ function mostrarBoasVindas() {
 /* =====================================================================
    11. Ações, teclado e histórico (botão Voltar)
    ===================================================================== */
+const parametros = (estado) => ({ tela: estado.tela, ano: String(S.ano), mes: String(S.mes) });
 const hist = (() => {
   const g = typeof google !== 'undefined' && google.script && google.script.history;
   return {
-    push(estado) { try { if (g) g.push(estado, null, estado.tela + (estado.n ? '-' + estado.n : '')); else history.pushState(estado, ''); } catch (e) { /* sem histórico */ } },
-    replace(estado) { try { if (g) g.replace(estado, null, estado.tela); else history.replaceState(estado, ''); } catch (e) { /* sem histórico */ } },
+    push(estado) {
+      const par = parametros(estado);
+      try { if (g) g.push(estado, par, estado.tela + (estado.n ? '-' + estado.n : '')); else history.pushState(estado, '', '?' + new URLSearchParams(par)); } catch (e) { /* sem histórico */ }
+    },
+    replace(estado) {
+      const par = parametros(estado);
+      try { if (g) g.replace(estado, par, estado.tela); else history.replaceState(estado, '', '?' + new URLSearchParams(par)); } catch (e) { /* sem histórico */ }
+    },
     ouvir(fn) { try { if (g) g.setChangeHandler((ev) => fn(ev && ev.state)); else window.addEventListener('popstate', (ev) => fn(ev.state)); } catch (e) { /* sem histórico */ } },
   };
 })();
@@ -2501,10 +2510,55 @@ function irPara(tela, opc = {}) {
   $('#tela').focus({ preventScroll: true });
   if (tela === 'ajustes') verificarAtualizacao();
 }
+function irParaMes(ano, mes) {
+  S.ano = ano; S.mes = mes;
+  hist.replace({ tela: S.tela, n: pilha.length });
+  render();
+}
 function mudarMes(d) {
   const k = deChave(chaveMes(S.ano, S.mes) + d);
-  S.ano = k.ano; S.mes = k.mes;
-  render();
+  irParaMes(k.ano, k.mes);
+}
+/** Folha "Escolher mês": ano, grade de meses, Hoje e link direto. */
+function abrirSeletorMes() {
+  const st = { ano: S.ano };
+  abrirFolha({
+    tipo: 'seletor-mes',
+    montar(el) {
+      const h = hoje();
+      const desenhar = () => {
+        const grade = MESES_C.map((nm, i) => {
+          const m = i + 1;
+          const atual = st.ano === h.ano && m === h.mes;
+          return `<button type="button" class="mes-opcao${atual ? ' mes-hoje' : ''}" data-f="mes" data-m="${m}" aria-pressed="${st.ano === S.ano && m === S.mes}"${atual ? ' aria-label="' + Mes(m) + ', mês atual"' : ''}>${cap(nm)}</button>`;
+        }).join('');
+        el.innerHTML = topoFolha('Escolher mês')
+          + '<div class="folha-corpo"><div class="seletor-ano">'
+          + `<button type="button" class="icone" data-f="ano-ant" aria-label="Ano anterior">${ic('esq')}</button><strong aria-live="polite">${st.ano}</strong>`
+          + `<button type="button" class="icone" data-f="ano-prox" aria-label="Próximo ano">${ic('dir')}</button></div>`
+          + `<div class="seletor-grade">${grade}</div>`
+          + '<div class="seletor-acoes"><button type="button" class="botao" data-f="hoje" data-autofoco>Hoje</button>'
+          + (S.dados.urlApp ? '<button type="button" class="botao fantasma" data-f="link">Copiar link deste mês</button>' : '') + '</div></div>';
+      };
+      desenhar();
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f;
+        const foco = b.dataset.f === 'ano-ant' || f === 'ano-prox' ? f : null;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'ano-ant') { st.ano--; desenhar(); }
+        else if (f === 'ano-prox') { st.ano++; desenhar(); }
+        else if (f === 'mes') { const m = Number(b.dataset.m); fecharFolha(); irParaMes(st.ano, m); }
+        else if (f === 'hoje') { const hh = hoje(); fecharFolha(); irParaMes(hh.ano, hh.mes); }
+        else if (f === 'link') {
+          const url = S.dados.urlApp + '?tela=' + S.tela + '&ano=' + S.ano + '&mes=' + S.mes;
+          copiarTexto(url).then((ok) => aviso(ok ? 'Link copiado.' : 'Não deu para copiar o link.', { tipo: ok ? 'info' : 'erro' }));
+        }
+        if (foco) { const n = el.querySelector('[data-f="' + foco + '"]'); if (n) n.focus({ preventScroll: true }); }
+      });
+    },
+  });
 }
 async function moverCategoria(cid, dir) {
   const c = catPorId(cid); if (!c) return;
@@ -2559,7 +2613,9 @@ const ACOES = {
   planejar: () => { S.modoMes = 'planejar'; if (S.tela !== 'mes') irPara('mes'); else render(); },
   'mes-ant': () => mudarMes(-1),
   'mes-prox': () => mudarMes(1),
-  'mes-hoje': () => { const h = hoje(); S.ano = h.ano; S.mes = h.mes; render(); },
+  'mes-hoje': () => { const h = hoje(); irParaMes(h.ano, h.mes); },
+  'seletor-mes': () => abrirSeletorMes(),
+  'escopo-busca': (el) => { S.buscaNoAno = el.dataset.escopo === 'ano'; renderExtrato($('#tela')); },
   'ano-ant': () => { S.ano--; S.rolarPlanilha = true; render(); },
   'ano-prox': () => { S.ano++; S.rolarPlanilha = true; render(); },
   'ir-mes': (el) => { S.mes = Number(el.dataset.mes); if (S.tela === 'planilha') irPara('inicio'); else render(); },
@@ -2805,16 +2861,25 @@ async function carregarDoServidor({ inicial = false, filaSalva = null, filaAntig
     }
   }
 }
+/* Guardada antes de o histórico reescrever o endereço. */
+const BUSCA_INICIAL = (() => { try { return location.search; } catch (e) { return ''; } })();
 function lerAtalhosDaUrl() {
   const aplicar = (p) => {
     if (!p || !S.montado) return;
-    if (p.tela && TELAS[p.tela]) irPara(p.tela, { historico: false });
+    const antes = { ano: S.ano, mes: S.mes };
+    const ano = Number(p.ano); const mes = Number(p.mes);
+    if (Number.isInteger(ano) && ano >= 1900 && ano <= 2200) S.ano = ano;
+    if (Number.isInteger(mes) && mes >= 1 && mes <= 12) S.mes = mes;
+    const mudouMes = S.ano !== antes.ano || S.mes !== antes.mes;
+    if (p.tela && TELAS[p.tela] && p.tela !== S.tela) irPara(p.tela, { historico: false });
+    else if (mudouMes) render();
+    if (mudouMes) hist.replace({ tela: S.tela, n: pilha.length });
     if (p.novo !== undefined) abrirNovo({ cat: p.novo && catPorId(p.novo) ? p.novo : null, hoje: true });
   };
   try {
     const g = typeof google !== 'undefined' && google.script && google.script.url;
     if (g) g.getLocation((loc) => aplicar(loc && loc.parameter));
-    else aplicar(Object.fromEntries(new URLSearchParams(location.search)));
+    else aplicar(Object.fromEntries(new URLSearchParams(BUSCA_INICIAL)));
   } catch (e) { /* sem atalhos */ }
 }
 async function iniciar() {

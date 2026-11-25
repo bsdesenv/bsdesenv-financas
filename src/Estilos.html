@@ -939,4 +939,13 @@ button.onde-linha:hover { background: var(--cartao-2); }
 .fech-txt span { font-size: 0.8125rem; color: var(--tinta-2); }
 .fech-botoes { display: flex; flex-wrap: wrap; gap: 6px; }
 .fech-sobra { font-size: 0.875rem; font-weight: 600; }
+/* seletor de mês */
+.titulo-mes { font: inherit; color: inherit; background: transparent; border: 0; padding: 2px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.titulo-mes:hover { background: var(--chip); }
+.seletor-ano { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.125rem; }
+.seletor-grade { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.mes-opcao { min-height: 48px; border-radius: 12px; border: 1px solid var(--chip-borda); background: var(--chip); color: var(--tinta); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+.mes-opcao.mes-hoje { border-color: var(--acento); }
+.mes-opcao[aria-pressed="true"] { background: var(--acento-fraco); color: var(--acento-forte); border-color: var(--acento); font-weight: 650; }
+.seletor-acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 </style>

@@ -424,7 +424,6 @@ await caso('computador: planejar digitando 1500 grava 1500, e 150000 grava 15000
   await substituir(pc, '#pl-mercado', '1500');
   await pc.keyboard.press('Tab'); await sleep(250); await sincronizado(pc);
   assert.equal(gravado()[3], 1500, '1500 grava 1500');
-  console.log('DBGFOCO', await pc.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
 });
 
 await caso('computador: célula da planilha abre o painel e lança ali mesmo; setas navegam', async () => {
@@ -1372,6 +1371,191 @@ await caso('2.8.0 aviso único da mudança: aparece com meses anteriores, some n
   await pronto(r);
   assert.equal(await r.$('.aviso-mudanca'), null, 'sem meses anteriores, sem aviso');
   await r.close();
+});
+
+/* ---------- 2.8.1: avisos, repetir, grupo, economia, importação, Ctrl+Z ---------- */
+await caso('2.8.1 avisos fora da folha: no computador à esquerda do painel, no celular no topo; com-folha e inert', async () => {
+  const dados = { nome: 'Avisos', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'av1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'avisos-pc'));
+  await pronto(p);
+  assert.equal(await p.evaluate(() => document.documentElement.classList.contains('com-folha')), false);
+  assert.equal(await p.evaluate(() => document.querySelector('#app').inert), false);
+  await p.click('[data-foco="novo-topo"]'); await folhaAberta(p);
+  assert.equal(await p.evaluate(() => document.documentElement.classList.contains('com-folha')), true, 'com-folha com a folha aberta');
+  assert.equal(await p.evaluate(() => document.querySelector('#app').inert), true, '#app inerte com a folha aberta');
+  await p.evaluate(() => aviso('teste', { acao: 'Desfazer', fn: () => {} }));
+  await p.waitForSelector('.aviso'); await sleep(400);
+  const r = await p.evaluate(() => {
+    const t = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    return { aviso: t('.aviso'), salvar: t('#nv-salvar'), folha: t('.folha.aberta') };
+  });
+  const cruza = (x, y) => x.l < y.r && x.r > y.l && x.t < y.b && x.b > y.t;
+  assert.ok(!cruza(r.aviso, r.salvar), 'o aviso não cobre o Salvar: ' + JSON.stringify(r));
+  assert.ok(!cruza(r.aviso, r.folha), 'o aviso não cobre o painel: ' + JSON.stringify(r));
+  assert.ok(r.aviso.r <= r.folha.l + 1, 'o aviso fica à esquerda do painel');
+  await p.keyboard.press('Escape'); await semFolha(p);
+  assert.equal(await p.evaluate(() => document.documentElement.classList.contains('com-folha')), false, 'sem com-folha depois de fechar');
+  assert.equal(await p.evaluate(() => document.querySelector('#app').inert), false, '#app volta ao normal');
+  await p.close();
+
+  const c = await abrir(a, CEL, montarPagina(a, 'avisos-cel'));
+  await pronto(c);
+  await c.tap('.inf-mais'); await folhaAberta(c);
+  await c.evaluate(() => aviso('teste', { acao: 'Desfazer', fn: () => {} }));
+  await c.waitForSelector('.aviso'); await sleep(400);
+  const t = await c.evaluate(() => ({ aviso: document.querySelector('.aviso').getBoundingClientRect().top, folha: document.querySelector('.folha.aberta').getBoundingClientRect().top }));
+  assert.ok(t.aviso < t.folha, 'no celular o aviso fica acima da folha: ' + JSON.stringify(t));
+  assert.equal(await c.evaluate(() => document.documentElement.classList.contains('com-folha')), true);
+  await c.close();
+});
+
+await caso('2.8.1 repetir até dezembro: pede confirmação antes de substituir e o Desfazer devolve dezembro', async () => {
+  const dados = { nome: 'Repetir', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'rp1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: { mercado: { 11: 300, 12: 500 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'repetir-confirma'));
+  await pronto(p);
+  const planos = () => JSON.stringify(a.servidor.planilha.ler('orcamento'));
+  const antes = planos();
+  await p.evaluate(() => abrirCategoria('mercado', 2026, 11)); await folhaAberta(p);
+  await substituir(p, '#fc-plano', '400');
+  await p.$eval('#fc-plano', (e) => e.dispatchEvent(new Event('change', { bubbles: true })));
+  await sincronizado(p);
+  await p.click('[data-f="repetir"]'); await sleep(250); await sincronizado(p);
+  assert.equal(await p.$eval('[data-f="repetir"]', (e) => e.textContent), 'Substituir 1 plano? Toque de novo');
+  const dez = await p.evaluate(() => planoExp('mercado', 2026, 12));
+  assert.equal(dez, 500, 'dezembro não foi gravado no primeiro clique');
+  await p.click('[data-f="repetir"]'); await sleep(250); await sincronizado(p);
+  assert.deepEqual(await p.evaluate(() => [planoExp('mercado', 2026, 11), planoExp('mercado', 2026, 12)]), [400, 400]);
+  assert.ok(planos() !== antes, 'planilha mudou');
+  await p.waitForSelector('.aviso-acao'); await p.click('.aviso-acao'); await sleep(250); await sincronizado(p);
+  // O campo de plano já gravou 400 em novembro ao sair do campo (change); o Desfazer do “repetir” devolve o que havia antes dele: 400 e 500.
+  assert.deepEqual(await p.evaluate(() => [planoExp('mercado', 2026, 11), planoExp('mercado', 2026, 12)]), [400, 500], 'Desfazer devolve dezembro (500) e novembro como estava antes do repetir');
+  assert.equal(await p.evaluate(() => planoExp('mercado', 2026, 12)), 500);
+  await p.close();
+});
+
+await caso('2.8.1 grupo protegido: com lançamentos não vira renda; Fixos↔Variáveis tem Desfazer; sem lançamentos pode virar renda', async () => {
+  const dados = { nome: 'Grupo', categorias: [...catsBase(), { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 }], anos: { 2026: { lancamentos: [
+    { id: 'gp1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+    { id: 'gp2', mes: 11, dia: 2, categoriaId: 'mercado', descricao: '', valor: 50 },
+    { id: 'gp3', mes: 11, dia: 3, categoriaId: 'aluguel', descricao: '', valor: 300 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'grupo-protegido'));
+  await pronto(p);
+  await irPara(p, 'ajustes'); await p.waitForSelector('#cg-mercado');
+  const cats = () => JSON.stringify(a.servidor.planilha.ler('categorias'));
+  const antes = cats();
+  await p.select('#cg-mercado', 'renda'); await sleep(250); await sincronizado(p);
+  assert.equal(await p.$eval('#cg-mercado', (e) => e.value), 'variavel', 'o select volta');
+  assert.ok(await p.$('.aviso.erro'), 'aviso de erro');
+  assert.equal(cats(), antes, 'categorias não mudou');
+  // Fixos -> Variáveis
+  await p.select('#cg-aluguel', 'variavel'); await sleep(250); await sincronizado(p);
+  assert.notEqual(cats(), antes, 'a troca Fixos para Variáveis foi gravada');
+  assert.equal(await p.evaluate(() => catPorId('aluguel').grupo), 'variavel');
+  await p.waitForSelector('.aviso-acao'); await p.click('.aviso-acao'); await sleep(250); await sincronizado(p);
+  assert.equal(await p.evaluate(() => catPorId('aluguel').grupo), 'fixo', 'Desfazer volta');
+  assert.equal(cats(), antes);
+  // sem lançamentos -> renda
+  await p.select('#cg-lazer', 'renda'); await sleep(250); await sincronizado(p);
+  assert.equal(await p.evaluate(() => catPorId('lazer').grupo), 'renda', 'sem lançamentos pode virar renda');
+  assert.ok(a.servidor.planilha.ler('categorias').some((l) => l[0] === 'lazer' && l.includes('renda')), 'gravado na planilha');
+  await p.close();
+});
+
+await caso('2.8.1 categoria de economia: o id vai para a config e o botão de apagar fica desabilitado', async () => {
+  const dados = { nome: 'Economia', categorias: [...catsBase(), { id: 'guardar', nome: 'Guardar', grupo: 'variavel', ordem: 4 }], anos: { 2026: { lancamentos: [
+    { id: 'ec1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'categoria-economia'));
+  await pronto(p); await sincronizado(p); await sleep(300); await sincronizado(p);
+  const cfg = configDe(a, 'categoriaGuardar');
+  assert.ok(cfg && cfg[1] === 'guardar', 'config gravada: ' + JSON.stringify(a.servidor.planilha.ler('config')));
+  await irPara(p, 'ajustes'); await p.waitForSelector('[data-acao="cat-apagar"][data-cat="guardar"]');
+  assert.equal(await p.$eval('[data-acao="cat-apagar"][data-cat="guardar"]', (e) => e.disabled), true, 'apagar desabilitado');
+  assert.equal(await p.$eval('[data-acao="cat-apagar"][data-cat="mercado"]', (e) => e.disabled), false, 'outra categoria sem lançamentos continua apagável');
+  await p.close();
+});
+
+await caso('2.8.1 importação: prévia com o que fica de fora; Substituir tudo exige digitar SUBSTITUIR', async () => {
+  const dados = { nome: 'Importar', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'im0', mes: 11, dia: 1, categoriaId: 'salario', descricao: 'antigo', valor: 1000 },
+    { id: 'im00', mes: 11, dia: 2, categoriaId: 'mercado', descricao: 'antigo 2', valor: 10 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const arq = path.join(SAIDA, 'importar-2-8-1.json');
+  fs.mkdirSync(SAIDA, { recursive: true });
+  fs.writeFileSync(arq, JSON.stringify({
+    versao: 3, app: 'bsdesenv-financas', nome: 'Importado',
+    categorias: [
+      { id: 'ia', nome: 'Alfa', grupo: 'variavel', ordem: 1 },
+      { id: 'ib', nome: 'Beta', grupo: 'renda', ordem: 2 },
+      { id: 'ic', nome: '', grupo: 'variavel', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [
+      { id: 'n1', mes: 3, dia: 5, categoriaId: 'ia', descricao: 'um', valor: 10 },
+      { id: 'n2', mes: 4, dia: 6, categoriaId: 'ia', descricao: 'dois', valor: 20 },
+      { id: 'n3', mes: 5, dia: 7, categoriaId: 'ib', descricao: 'tres', valor: 30 },
+      { id: 'n4', mes: 2, dia: 31, categoriaId: 'ia', descricao: 'quatro', valor: 40 },
+    ], orcamento: {} } },
+  }));
+  const p = await abrir(a, PC, montarPagina(a, 'importar-previa'));
+  await pronto(p);
+  await p.evaluate(() => abrirImportar()); await folhaAberta(p);
+  const input = await p.$('#im-arquivo');
+  await input.uploadFile(arq);
+  await p.waitForSelector('#im-aceitos');
+  await p.waitForFunction(() => document.querySelector('#im-aceitos').textContent.includes('Vão entrar'));
+  const txt = await p.$eval('#im-aceitos', (e) => e.textContent);
+  assert.ok(txt.includes('Vão entrar 2 categorias e 3 lançamentos'), txt);
+  assert.ok(txt.includes('2 itens ficam de fora'), txt);
+  assert.ok(/sem nome/.test(txt) && /dia inválido/.test(txt), 'motivos: ' + txt);
+  assert.equal(await p.$eval('#im-botao', (e) => e.disabled), false, 'Juntar: botão habilitado');
+  await p.click('input[name="im-modo"][value="substituir"]'); await sleep(100);
+  assert.equal(await p.$eval('#im-substituir', (e) => e.hidden), false, 'área de confirmação visível');
+  assert.ok((await p.$eval('#im-substituir', (e) => e.textContent)).includes('Baixar backup agora'));
+  assert.equal(await p.$eval('#im-botao', (e) => e.disabled), true, 'desabilitado até digitar');
+  await p.type('#im-confirma', 'SUBSTITUIR'); await sleep(100);
+  assert.equal(await p.$eval('#im-botao', (e) => e.disabled), false, 'habilitado depois de digitar');
+  assert.equal(await p.$eval('#im-botao', (e) => e.textContent), 'Substituir tudo');
+  await p.click('#im-botao'); await semFolha(p); await sincronizado(p);
+  const linhas = a.linhas();
+  assert.equal(linhas.length, 3, 'só os 3 válidos: ' + JSON.stringify(linhas));
+  assert.deepEqual(linhas.map((l) => l[0]).sort(), ['n1', 'n2', 'n3']);
+  await p.waitForSelector('.aviso .aviso-txt');
+  const fim = await textoAviso(p);
+  assert.ok(fim.includes('Importação concluída') && fim.includes('de fora'), fim);
+  await p.close();
+});
+
+await caso('2.8.1 Ctrl+Z: dois lançamentos rápidos saem da planilha, na ordem inversa', async () => {
+  const dados = { nome: 'CtrlZ', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'cz1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'ctrl-z'));
+  await pronto(p);
+  const tem = (v) => a.linhas().some((l) => l[6] === v);
+  for (const t of ['10 mercado a', '20 mercado b']) {
+    await p.click('#quick'); await p.type('#quick', t); await p.keyboard.press('Enter'); await sincronizado(p); await sleep(250);
+  }
+  assert.ok(tem(10) && tem(20), 'os dois gravados');
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  await p.keyboard.down('Control'); await p.keyboard.press('KeyZ'); await p.keyboard.up('Control');
+  await sleep(300); await sincronizado(p);
+  assert.ok(!tem(20) && tem(10), 'o primeiro Ctrl+Z tira o último (20), não o 10');
+  await p.keyboard.down('Control'); await p.keyboard.press('KeyZ'); await p.keyboard.up('Control');
+  await sleep(300); await sincronizado(p);
+  assert.ok(!tem(20) && !tem(10), 'o segundo tira o 10');
+  assert.equal(a.linhas().length, 1, 'sobrou só o salário');
+  await p.close();
 });
 
 await caso('nenhum erro de JavaScript em nenhuma página', async () => {

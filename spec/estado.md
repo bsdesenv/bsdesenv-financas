@@ -33,8 +33,14 @@ Sabe-se que a direção é "Revisão de plano financeiro e UX", mas não está d
 ## Restrições de processo
 
 - O repositório é público: nenhum dado pessoal, de cliente ou de máquina entra em commit.
-- A camada de IA (`spec/`, `.claude/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`) é versionada, exceto configuração local do runtime.
-- Backup da camada de IA não é necessário quando ela está versionada.
+- A `spec/` é versionada; o material de execução da IA (`.claude/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `opencode.json`) fica fora do git, configurado em `.git/info/exclude`.
+- Backup da camada de IA restringe-se à memória do runtime do Claude (`spec/_fontes/backup.sh`); a `spec/` já tem histórico no git.
+
+---
+
+## Ambiente de IA
+
+Instalação concluída em `e29e6bc`. Runtimes configurados: Claude Code (`claude-opus-5`, `claude-fable-5`) e opencode (`gpt-4o`, `gpt-4o-mini`). Hooks ativos (`spec/_fontes/hooks`), agentes instalados, skills `spec`, `spec-analyze` e `bsdesenv-financas` em `.claude/skills/`. Ver detalhes em `spec/_IAdoc/AMBIENTE-IA.md`.
 
 ---
 

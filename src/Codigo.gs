@@ -276,6 +276,7 @@ function paraCliente_(m) {
     nome: m.cfg.nome || m.cfg.titular || '',
     tema: TEMAS.indexOf(m.cfg.tema) >= 0 ? m.cfg.tema : 'auto',
     marcas: marcas_(m.cfg),
+    fechados: fechados_(m.cfg),
     categoriaGuardar: m.cfg.categoriaGuardar || '',
     atualizadoEm: m.cfg.atualizadoEm || '',
     categorias: m.cats.slice().sort(function (a, b) { return a.ordem - b.ordem; }),
@@ -434,8 +435,50 @@ function marcas_(cfg) {
   return out;
 }
 
+/** Fechamento do mês: chave "fechado:AAAA-MM", valor = sobra realizada (texto numérico). */
+var RE_FECHADO = /^fechado:(\d{4})-(0[1-9]|1[0-2])$/;
+var RE_VALOR_FECHADO = /^-?\d{1,9}(\.\d{1,2})?$/;
+
+/** A chave parece um fechamento (mesmo que o formato esteja errado)? */
+function ehFechado_(chave) {
+  return typeof chave === 'string' && chave.indexOf('fechado:') === 0;
+}
+
+/** A chave é um fechamento válido (formato e ano entre 1900 e 2200)? */
+function chaveFechadoOk_(chave) {
+  var r = RE_FECHADO.exec(String(chave));
+  if (!r) return false;
+  var ano = Number(r[1]);
+  return ano >= 1900 && ano <= 2200;
+}
+
+/** Valor do fechamento como texto válido, ou null. */
+function valorFechado_(v) {
+  if (typeof v === 'number' && isFinite(v)) v = String(v);
+  if (typeof v !== 'string') return null;
+  return RE_VALOR_FECHADO.test(v) ? v : null;
+}
+
+/** Todos os fechamentos válidos da configuração: { 'AAAA-MM': 'valor' }. */
+function fechados_(cfg) {
+  var out = {};
+  Object.keys(cfg).forEach(function (k) {
+    if (ehFechado_(k) && chaveFechadoOk_(k) && valorFechado_(cfg[k]) !== null) out[k.slice(8)] = cfg[k];
+  });
+  return out;
+}
+
 function salvarCfg_(m, chave, valor) {
-  if (ehMarca_(chave)) {
+  if (ehFechado_(chave)) {
+    if (!chaveFechadoOk_(chave)) throw new Error('fechamento inválido: ' + chave);
+    if (valor === '' || valor === null || valor === undefined) {
+      delete m.cfg[chave];
+    } else {
+      var vf = valorFechado_(valor);
+      if (vf === null) throw new Error('valor de fechamento inválido');
+      m.cfg[chave] = vf;
+    }
+  } else if (ehMarca_(chave)) {
     var marca = lerMarca_(chave);
     if (!marca) throw new Error('marca inválida: ' + chave);
     var vazio = valor === '' || valor === null || valor === undefined || valor === false || valor === 0;
@@ -550,7 +593,17 @@ function importar_(m, op) {
     m.cats = cats;
     m.lanc = lanc;
     m.orc = orc;
-    Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k)) delete m.cfg[k]; });
+    Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k) || ehFechado_(k)) delete m.cfg[k]; });
+  }
+  var fechados = d.config && d.config.fechados;
+  if (fechados && typeof fechados === 'object') {
+    Object.keys(fechados).forEach(function (k) {
+      var chave = 'fechado:' + k;
+      var vf = valorFechado_(fechados[k]);
+      if (!chaveFechadoOk_(chave) || vf === null) return motivo_('fechamento ' + k + ': inválido');
+      if (mesclar && m.cfg[chave] !== undefined) return;
+      m.cfg[chave] = vf;
+    });
   }
   var marcas = d.config && d.config.marcas;
   if (marcas && typeof marcas === 'object') {

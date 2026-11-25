@@ -279,6 +279,16 @@ const cats = () => (S.dados ? S.dados.categorias.slice().sort((a, b) => a.ordem 
 const catsDoGrupo = (g) => cats().filter((c) => c.grupo === g);
 function mapaCats() { const m = {}; for (const c of S.dados.categorias) m[c.id] = c; return m; }
 const catPorId = (id) => S.dados.categorias.find((c) => c.id === id);
+/** Cor da categoria pela posição dela na lista: estável, sem repetir vizinhas e fora dos tons de situação. */
+function corCat(id) {
+  const m = M();
+  if (!m.cores) {
+    m.cores = new Map();
+    cats().filter((c) => c.grupo !== 'renda').forEach((c, i) => m.cores.set(c.id, i % 8));
+    catsDoGrupo('renda').forEach((c, i) => m.cores.set(c.id, (i + 3) % 8));
+  }
+  return m.cores.has(id) ? m.cores.get(id) : corDe(id) % 8;
+}
 function catGuardar() {
   if (!S.dados) return null;
   const fixa = S.dados.categoriaGuardar && S.dados.categorias.find((c) => c.id === S.dados.categoriaGuardar && c.grupo !== 'renda');
@@ -559,7 +569,7 @@ function foraDoNormal(cid, total) {
 /* =====================================================================
    7. Pedaços de HTML
    ===================================================================== */
-const mono = (c, p = false) => `<span class="mono${p ? ' p' : ''} cor-${corDe(c.id)}" aria-hidden="true">${esc((c.nome || '?').trim().charAt(0).toUpperCase())}</span>`;
+const mono = (c, p = false) => `<span class="mono${p ? ' p' : ''} cor-${corCat(c.id)}" aria-hidden="true">${esc((c.nome || '?').trim().charAt(0).toUpperCase())}</span>`;
 function barra({ pct, ritmo = null, estado = 'ok', tracejada = false, alta = false }) {
   const w = Math.max(0, Math.min(100, pct || 0));
   return `<span class="barra${alta ? ' alta' : ''}${tracejada ? ' tracejada' : ''}" aria-hidden="true">`
@@ -742,30 +752,13 @@ function renderSinc() {
 /* ---------- Início ---------- */
 function telaInicio() {
   const r = resumo(S.ano, S.mes);
-  const lado = r.fase === 'atual' ? cartaoMeta(r) + cartaoRitmo(r) + cartaoContasAPagar(r) + cartaoCobertura(r) : '';
-  return `<div class="grade-inicio${lado ? '' : ' sem-lado'}">${cartaoHeroi(r)}${cartaoKpis(r)}`
-    + (lado ? `<div class="g-lado lado">${lado}</div>` : '')
-    + cartaoCategorias(r) + cartaoUltimos() + cartaoAno() + '</div>';
-}
-function sparkline(vals, cor = 'var(--ok)') {
-  if (!vals || vals.length < 2) return '';
-  const max = Math.max(...vals, 0); const min = Math.min(...vals, 0); const span = max - min || 1;
-  const flat = max === min;
-  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * 100).toFixed(1)},${(flat ? 17 : 34 - ((v - min) / span) * 30).toFixed(1)}`).join(' ');
-  return `<svg class="spark" viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
-}
-function barrasDia(ano, mes) {
-  const b = S.dados.anos[String(ano)]; if (!b) return '';
-  const dias = diasNoMes(ano, mes); const vals = Array(dias).fill(0); const mapa = mapaCats();
-  for (const l of b.lancamentos) {
-    if (l.mes !== mes) continue;
-    const c = mapa[l.categoriaId];
-    if (c && c.grupo === 'renda') continue;
-    const d = Math.min(dias, Math.max(1, Number(l.dia) || 1));
-    vals[d - 1] += l.valor;
-  }
-  const max = Math.max(...vals, 1);
-  return `<div class="mini-barras" aria-hidden="true">${vals.map((v, i) => `<i class="${i + 1 === hoje().dia ? 'hoje' : ''}" style="height:${Math.max(2, (v / max) * 100).toFixed(1)}%"></i>`).join('')}</div>`;
+  const blocos = r.fase === 'atual'
+    ? [cartaoHeroi(r), cartaoPagar(r), cartaoPlanoMes(r), cartaoOndeFoi(r), cartaoUltimos()]
+    : r.fase === 'passado'
+      ? [cartaoHeroi(r), cartaoOndeFoi(r), cartaoUltimos()]
+      : [cartaoHeroi(r), cartaoCategorias(r), cartaoUltimos()];
+  return `<div class="grade-inicio fase-${r.fase}">${blocos.join('')}</div>`
+    + `<p class="ver-ano"><button type="button" class="link" data-acao="tela" data-tela="planilha" data-foco="ver-ano">${ic('planilha', 16)}Ver ${S.ano} na Planilha</button></p>`;
 }
 /** Aviso único da 2.8.0, para quem já usava o app: a regra mudou e o número também. */
 function avisoMudanca(r) {
@@ -847,80 +840,6 @@ function cartaoHeroi(r) {
     + `<p class="sub">${r.renda || r.saidasPrevistas ? `Sobra prevista: renda de ${moeda(r.renda)} e saídas de ${moeda(r.saidasPrevistas)}.` : 'Ainda não há plano para este mês.'}</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="planejar">${ic('mes', 18)}Planejar ${m}</button></div></section>`;
 }
-function cartaoRitmo(r) {
-  if (r.fase !== 'atual') return '';
-  if (!(r.planoGastos > 0)) {
-    return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2></div>`
-      + `<p class="sub">Defina um plano em <button type="button" class="link" data-acao="planejar" data-foco="ritmo-planejar">Mês › Planejar</button> para acompanhar o ritmo dos gastos.</p></section>`;
-  }
-  const pct = (r.gastoComPlano / r.planoGastos) * 100;
-  const pctRenda = r.renda > 0 ? Math.round((r.planoGastos / r.renda) * 100) : 0;
-  const meta = r.guardadoPlano;
-  const pctMeta = r.renda > 0 && meta > 0 ? (meta / r.renda) * 100 : 0;
-  const estado = r.gastoComPlano > r.planoGastos ? 'acima'
-    : r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
-  return `<section class="cartao" aria-labelledby="h-ritmo"><div class="cartao-topo"><h2 id="h-ritmo">Ritmo do plano</h2>`
-    + '<button type="button" class="link" data-acao="planejar" data-foco="ritmo-ajustar">Ajustar plano</button></div>'
-    + `<div class="legenda-barra"><span>Gasto ${moeda(r.gastoComPlano)}</span><span>Plano ${moeda(r.planoGastos)}</span></div>`
-    + barra({ pct, ritmo: r.ritmo, estado, alta: true })
-    + `<div class="legenda-barra"><span>${Math.round(pct)}% do plano usado</span><span>hoje: ${Math.round(r.ritmo * 100)}% do mês decorrido</span></div>`
-    + `<p class="sub" style="margin-top:6px">Plano de consumo = ${pctRenda}% da renda do mês.</p>`
-    + `<p class="sub" style="margin-top:4px">${meta > 0 ? `Meta de economia: ${moeda(meta)} (${pct1(pctMeta)}% da renda).` : 'Defina uma meta de economia para guardar antes de gastar.'} <button type="button" class="link" data-acao="meta-foco" data-foco="ritmo-meta">Ajustar meta</button></p>`
-    + '<p class="sub so-desktop" style="margin-top:4px">A barra compara o gasto com o plano de consumo; a marca mostra o dia de hoje. O que falta de cada plano fica reservado no disponível.</p>'
-    + '<p class="sub so-celular" style="margin-top:4px">A barra compara o gasto com o plano; a marca mostra o dia de hoje.</p>'
-    + '<p class="sub" style="margin-top:4px"><button type="button" class="link" data-acao="como-funciona" data-foco="ritmo-ajuda">Como funciona</button></p></section>';
-}
-function cartaoKpis(r) {
-  let tiles;
-  if (r.fase === 'atual') {
-    const g = catGuardar();
-    const seis = (fn) => Array.from({ length: 6 }, (_, i) => { const d = deChave(chaveMes(S.ano, S.mes) - (5 - i)); return fn(resumo(d.ano, d.mes)); });
-    const valsRenda = seis((rr) => (rr.fase === 'passado' ? rr.recebida : rr.renda));
-    const res = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.falta > 0).sort((a, b) => b.v.falta - a.v.falta).slice(0, 3);
-    const listaRes = res.length
-      ? `<div class="kpi-lista">${res.map(({ c, v }) => `<div><span>${esc(c.nome)}</span><strong>${moeda(v.falta)}</strong></div>`).join('')}</div>`
-      : '<p class="sub kpi-vazio">Nada reservado.</p>';
-    const meta = r.guardadoPlano; const pctMeta = meta > 0 ? Math.min(100, (Math.max(0, r.guardadoReal) / meta) * 100) : 0;
-    const valsGuardado = seis((rr) => rr.guardadoReal);
-    const metaTxt = meta > 0
-      ? (r.guardadoReal >= meta ? 'meta atingida' : `faltam ${moeda(r.faltaGuardar)}`)
-      : (g ? 'sem meta neste mês' : 'defina uma meta');
-    const metaVisual = `<div class="kpi-meta"><div class="meta-topo"><span>${metaTxt}</span><strong>${meta ? Math.round(pctMeta) + '%' : '—'}</strong></div>`
-      + barra({ pct: pctMeta, estado: 'ok', alta: true })
-      + (valsGuardado.some((v) => v > 0) ? sparkline(valsGuardado, 'var(--ok)') : '')
-      + '</div>';
-    const partesRes = [['contas', r.contasAPagar], ['planos', r.nosPlanos], ['guardar', r.faltaGuardar]]
-      .filter((x) => x[1] > 0).map(([n, v]) => `${n} ${moeda(v)}`).join(' · ');
-    tiles = [
-      { rot: 'Renda do mês', v: moeda(r.renda), s: r.aReceber > 0 ? (r.recebida > 0 ? `recebida ${moeda(r.recebida)} · a receber ${moeda(r.aReceber)}` : 'prevista') : 'recebida', cls: 'ok', icone: 'setaDesce', visual: sparkline(valsRenda) },
-      { rot: 'Já saiu', v: moeda(r.jaSaiu), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}${r.guardadoReal > 0 ? ` · guardado ${moeda(r.guardadoReal)}` : ''}`, cls: '', icone: 'setaSobe', visual: barrasDia(S.ano, S.mes) },
-      { rot: 'Reservado', v: moeda(r.reservado), s: partesRes || 'nada reservado', cls: '', icone: 'calendario', visual: listaRes },
-      { rot: 'Guardado', v: moeda(r.guardadoReal), s: r.guardadoPlano > 0 ? `meta ${moeda(r.guardadoPlano)}` : '', cls: '', icone: 'cadeado', visual: metaVisual },
-    ];
-  } else if (r.fase === 'passado') {
-    const guardou = r.guardadoReal > 0;
-    const sobra = r.sobraRealizada;
-    const faltou = !guardou && sobra < 0;
-    const pctDaRenda = r.recebida > 0 ? Math.round(((guardou ? r.guardadoReal : sobra) / r.recebida) * 100) : null;
-    const rotDaRenda = pctDaRenda === null ? 'Da renda' : guardou ? 'Da renda, guardou' : faltou ? 'Da renda, faltou' : 'Da renda, sobrou';
-    const pend = r.pendencias.qtd;
-    tiles = [
-      { rot: 'Renda', v: moeda(r.recebida), s: 'recebida', cls: 'ok', icone: 'setaDesce' },
-      { rot: 'Saídas', v: moeda(r.jaSaiu), s: `${r.qtdGastos} lançamento${r.qtdGastos === 1 ? '' : 's'}`, cls: '', icone: 'setaSobe' },
-      { rot: 'Sobra', v: moeda(sobra), s: pend ? `realizada · ${pend} plano${pend > 1 ? 's' : ''} sem lançamento fora` : 'realizada', cls: sobra < 0 ? 'acima' : 'ok', icone: 'check' },
-      { rot: rotDaRenda, v: pctDaRenda === null ? '—' : (faltou ? Math.abs(pctDaRenda) : pctDaRenda) + '%', s: pctDaRenda === null ? 'sem renda no mês' : guardou ? 'guardado' : faltou ? 'a mais nas saídas' : 'sobra do mês', cls: '', icone: 'cadeado' },
-    ];
-  } else {
-    tiles = [
-      { rot: 'Renda prevista', v: moeda(r.renda), s: '', cls: 'ok', icone: 'calendario' },
-      { rot: 'Saídas previstas', v: moeda(r.saidasPrevistas), s: '', cls: '', icone: 'setaSobe' },
-      { rot: 'Sobra prevista', v: moeda(r.disponivel), s: '', cls: r.disponivel < 0 ? 'acima' : 'ok', icone: 'check' },
-      { rot: 'Lançado até agora', v: moeda(r.jaSaiu), s: 'lançamentos já feitos para este mês', cls: '', icone: 'setaDesce' },
-    ];
-  }
-  const card = (t) => `<div class="cartao kpi"><div class="kpi-topo"><span class="rotulo">${esc(t.rot)}</span><span class="kpi-icone" aria-hidden="true">${ic(t.icone, 16)}</span></div><strong class="kpi-valor ${t.cls || ''}">${esc(t.v)}</strong>${t.s ? `<span class="sub">${esc(t.s)}</span>` : ''}${t.visual || ''}</div>`;
-  return `<section class="g-kpis kpis" aria-label="Números do mês">${tiles.map(card).join('')}</section>`;
-}
 function sugestaoMeta() {
   const h = hoje(); const alvo = chaveMes(h.ano, h.mes);
   let soma = 0; let n = 0;
@@ -935,56 +854,68 @@ function sugestaoMeta() {
   if (valor >= 100) valor = Math.floor(valor / 10) * 10;
   return { valor: arred(valor), meses: n };
 }
-function cartaoMeta(r) {
-  if (r.fase !== 'atual') return '';
-  const g = catGuardar();
-  const sug = sugestaoMeta();
-  if (!g) {
-    const botao = sug.valor > 0
-      ? `<button type="button" class="botao" data-acao="criar-guardar" data-valor="${sug.valor}" data-foco="criar-guardar">Criar “Guardar” com ${moeda(sug.valor)}</button>`
-      : '<button type="button" class="botao" data-acao="criar-guardar" data-foco="criar-guardar">Criar “Guardar”</button>';
-    const mesesTxt = sug.meses === 1 ? 'no último mês fechado' : `nos últimos ${sug.meses} meses fechados`;
-    return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2>`
-      + '<button type="button" class="link" data-acao="como-funciona" data-foco="meta-ajuda">Como funciona</button></div>'
-      + '<p class="sub so-desktop">Separe um valor antes de gastar: o que falta para a meta fica reservado no disponível até você guardar.</p>'
-      + '<p class="sub so-celular">Separe um valor antes de gastar: o que falta fica reservado no disponível.</p>'
-      + (sug.valor > 0 ? `<p class="sub">Sugestão: ${moeda(sug.valor)}. 80% da média do que sobrou da renda após os gastos de consumo ${mesesTxt}.</p>` : '<p class="sub">Ainda não há histórico para sugerir. Comece com um valor pequeno e ajuste depois.</p>')
-      + `<div class="acoes">${botao}</div></section>`;
-  }
-  const meta = planoExp(g.id, S.ano, S.mes);
-  const guardado = celReal(g.id, S.ano, S.mes).soma;
-  const pct = meta > 0 ? (guardado / meta) * 100 : 0;
-  const pctRenda = meta > 0 && r.renda > 0 ? (meta / r.renda) * 100 : 0;
-  const texto = meta > 0 && guardado >= meta ? 'Meta atingida. O que passar disso é sobra.'
-    : meta > 0 ? `Faltam ${moeda(meta - guardado)} para a meta deste mês.` : 'Defina a meta deste mês.';
-  return `<section class="cartao" aria-labelledby="h-meta"><div class="cartao-topo"><h2 id="h-meta">Meta de economia</h2>`
-    + '<button type="button" class="link" data-acao="como-funciona" data-foco="meta-ajuda">Como funciona</button></div>'
-    + `<div class="legenda-barra" style="margin-top:0"><span>Guardado ${moeda(guardado)}</span><span>Meta ${meta ? moeda(meta) : '—'}${pctRenda ? ` · ${pct1(pctRenda)}% da renda` : ''}</span></div>`
-    + barra({ pct, estado: 'ok', alta: true })
-    + `<p class="sub" style="margin-top:8px">${texto}</p>`
-    + `<label class="campo" style="margin-top:10px">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${meta ? num(meta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>`
-    + '<div class="acoes">'
-    + (sug.valor > 0 && sug.valor !== meta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
-    + (meta > 0 && guardado === 0 ? `<button type="button" class="botao pequeno" data-acao="confirmar" data-cat="${esc(g.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="meta-confirmar">Confirmar ${moeda(meta)}</button>` : '')
-    + (meta > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
-    + '</div></section>';
-}
-function cartaoCobertura(r) {
-  if (!(r.semPlano > 0)) return '';
-  return `<section class="cartao" aria-labelledby="h-cobertura"><div class="cartao-topo"><h2 id="h-cobertura">Cobertura do plano</h2></div>`
-    + `<p class="sub"><strong>Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''}.</strong> Esse valor fica fora da barra do plano e não é reservado no disponível. Planejar pela média dos últimos 3 meses?</p>`
-    + '<div class="acoes"><button type="button" class="botao pequeno" data-acao="planejar-sem-plano" data-foco="planejar-sem-plano">Planejar agora</button></div></section>';
-}
-function cartaoContasAPagar(r) {
-  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'fixo' && !ehGuardar(c) && v.falta > 0);
-  if (!itens.length) return '';
+/** "O que falta pagar?": contas fixas, meta de Guardar e rendas a receber do mês, com as ações de cada uma. */
+function cartaoPagar(r) {
   const dados = (c) => `data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}"`;
-  return `<section class="cartao" aria-labelledby="h-vencer"><div class="cartao-topo"><h2 id="h-vencer">Contas a pagar</h2><span class="sub">${moeda(r.contasAPagar)}</span></div>`
-    + itens.map(({ c, v }) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>${v.real ? `faltam ${moeda(v.falta)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`}</span></div>`
-      + `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Confirmar</button>`
-      + (v.real ? `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="quit-${esc(c.id)}">Quitar</button>` : '')
-      + '</div>').join('')
-    + '</section>';
+  const item = (c, detalhe, botoes) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>${detalhe}</span></div>${botoes}</div>`;
+  const bloco = (titulo, total, itens) => (itens.length ? `<h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3>${itens.join('')}` : '');
+  const doGrupo = (fn) => r.porCat.filter(({ c, v }) => fn(c) && v.falta > 0);
+  const contas = doGrupo((c) => c.grupo === 'fixo' && !ehGuardar(c)).map(({ c, v }) => item(c,
+    v.real ? `faltam ${moeda(v.falta)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`,
+    `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Confirmar</button>`
+    + (v.real ? `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="quit-${esc(c.id)}">Quitar</button>` : '')));
+  const guardar = doGrupo((c) => ehGuardar(c)).map(({ c, v }) => item(c, `faltam ${moeda(v.falta)} da meta de ${moeda(v.plano)}`,
+    `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Guardar</button>`));
+  const receber = doGrupo((c) => c.grupo === 'renda').map(({ c, v }) => item(c,
+    v.real ? `recebido ${moeda(v.real)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`,
+    `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Recebi</button>`
+    + `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="nao-vem-${esc(c.id)}">Não vem</button>`));
+  const corpo = bloco('Contas', r.contasAPagar, contas) + bloco('Guardar', r.faltaGuardar, guardar) + bloco('A receber', r.aReceber, receber);
+  return `<section class="cartao g-pagar" aria-labelledby="h-vencer"><div class="cartao-topo"><h2 id="h-vencer">O que falta pagar</h2><span class="sub">${moeda(r.contasAPagar + r.faltaGuardar)}</span></div>`
+    + (corpo || '<p class="sub">Nada a pagar neste mês: as contas com plano já foram lançadas.</p>') + '</section>';
+}
+/** "Como estou nos planos?": ritmo do consumo, meta de Guardar e cada categoria variável, com os avisos. */
+function cartaoPlanoMes(r) {
+  const g = catGuardar();
+  const peso = { acima: 0, atencao: 1, ok: 2, neutro: 3 };
+  const vars = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && !ehGuardar(c) && (v.plano > 0 || v.real > 0))
+    .map((x) => ({ ...x, est: estadoCategoria(x.c, x.v, r.ritmo), pct: x.v.plano ? x.v.real / x.v.plano : 1 }))
+    .sort((a, b) => peso[a.est] - peso[b.est] || b.pct - a.pct);
+  let ritmo;
+  if (r.planoGastos > 0) {
+    const pct = (r.gastoComPlano / r.planoGastos) * 100;
+    const est = r.gastoComPlano > r.planoGastos ? 'acima' : r.gastoComPlano / r.planoGastos > r.ritmo + 0.12 ? 'atencao' : 'ok';
+    const situacao = est === 'acima' ? 'Acima do plano' : est === 'atencao' ? 'Acima do ritmo' : 'No ritmo';
+    ritmo = `<div class="plano-ritmo"><div class="legenda-barra" style="margin-top:0"><span><strong class="situacao ${est}">${situacao}</strong> · gasto ${moeda(r.gastoComPlano)} de ${moeda(r.planoGastos)}</span><span>${Math.round(pct)}% do plano · ${Math.round(r.ritmo * 100)}% do mês</span></div>`
+      + barra({ pct, ritmo: r.ritmo, estado: est, alta: true }) + '</div>';
+  } else {
+    ritmo = '<p class="sub plano-ritmo">Sem plano de consumo neste mês. <button type="button" class="link" data-acao="planejar" data-foco="plano-criar">Criar o plano</button></p>';
+  }
+  const sug = sugestaoMeta();
+  let meta;
+  if (!g) {
+    meta = `<div class="plano-meta"><p class="sub">Separe um valor antes de gastar: crie a categoria Guardar${sug.valor > 0 ? `; a sugestão é ${moeda(sug.valor)} por mês` : ''}.</p>`
+      + `<div class="acoes"><button type="button" class="botao pequeno" data-acao="criar-guardar" data-valor="${sug.valor || 0}" data-foco="criar-guardar">Criar “Guardar”${sug.valor > 0 ? ` com ${moeda(sug.valor)}` : ''}</button></div></div>`;
+  } else {
+    const valorMeta = planoExp(g.id, S.ano, S.mes); const guardado = celReal(g.id, S.ano, S.mes).soma;
+    meta = `<div class="plano-meta"><div class="legenda-barra" style="margin-top:0"><span><strong>Meta de economia</strong> · guardado ${moeda(guardado)}</span><span>${valorMeta ? `meta ${moeda(valorMeta)}` : 'sem meta'}</span></div>`
+      + barra({ pct: valorMeta > 0 ? (Math.max(0, guardado) / valorMeta) * 100 : 0, estado: 'ok' })
+      + `<div class="plano-meta-campo"><label class="campo">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${valorMeta ? num(valorMeta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>`
+      + '<div class="acoes">'
+      + (sug.valor > 0 && sug.valor !== valorMeta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
+      + (valorMeta > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
+      + '</div></div></div>';
+  }
+  const lista = vars.length
+    ? `<div class="lista-cats">${vars.map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4, true, i >= 6)).join('')}</div>`
+    : '<p class="sub">Nenhuma categoria variável com plano ou gasto neste mês.</p>';
+  const cobertura = r.semPlano > 0
+    ? `<p class="sub plano-cobertura"><strong>Sem plano: ${moeda(r.semPlano)} em ${r.semPlanoQtd} categoria${r.semPlanoQtd > 1 ? 's' : ''}.</strong> <button type="button" class="link" data-acao="planejar-sem-plano" data-foco="planejar-sem-plano">Planejar pela média</button></p>`
+    : '';
+  return '<section class="cartao g-planos" aria-labelledby="h-planos"><div class="cartao-topo"><h2 id="h-planos">Plano do mês</h2>'
+    + '<span class="cartao-links"><button type="button" class="link" data-acao="planejar" data-foco="ajustar-planos">Ajustar planos</button><button type="button" class="link" data-acao="como-funciona" data-foco="como-funciona">Como funciona</button></span></div>'
+    + ritmo + meta + lista + cobertura + blocoAvisos(r)
+    + '<p class="sub"><button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-todas">Ver todas as categorias</button></p></section>';
 }
 function calcularAvisos(r) {
   const lista = [];
@@ -1041,49 +972,28 @@ function blocoAvisos(r) {
         + '</div></div>';
     }).join('') + '</div>';
 }
-function resumoVariaveis(r) {
-  const vars = r.porCat.filter(({ c }) => c.grupo === 'variavel' && !ehGuardar(c));
-  const gasto = vars.reduce((a, { v }) => a + v.real, 0);
-  const plano = vars.reduce((a, { v }) => a + (v.plano || 0), 0);
-  const nosPlanos = vars.reduce((a, { v }) => a + (v.falta || 0), 0);
-  return { gasto, plano, nosPlanos };
-}
-function graficoVariaveis(r) {
-  const itens = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && v.real > 0).sort((a, b) => b.v.real - a.v.real);
+/** "Onde foi?": as maiores saídas do mês (sem Guardar), em barras horizontais com nome, valor e percentual. */
+function cartaoOndeFoi(r) {
+  const itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && !ehGuardar(c) && v.real > 0).sort((a, b) => b.v.real - a.v.real);
   const total = itens.reduce((a, { v }) => a + v.real, 0);
-  if (!total) return '';
-  const top = itens.slice(0, 5); const resto = itens.slice(5).reduce((a, { v }) => a + v.real, 0);
-  const seg = top.map(({ c, v }) => `<i class="cor-${corDe(c.id)}" style="width:${(v.real / total * 100).toFixed(2)}%;background:var(--c)" title="${esc(c.nome)}: ${moeda(v.real)}"></i>`).join('')
-    + (resto > 0 ? `<i style="width:${(resto / total * 100).toFixed(2)}%;background:var(--tinta-3)" title="Demais categorias: ${moeda(resto)}"></i>` : '');
-  const leg = top.map(({ c, v }) => `<span><i class="cor-${corDe(c.id)}" style="background:var(--c)"></i>${esc(c.nome)} <strong>${Math.round(v.real / total * 100)}%</strong></span>`).join('')
-    + (resto > 0 ? `<span><i style="background:var(--tinta-3)"></i>Demais <strong>${Math.round(resto / total * 100)}%</strong></span>` : '');
-  return `<div class="grafico-variaveis"><div class="gv-titulo"><span>Para onde foi</span><span>${moeda(total)}</span></div>`
-    + `<div class="gv-barra" aria-hidden="true">${seg}</div><div class="gv-legenda">${leg}</div></div>`;
+  const titulo = r.fase === 'passado' ? 'Para onde foi o dinheiro' : 'Onde foi';
+  if (!total) return `<section class="cartao g-onde" aria-labelledby="h-onde"><div class="cartao-topo"><h2 id="h-onde">${titulo}</h2></div>${vazio(`Nada lançado em ${MESES[S.mes - 1]} ainda.`)}</section>`;
+  const top = itens.slice(0, 6); const resto = itens.slice(6).reduce((a, { v }) => a + v.real, 0);
+  const max = top[0].v.real;
+  const linha = (rotulo, valor, attrs) => `<${attrs ? 'button type="button"' : 'div'} class="onde-linha"${attrs || ''}>`
+    + `<span class="onde-nome">${esc(rotulo)}</span><span class="onde-valor">${moeda(valor)} <em>${Math.round((valor / total) * 100)}%</em></span>`
+    + `<span class="onde-barra" aria-hidden="true"><i style="width:${Math.max(2, (valor / max) * 100).toFixed(1)}%"></i></span></${attrs ? 'button' : 'div'}>`;
+  return `<section class="cartao g-onde" aria-labelledby="h-onde"><div class="cartao-topo"><h2 id="h-onde">${titulo}</h2><span class="sub">${moeda(total)}</span></div>`
+    + `<div class="onde-lista">${top.map(({ c, v }) => linha(c.nome, v.real, ` data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}" data-foco="onde-${esc(c.id)}"`)).join('')}`
+    + (resto > 0 ? linha('Demais categorias', resto) : '') + '</div></section>';
 }
 function cartaoCategorias(r) {
-  let itens; let titulo; let extra = '';
-  if (r.fase === 'atual') {
-    titulo = 'Variáveis do mês';
-    const peso = { acima: 0, atencao: 1, ok: 2, neutro: 3 };
-    itens = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && (v.plano > 0 || v.real > 0))
-      .map((x) => ({ ...x, est: estadoCategoria(x.c, x.v, r.ritmo), pct: x.v.plano ? x.v.real / x.v.plano : 1 }))
-      .sort((a, b) => peso[a.est] - peso[b.est] || b.pct - a.pct);
-    const rv = resumoVariaveis(r);
-    extra = `<div class="cats-resumo"><span>Gasto <strong>${moeda(rv.gasto)}</strong></span><span>Plano <strong>${moeda(rv.plano)}</strong></span><span>Ainda nos planos <strong>${moeda(rv.nosPlanos)}</strong></span></div>`
-      + graficoVariaveis(r)
-      + '<div class="acoes cats-acoes"><button type="button" class="botao pequeno" data-acao="novo" data-foco="cats-novo">' + ic('mais', 16) + 'Lançar</button>'
-      + '<button type="button" class="botao pequeno" data-acao="planejar" data-foco="cats-planejar">Ajustar planos</button></div>'
-      + '<p class="sub" style="margin-top:8px">Toque numa categoria para lançar ou ajustar o plano.</p>'
-      + blocoAvisos(r);
-  } else {
-    titulo = r.fase === 'passado' ? 'Para onde foi o dinheiro' : 'Plano por categoria';
-    itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.valor > 0).sort((a, b) => b.v.valor - a.v.valor);
-  }
+  const itens = r.porCat.filter(({ c, v }) => c.grupo !== 'renda' && v.valor > 0).sort((a, b) => b.v.valor - a.v.valor);
   const corpo = itens.length
-    ? `<div class="lista-cats">${itens.map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4, r.fase === 'atual', i >= 6)).join('')}</div>${extra}`
-    : vazio(r.fase === 'futuro' ? 'Nenhum gasto planejado para este mês.' : 'Nada lançado neste mês ainda.', r.fase !== 'futuro');
-  return `<section class="cartao g-cats" aria-labelledby="h-cats"><div class="cartao-topo"><h2 id="h-cats">${titulo}</h2>`
-    + `<button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-todas">Ver todas</button></div>${corpo}</section>`;
+    ? `<div class="lista-cats">${itens.map((x, i) => linhaCat(x.c, x.v, r.ritmo, S.ano, S.mes, i >= 4, false, i >= 6)).join('')}</div>`
+    : vazio('Nenhum gasto planejado para este mês.', false);
+  return '<section class="cartao g-cats" aria-labelledby="h-cats"><div class="cartao-topo"><h2 id="h-cats">Plano por categoria</h2>'
+    + `<button type="button" class="link" data-acao="planejar" data-foco="ver-todas">Planejar</button></div>${corpo}</section>`;
 }
 function cartaoUltimos() {
   const b = S.dados.anos[S.ano];
@@ -1271,16 +1181,17 @@ function telaPlanilha() {
         if (v.tipo === 'previsto') cls.push('prev');
         const mostrado = v.fase === 'atual' && v.qtd ? v.real : v.valor;
         if (!mostrado) cls.push('zero');
-        let estilo = '';
+        let estilo = ''; let marca = '';
         if (S.calor && media && v.fase === 'passado' && v.qtd > 0) {
           const q = v.real / media;
+          marca = q >= 1.15 ? '▲' : q <= 0.85 ? '▼' : '';
           if (q >= 1.15) estilo = `background-color:color-mix(in srgb, var(--calor-acima) ${Math.min(32, (q - 1) * 45).toFixed(1)}%, var(--cartao))`;
           else if (q <= 0.85) estilo = `background-color:color-mix(in srgb, var(--calor-abaixo) ${Math.min(22, (1 - q) * 40).toFixed(1)}%, var(--cartao))`;
         }
         const mini = v.fase === 'atual' && v.qtd && v.plano > 0 && g !== 'renda'
           ? `<span class="mini"><i class="${v.real > v.plano ? 'acima' : ''}" style="width:${Math.min(100, (v.real / v.plano) * 100).toFixed(0)}%"></i></span>` : '';
-        const dica = `${c.nome} · ${Mes(m)}: ${moeda(mostrado)}${v.tipo === 'previsto' ? (v.fase === 'passado' ? ' (plano sem lançamento; não entra nos totais)' : ' (previsto, não lançado)') : ''}${v.encerrada ? ' (encerrada no mês)' : ''}${v.fase === 'atual' && v.plano ? ` de ${moeda(v.plano)} planejados` : ''}${media && v.fase === 'passado' && v.qtd ? ` · média ${moeda(media)}` : ''}`;
-        linha += `<td class="${cls.join(' ')}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${m}" data-r="${r}" data-c="${i}" tabindex="${r === 0 && i === colInicial ? 0 : -1}" title="${esc(dica)}"${estilo ? ` style="${estilo}"` : ''}>${mostrado ? num(mostrado) : '–'}${mini}</td>`;
+        const dica = `${c.nome} · ${Mes(m)}: ${moeda(mostrado)}${v.tipo === 'previsto' ? (v.fase === 'passado' ? ' (plano sem lançamento; não entra nos totais)' : ' (previsto, não lançado)') : ''}${v.encerrada ? ' (encerrada no mês)' : ''}${v.fase === 'atual' && v.plano ? ` de ${moeda(v.plano)} planejados` : ''}${media && v.fase === 'passado' && v.qtd ? ` · média ${moeda(media)}` : ''}${marca === '▲' ? ' · acima da média' : marca === '▼' ? ' · abaixo da média' : ''}`;
+        linha += `<td class="${cls.join(' ')}" data-acao="categoria" data-cat="${esc(c.id)}" data-ano="${ano}" data-mes="${m}" data-r="${r}" data-c="${i}" tabindex="${r === 0 && i === colInicial ? 0 : -1}" title="${esc(dica)}"${estilo ? ` style="${estilo}"` : ''}>${mostrado ? num(mostrado) : '–'}${marca ? `<span class="calor-marca" aria-hidden="true">${marca}</span>` : ''}${mini}</td>`;
       });
       corpo += linha + `<td class="total">${num(total)}</td></tr>`;
       r++;
@@ -1303,7 +1214,8 @@ function telaPlanilha() {
   const cab = meses.map((m) => { const f = fase(ano, m); return `<th scope="col" class="${f === 'atual' ? 'atual' : ''}">${MesC(m)}${f === 'atual' ? '<small>hoje</small>' : ''}</th>`; }).join('');
   const seg = (on, txt) => `<button type="button" data-acao="calor" data-calor="${on ? 1 : 0}" data-foco="calor-${on ? 1 : 0}" aria-pressed="${S.calor === on}">${txt}</button>`;
   if (!cats().length) return vazio('Crie categorias em Ajustes para ver a planilha.', false);
-  return '<div class="planilha-ferramentas">'
+  return `<div class="planilha-ano">${cartaoAno()}</div>`
+    + '<div class="planilha-ferramentas">'
     + `<div class="segmentado" role="group" aria-label="Visualização">${seg(false, 'Valores')}${seg(true, 'Mapa de calor')}</div>`
     + '<div class="legenda"><span><i style="background:color-mix(in srgb,var(--calor-acima) 32%,var(--cartao))"></i>acima da média da categoria</span><span><i style="background:color-mix(in srgb,var(--calor-abaixo) 22%,var(--cartao))"></i>abaixo da média</span><span><i style="box-shadow:inset 0 0 0 1px var(--tinta-3)"></i>previsto (plano sem lançamento)</span></div>'
     + `<button type="button" class="botao pequeno" data-acao="exportar-csv" data-foco="exp-csv" style="margin-left:auto">${ic('baixar', 16)}Exportar lançamentos (CSV)</button></div>`
@@ -1486,7 +1398,7 @@ function abrirNovo(opc = {}) {
         let lista = teclado || st.todas ? todas : todas.slice(0, 8);
         if (!lista.some((c) => c.id === st.cat)) { const sel = todas.find((c) => c.id === st.cat); if (sel) lista = lista.concat(sel); }
         $('#nv-cats', el).innerHTML = todas.length
-          ? lista.map((c) => `<button type="button" class="chip cor-${corDe(c.id)}" data-f="cat" data-v="${esc(c.id)}" aria-pressed="${c.id === st.cat}"><span class="ponto"></span>${esc(c.nome)}</button>`).join('')
+          ? lista.map((c) => `<button type="button" class="chip cor-${corCat(c.id)}" data-f="cat" data-v="${esc(c.id)}" aria-pressed="${c.id === st.cat}"><span class="ponto"></span>${esc(c.nome)}</button>`).join('')
             + (!teclado && todas.length > 8 ? `<button type="button" class="chip todas" data-f="todas" aria-expanded="${Boolean(st.todas)}">${st.todas ? 'Menos' : `Todas (${todas.length})`}</button>` : '')
           : '<p class="sub">Nenhuma categoria. Crie em Ajustes.</p>';
         const datas = [['hoje', 'Hoje'], ['ontem', 'Ontem'], ['outra', 'Outra data']];
@@ -2521,7 +2433,7 @@ const ACOES = {
   'mes-hoje': () => { const h = hoje(); S.ano = h.ano; S.mes = h.mes; render(); },
   'ano-ant': () => { S.ano--; S.rolarPlanilha = true; render(); },
   'ano-prox': () => { S.ano++; S.rolarPlanilha = true; render(); },
-  'ir-mes': (el) => { S.mes = Number(el.dataset.mes); render(); },
+  'ir-mes': (el) => { S.mes = Number(el.dataset.mes); if (S.tela === 'planilha') irPara('inicio'); else render(); },
   encerrar: (el) => encerrarCategoria(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes), true),
   reabrir: (el) => encerrarCategoria(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes), false),
   'aviso-mudanca-ok': () => { LS.gravar('aviso-2.8.0', true); render(); },

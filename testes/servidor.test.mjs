@@ -385,6 +385,67 @@ test('marcas: o servidor da 2.7.1 preserva a marca ao gravar outra configuraçã
   assert.equal(chaves.nome, 'Casa');
 });
 
+const fechadosDe = (ctx) => JSON.parse(ctx.carregar()).fechados;
+
+test('fechamento: gravar, aparecer em carregar e remover', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  assert.deepEqual(fechadosDe(ctx), {});
+  let r = sinc(ctx, 0, [{ t: 'cfg', k: 'fechado:2026-10', v: '1516.1' }, { t: 'cfg', k: 'fechado:2026-09', v: '-230.45' }]);
+  assert.equal(r.aplicadas, 2);
+  assert.deepEqual(fechadosDe(ctx), { '2026-10': '1516.1', '2026-09': '-230.45' });
+  assert.ok(planilha.ler('config').some((l) => l[0] === 'fechado:2026-10'));
+  r = sinc(ctx, r.revisao, [{ t: 'cfg', k: 'fechado:2026-10', v: '' }, { t: 'cfg', k: 'fechado:2026-09', v: null }]);
+  assert.equal(r.aplicadas, 2);
+  assert.deepEqual(fechadosDe(ctx), {});
+  assert.ok(!planilha.ler('config').some((l) => String(l[0]).startsWith('fechado:')));
+});
+
+test('fechamento: recusas vão para rejeitadas com motivo', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    { t: 'cfg', k: 'fechado:2026-13', v: '10' },
+    { t: 'cfg', k: 'fechado:2026-10', v: 'abc' },
+    { t: 'cfg', k: 'fechado:2026-1', v: '10' },
+    { t: 'cfg', k: 'fechado:2026-10', v: '10.123' },
+    { t: 'cfg', k: 'fechado:2026-10', v: '10' },
+  ]);
+  assert.equal(r.aplicadas, 1);
+  assert.equal(r.rejeitadas.length, 4);
+  assert.match(r.rejeitadas[0].motivo, /fechamento inválido/);
+  assert.match(r.rejeitadas[1].motivo, /valor de fechamento inválido/);
+  assert.match(r.rejeitadas[2].motivo, /fechamento inválido/);
+  assert.match(r.rejeitadas[3].motivo, /valor de fechamento inválido/);
+  assert.deepEqual(fechadosDe(ctx), { '2026-10': '10' });
+});
+
+test('fechamento: importar substitui, mescla e ignora o inválido com motivo', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const base = { versao: 3, categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }], anos: { 2026: { lancamentos: [], orcamento: {} } } };
+  sinc(ctx, 0, [{ t: 'cfg', k: 'fechado:2026-10', v: '5' }]);
+  let r = sinc(ctx, 1, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: { ...base, config: { fechados: { '2026-09': '100.5', '2026-13': '1', '2026-08': 'x' } } } }]);
+  assert.deepEqual(JSON.parse(r.dados).fechados, { '2026-09': '100.5' }, 'substituir troca os fechamentos');
+  assert.equal(r.importacao.motivos.length, 2);
+  assert.equal(r.importacao.categorias.aceitas, 1);
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: { ...base, config: { fechados: { '2026-09': '999', '2026-07': '-3' } } } }]);
+  assert.deepEqual(JSON.parse(r.dados).fechados, { '2026-09': '100.5', '2026-07': '-3' }, 'mesclar só acrescenta os que não existem');
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: base }]);
+  assert.equal(Object.keys(JSON.parse(r.dados).fechados).length, 2);
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: base }]);
+  assert.deepEqual(JSON.parse(r.dados).fechados, {});
+});
+
+test('fechamento: o servidor da 2.8.1 preserva a chave ao gravar o nome', () => {
+  const antigo = execFileSync('git', ['show', 'v2.8.1:src/Codigo.gs'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+  const abas = planilhaV1();
+  abas.config.push(['fechado:2026-10', '1516.1']);
+  const { ctx, planilha } = criarServidor(abas, { codigo: antigo });
+  const r = sinc(ctx, 0, [{ t: 'cfg', k: 'nome', v: 'Casa' }]);
+  assert.equal(r.aplicadas, 1);
+  const chaves = Object.fromEntries(planilha.ler('config').map((l) => [l[0], l[1]]));
+  assert.equal(String(chaves['fechado:2026-10']), '1516.1');
+  assert.equal(chaves.nome, 'Casa');
+});
+
 const cat = (id, grupo, extra = {}) => ({ t: 'cat', c: { id, nome: id, grupo, ordem: 9, ...extra } });
 const cfgDe = (planilha) => Object.fromEntries(planilha.ler('config').map((l) => [l[0], l[1]]));
 

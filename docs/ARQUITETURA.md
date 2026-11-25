@@ -9,6 +9,8 @@
 | `src/Estilos.html` | Visual: tokens de cor (claro e escuro), layout de celular e de computador |
 | `src/App.html` | O app no navegador: estado, sincronização, cálculos, telas |
 | `src/appsscript.json` | Manifesto: fuso, permissão mínima e configuração do app da Web |
+| `versao.json` | Canal de versões lido pelo app: versão, tag, novidades e SHA-256 dos arquivos |
+| `instalador/` | Projeto Apps Script separado que instala e atualiza o Finanças no Drive de quem usa |
 
 ## Dados
 
@@ -47,6 +49,30 @@ Na versão 2:
 6. **Recusa sem perda.** Uma operação inválida é recusada sozinha. As outras do lote seguem, e o app avisa.
 
 A gravação de cada aba é uma escrita única. As linhas que sobram são limpas depois, então a aba nunca fica vazia no meio de uma gravação.
+
+## Atualização e canal de versões
+
+O app não pede permissão nova para saber se há versão nova:
+
+1. **`versao.json`** na raiz é gerado por `node testes/gerar-versao.mjs` a partir de `package.json`, da seção da versão no `CHANGELOG.md` e dos bytes/SHA-256 de cada arquivo de `src/`. O `ref` é a tag (`v2.7.0`).
+2. **Verificação no navegador:** `verificarAtualizacao()` lê `raw.githubusercontent.com/.../main/versao.json` (alternativa `cdn.jsdelivr.net`) uma vez por dia, com tempo limite de 8 s e `cache: 'no-store'`. O resultado fica em `localStorage` por 24 h; o interruptor `atualizacao-auto` desliga. Qualquer falha vira o estado `erro`, sem exceção e sem aviso intrusivo.
+3. **Atualizar agora:** `urlInstalador()` monta o link do instalador com `?script=<scriptId>&implantacao=<id>`, só IDs, tirados de `scriptId` e `urlApp`. Sem `scriptId` (a prévia local, por exemplo), o botão não aparece e fica só o passo a passo.
+4. **Atualizar à mão (folha guiada):** ao abrir a folha, o app busca o `versao.json` da própria tag, valida `app`, `versao`, `ref`, caminhos `src/…` e SHA-256, baixa cada arquivo e confere o hash com `crypto.subtle` antes de copiar. A pessoa cola no editor e publica uma **Nova versão** na implantação existente; os dados não mudam. O servidor só acrescenta `scriptId` e `urlApp` em `paraCliente_()`, obtidos por `ScriptApp` (funciona com `spreadsheets.currentonly`). O app lê só o `versao.json`; o `CHANGELOG.md` entra apenas como link.
+5. **Publicação:** o workflow `.github/workflows/publicar-versao.yml` roda `npm test` e, se a versão for nova na `main`, cria a tag `vX.Y.Z` e o Release com as notas do changelog. O instalador e o app leem os arquivos **da tag**, nunca de um estado intermediário.
+
+O canal é público e de leitura: o GitHub vê o IP de quem consulta, mas nenhum dado da planilha é enviado. Veja [SEGURANCA.md](SEGURANCA.md).
+
+## Instalador
+
+A pasta [`instalador/`](../instalador) é um projeto Apps Script **separado**, opcional:
+
+- Roda como a pessoa que abre (`executeAs: USER_ACCESSING`, `access: ANYONE`) e usa a API do Apps Script com o token dela (`ScriptApp.getOAuthToken()`).
+- Escopos mínimos: `script.projects`, `script.deployments`, `script.external_request` e `drive.file`. Não usa `SpreadsheetApp`, `DriveApp` nem `Session`.
+- **Preparo:** `exigirPreparo_()` roda antes de criar ou alterar qualquer coisa. A autorização granular é conferida com `ScriptApp.getAuthorizationInfo` (a tela do Google vem com as caixas desmarcadas). A chave da API é testada por uma sonda: `apiLigada_()` consulta o próprio ID do instalador (`projects/<ScriptApp.getScriptId()>`); só o 403 que aponta para `usersettings` conta como API desligada.
+- **Instalar:** baixa a versão da tag e confere os SHA-256 antes de criar qualquer coisa; só então cria a planilha pela API do Drive (`files`), o projeto (`projects`), troca o conteúdo (`projects.updateContent`), cria a versão e a implantação de app da Web, e devolve os links. Se um passo falhar, a limpeza é um `PATCH files/<id>` com `{trashed: true}` na planilha criada.
+- **Atualizar:** confere se o projeto é o Finanças (marca `bsdesenv-financas` e `VERSAO_APP`, em `Codigo` ou `Código`), guarda uma versão de segurança, mantém arquivos extras da pessoa, troca o conteúdo e atualiza só as implantações de app da Web (a pedida ou todas), sem mudar o endereço. Se a versão publicada não for maior, devolve `jaAtual` sem escrever.
+- **Cloud:** o instalador vive num projeto Google Cloud próprio da bsdesenv, com a API do Apps Script e a do Drive ligadas. Quem instala precisa ligar uma vez a chave da API em `script.google.com/home/usersettings`.
+- **`REF_TESTE`:** propriedade de script que só o dono do instalador define. Troca apenas a ref (tag ou branch) de onde vêm os arquivos; a conferência de SHA-256 continua valendo.
 
 ## Categoria Guardar
 
@@ -127,9 +153,13 @@ Campos de `resumo(ano, mes)`:
 - Validação no servidor: ids no padrão `[A-Za-z0-9_-]`, mês 1–12, dia válido para o mês (`diasNoMes_()` recusa 31/02, por exemplo), valor finito e diferente de zero, categoria existente, lote de até 500 operações.
 - Texto que começa com `=`, `+`, `-` ou `@` recebe um apóstrofo antes de ir para a planilha, para não virar fórmula.
 - No navegador, todo texto vindo dos dados é escapado antes de entrar no HTML.
+- A consulta de versão é feita pelo navegador (leitura pública, sem dados da planilha); o GitHub vê o IP. O instalador é opcional e tem escopos próprios, descritos em [SEGURANCA.md](SEGURANCA.md).
 
 ## Testes
 
 - `testes/gas-mock.mjs` imita `SpreadsheetApp`, `LockService` e `HtmlService`, inclusive o que a planilha faz com texto que parece número ou fórmula. O `Codigo.gs` de verdade roda dentro do Node.
 - `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema), data inválida, `onEdit` e a página.
-- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado e transbordo no celular.
+- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado).
+- `testes/versao.test.mjs` confere o `versao.json` contra o `package.json`, o `VERSAO_APP`, o changelog e os hashes dos arquivos.
+- `testes/instalador.test.mjs` roda o `instalador/Codigo.gs` num `vm` com as APIs do Google e do GitHub simuladas: canal, hashes, instalação e atualização (cópia de segurança, arquivo `Código` removido, extras mantidos, só a implantação pedida).
+- `npm run versao -- --conferir` falha se o `versao.json` estiver desatualizado; o workflow de publicação roda os testes antes de criar a tag.

@@ -1,4 +1,21 @@
-# Atualizar da versão 1 para a 2
+# Atualizar
+
+## Da versão 2 em diante
+
+Na 2.7.0 o próprio app avisa quando há versão nova. Uma vez por dia ele consulta o arquivo público de versões no GitHub (só esse arquivo, sem enviar dados) e acende um ponto em **Ajustes**. Dá para desligar a consulta no mesmo cartão.
+
+Em **Ajustes › Atualizações** você tem duas opções:
+
+- **Atualizar agora:** abre o instalador já apontando para o seu projeto. Em um clique ele guarda uma cópia de segurança (uma versão do projeto) e troca o código, mantendo o mesmo endereço. O link leva só o ID do projeto e da implantação, nenhum dado seu. Na primeira vez o Google pede para autorizar o instalador, como em [INSTALAR.md](INSTALAR.md#instalar-com-o-instalador-recomendado).
+- **Atualizar à mão…:** abre um passo a passo que copia cada arquivo da versão nova, conferido por SHA-256, para você colar no editor, salvar e publicar uma **Nova versão** na implantação existente. Não pede permissão nova.
+
+As duas valem para quem instalou pelo instalador e para quem instalou à mão (o instalador reconhece o arquivo `Código.gs` do guia manual). O endereço e os dados não mudam. Se a sua versão já for a mais nova, o instalador avisa e não escreve nada.
+
+**Voltar atrás.** Em **Implantar › Gerenciar implantações › ✏️**, escolha a versão anterior e implante. Depois do **Atualizar agora**, o instalador informa o número da cópia de segurança; é a versão que você escolhe ali.
+
+Para atualizar sem o aviso, cole os arquivos novos por cima dos antigos em **Extensões › Apps Script**, salve com `Ctrl+S` e publique em **Implantar › Gerenciar implantações › ✏️ › Versão: Nova versão › Implantar**. Não use *Nova implantação*: ela gera outro endereço.
+
+## Da versão 1 para a 2
 
 A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`lancamentos`, `categorias`, `orcamento`, `config`). Atualizar é trocar o código: não há migração, e os lançamentos que você já fez continuam valendo.
 

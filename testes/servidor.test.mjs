@@ -283,3 +283,19 @@ test('página: usa os includes, meta tags permitidas e sem ALLOWALL', () => {
   assert.ok(meta.every(([n]) => permitidas.includes(n)), 'só meta tags aceitas pelo Apps Script');
   assert.match(pagina.favicon, /\.png$/);
 });
+
+test('carregar informa o scriptId e o endereço do app para a atualização assistida', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const d = JSON.parse(ctx.carregar());
+  assert.equal(d.scriptId, 'ID_DO_PROJETO_DE_TESTE');
+  assert.match(d.urlApp, /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/);
+});
+
+test('sem permissão para ScriptApp, scriptId e urlApp ficam vazios e o app abre', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  ctx.ScriptApp = { getScriptId: () => { throw new Error('sem permissão'); }, getService: () => { throw new Error('sem permissão'); } };
+  const d = JSON.parse(ctx.carregar());
+  assert.equal(d.scriptId, '');
+  assert.equal(d.urlApp, '');
+  assert.equal(d.categorias.length, 3);
+});

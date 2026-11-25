@@ -118,6 +118,7 @@ function chamar(fn, ...args) {
    ===================================================================== */
 const S = {
   dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
+  atualizacao: null, verificandoAtu: null,
   montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
   busca: '', filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
@@ -565,10 +566,12 @@ function render() {
 function renderLateral() {
   const d = S.dados;
   const itens = ['inicio', 'extrato', 'planilha', 'mes', 'ajustes'];
+  const nova = atualizacaoNova();
   $('#lateral').innerHTML = `<div class="lateral-marca"><span class="logo" aria-hidden="true"><i></i><i></i><i></i></span><span style="min-width:0"><strong>${esc(d.nome || 'Minhas finanças')}</strong><small>Controle financeiro</small></span></div>`
-    + `<nav aria-label="Seções">${itens.map((t) => `<button type="button" class="lat-item" data-acao="tela" data-tela="${t}" data-foco="lat-${t}"${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 20)}${t === 'mes' ? 'Planejar mês' : TELAS[t].nome}</button>`).join('')}</nav>`
+    + `<nav aria-label="Seções">${itens.map((t) => `<button type="button" class="lat-item" data-acao="tela" data-tela="${t}" data-foco="lat-${t}"${t === 'ajustes' && nova ? ' aria-label="Ajustes, nova versão disponível"' : ''}${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 20)}${t === 'mes' ? 'Planejar mês' : TELAS[t].nome}${t === 'ajustes' && nova ? '<span class="ponto-novo" aria-hidden="true"></span>' : ''}</button>`).join('')}</nav>`
     + `<div class="lat-rodape"><button type="button" class="sinc sinc-lateral" id="sinc-lateral" data-acao="sincronizar"></button>`
-    + `<span class="versao" title="Versão ${esc(d.versaoApp || '—')}">v${esc(d.versaoApp || '—')}</span>`
+    + (nova ? `<button type="button" class="versao versao-nova" data-acao="tela" data-tela="ajustes" data-foco="lat-versao">v${esc(d.versaoApp || '—')} · nova ${esc(nova.versao)}</button>`
+      : `<span class="versao" title="Versão ${esc(d.versaoApp || '—')}">v${esc(d.versaoApp || '—')}</span>`)
     + (d.planilha && d.planilha.url ? `<a class="link" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">Abrir a planilha ${ic('externo', 14)}</a>` : '') + '</div>';
 }
 function renderTopo() {
@@ -592,7 +595,8 @@ function renderTopo() {
     + '<button type="button" class="sinc so-celular" id="sinc-topo" data-acao="sincronizar"></button></div>';
 }
 function renderInferior() {
-  const item = (t) => `<button type="button" class="inf-item" data-acao="tela" data-tela="${t}" data-foco="inf-${t}"${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 24)}<span>${TELAS[t].nome}</span></button>`;
+  const nova = atualizacaoNova();
+  const item = (t) => `<button type="button" class="inf-item" data-acao="tela" data-tela="${t}" data-foco="inf-${t}"${t === 'ajustes' && nova ? ' aria-label="Ajustes, nova versão disponível"' : ''}${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 24)}<span>${TELAS[t].nome}</span>${t === 'ajustes' && nova ? '<span class="ponto-novo" aria-hidden="true"></span>' : ''}</button>`;
   $('#inferior').innerHTML = item('inicio') + item('extrato')
     + `<button type="button" class="inf-mais" data-acao="novo" data-foco="inf-novo" aria-label="Novo lançamento">${ic('mais', 26)}</button>`
     + item('mes') + item('ajustes');
@@ -1198,7 +1202,7 @@ function telaAjustes() {
     + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
     + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}Exportar CSV</button>`
     + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button></div></section>`
-    + `<section class="cartao"><h2>Sobre</h2><p class="sub">bsdesenv-financas ${esc(d.versaoApp || '')} · código aberto (licença MIT). Seus dados não passam por nenhum servidor além do Google. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`
+    + cartaoAtualizacoes()
     + '</div>';
 }
 
@@ -1729,6 +1733,267 @@ function abrirImportar() {
   });
 }
 
+/* =====================================================================
+   Atualização a partir do GitHub (etapa 1: aviso + passos guiados)
+   A verificação roda só no navegador (fetch). Nada é enviado: são leituras
+   de arquivos públicos. Qualquer falha vira o estado "erro", sem exceção.
+   ===================================================================== */
+const REPO = 'bsdesenv/bsdesenv-financas';
+const URL_CHANGELOG = URL_PROJETO + '/blob/main/CHANGELOG.md';
+/* Instalador da bsdesenv (pasta instalador/ do repositório): atualiza este projeto com um
+   clique. O link leva só os IDs do projeto e da implantação; nenhum dado da planilha. */
+const URL_INSTALADOR = 'https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec';
+const ID_GOOGLE = /^[A-Za-z0-9_-]{20,120}$/;
+function urlInstalador() {
+  const d = S.dados || {};
+  if (!ID_GOOGLE.test(d.scriptId || '')) return '';
+  const impl = (/\/macros\/(?:u\/\d+\/)?s\/([A-Za-z0-9_-]{20,120})\/exec/.exec(d.urlApp || '') || [])[1];
+  return `${URL_INSTALADOR}?script=${encodeURIComponent(d.scriptId)}${impl ? '&implantacao=' + encodeURIComponent(impl) : ''}`;
+}
+const urlRaw = (ref, caminho) => `https://raw.githubusercontent.com/${REPO}/${ref}/${caminho}`;
+const urlJsDelivr = (ref, caminho) => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${caminho}`;
+const TEMPO_BUSCA = 8000;
+const VALIDADE_OK = 24 * 3600 * 1000;
+const VALIDADE_ERRO = 10 * 60 * 1000;
+const VERSAO_OK = /^\d+\.\d+\.\d+$/;
+const REF_OK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const CAMINHO_OK = /^src\/[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/;
+
+function compararVersoes(a, b) {
+  const pa = String(a).split('.').map(Number); const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] || 0; const y = pb[i] || 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+const atualizacaoAuto = () => LS.ler('atualizacao-auto') !== false;
+const atualizacaoNova = () => (S.atualizacao && S.atualizacao.estado === 'nova' ? S.atualizacao : null);
+const refValida = (r) => typeof r === 'string' && REF_OK.test(r) && !r.includes('..');
+
+async function buscarUrl(url) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), TEMPO_BUSCA);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: c.signal });
+    if (!r.ok) { const e = new Error('http ' + r.status); e.status = r.status; throw e; }
+    return await r.arrayBuffer();
+  } finally { clearTimeout(t); }
+}
+/** Tenta o raw.githubusercontent.com e, se falhar, o jsDelivr. Devolve os bytes. */
+async function buscarArquivo(ref, caminho) {
+  if (!refValida(ref)) throw new Error('referência inválida');
+  let primeiro = null;
+  for (const url of [urlRaw, urlJsDelivr]) {
+    try { return await buscarUrl(url(ref, caminho)); } catch (e) { primeiro = primeiro || e; }
+  }
+  throw primeiro;
+}
+async function sha256Hex(bytes) {
+  const h = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+/** Valida o versao.json e devolve só o que o app usa (ou lança erro). */
+function lerManifesto(bytes) {
+  const m = JSON.parse(new TextDecoder().decode(bytes));
+  if (!m || m.app !== 'bsdesenv-financas' || !VERSAO_OK.test(String(m.versao)) || !refValida(m.ref)) throw new Error('versao.json inválido');
+  const texto = (v, n) => String(v ?? '').slice(0, n);
+  const arquivos = (Array.isArray(m.arquivos) ? m.arquivos : []).map((a) => ({
+    nome: texto(a && a.nome, 60), editor: texto(a && a.editor, 60), caminho: texto(a && a.caminho, 80), sha256: texto(a && a.sha256, 64),
+  }));
+  if (arquivos.some((a) => !a.editor || !CAMINHO_OK.test(a.caminho) || a.caminho.includes('..') || !/^[0-9a-f]{64}$/.test(a.sha256))) throw new Error('lista de arquivos inválida');
+  return {
+    versao: m.versao, ref: m.ref, data: /^\d{4}-\d{2}-\d{2}$/.test(String(m.data)) ? m.data : '',
+    novidades: (Array.isArray(m.novidades) ? m.novidades : []).filter((n) => typeof n === 'string' && n.trim()).slice(0, 5).map((n) => n.slice(0, 140)),
+    arquivos: arquivos.slice(0, 20),
+  };
+}
+function resultadoGuardado() {
+  const g = LS.ler('atualizacao');
+  if (!g || !VERSAO_OK.test(String(g.versao)) || !refValida(g.ref) || !(Date.now() - g.verificadoEm < VALIDADE_OK)) return null;
+  return { ...g, novidades: Array.isArray(g.novidades) ? g.novidades.filter((n) => typeof n === 'string').slice(0, 5) : [] };
+}
+const estadoDaVersao = (versao) => (compararVersoes(versao, S.dados.versaoApp || '0.0.0') > 0 ? 'nova' : 'atual');
+
+async function verificarAtualizacao({ forcar = false } = {}) {
+  if ((!forcar && !atualizacaoAuto()) || !S.dados) return;
+  if (S.verificandoAtu) return S.verificandoAtu;
+  if (!forcar) {
+    const a = S.atualizacao;
+    if (a && Date.now() - a.verificadoEm < (a.estado === 'erro' ? VALIDADE_ERRO : VALIDADE_OK)) return;
+    const g = a ? null : resultadoGuardado();
+    if (g) { S.atualizacao = { ...g, estado: estadoDaVersao(g.versao) }; pintarAtualizacao(Boolean(atualizacaoNova())); return; }
+  }
+  const eraNova = Boolean(atualizacaoNova());
+  if (!S.atualizacao) S.atualizacao = { estado: 'verificando' };
+  S.verificandoAtu = (async () => {
+    try {
+      const m = lerManifesto(await buscarArquivo('main', 'versao.json'));
+      const base = { versao: m.versao, ref: m.ref, data: m.data, novidades: m.novidades, verificadoEm: Date.now() };
+      LS.gravar('atualizacao', base);
+      S.atualizacao = { ...base, estado: estadoDaVersao(m.versao) };
+    } catch (e) {
+      S.atualizacao = { estado: 'erro', verificadoEm: Date.now() };
+    } finally {
+      S.verificandoAtu = null;
+      pintarAtualizacao(eraNova !== Boolean(atualizacaoNova()));
+    }
+  })();
+  pintarAtualizacao(false);
+  return S.verificandoAtu;
+}
+
+const horaLocal = (ms) => { const d = new Date(ms); return `${dois(d.getHours())}:${dois(d.getMinutes())}`; };
+const dataBr = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? iso.split('-').reverse().join('/') : '');
+function estadoAtualizacaoHtml() {
+  const a = S.atualizacao;
+  if (!a) return `<p>${atualizacaoAuto() ? 'Ainda não verificado.' : 'A verificação automática está desligada.'}</p>`;
+  if (a.estado === 'verificando' || S.verificandoAtu) return '<p>Verificando…</p>';
+  if (a.estado === 'atual') return `<p class="atu-ok">${ic('check', 18)}<span>Você está na versão mais recente · verificado às ${horaLocal(a.verificadoEm)}</span></p>`;
+  if (a.estado === 'nova') {
+    const data = dataBr(a.data);
+    return `<p><strong>Nova versão ${esc(a.versao)}</strong>${data ? ` · ${data}` : ''}</p>`
+      + (a.novidades.length ? `<ul class="atu-novidades">${a.novidades.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '')
+      + `<p><a class="link" href="${URL_CHANGELOG}" target="_blank" rel="noopener">Ver tudo o que mudou ${ic('externo', 14)}</a></p>`;
+  }
+  return '<p>Não deu para verificar agora.</p>';
+}
+function acoesAtualizacaoHtml() {
+  const nova = atualizacaoNova();
+  const ocupado = Boolean(S.verificandoAtu);
+  const inst = nova ? urlInstalador() : '';
+  // Com o instalador: um clique. Sem ele (prévia local, por exemplo), só o passo a passo.
+  const botoes = !nova ? ''
+    : inst ? `<a class="botao primario" href="${esc(inst)}" target="_blank" rel="noopener" data-foco="atu-instalador">${ic('baixar', 18)}Atualizar agora</a>`
+      + `<button type="button" class="botao" data-acao="atualizar" data-foco="atu-atualizar">Atualizar à mão…</button>`
+    : `<button type="button" class="botao primario" data-acao="atualizar" data-foco="atu-atualizar">${ic('baixar', 18)}Atualizar para ${esc(nova.versao)}…</button>`;
+  return botoes
+    + `<button type="button" class="botao" data-acao="verificar-atualizacao" data-foco="atu-verificar"${ocupado ? ' disabled' : ''}>${ocupado ? 'Verificando…' : 'Verificar agora'}</button>`
+    + (inst ? '<p class="sub atu-como">“Atualizar agora” abre o instalador da bsdesenv, que troca o código em um clique. “À mão” mostra o passo a passo, sem permissão nova.</p>' : '');
+}
+function cartaoAtualizacoes() {
+  const d = S.dados;
+  return '<section class="cartao"><h2>Atualizações</h2>'
+    + `<p class="sub">Versão instalada: <strong>${esc(d.versaoApp || '—')}</strong>.</p>`
+    + `<div class="atu-estado" id="atu-estado" aria-live="polite">${estadoAtualizacaoHtml()}</div>`
+    + `<div class="acoes" id="atu-acoes">${acoesAtualizacaoHtml()}</div>`
+    + `<label class="marcar interruptor"><input type="checkbox" role="switch" data-mudar="atualizacao-auto" data-foco="atu-auto"${atualizacaoAuto() ? ' checked' : ''}>Procurar novas versões automaticamente</label>`
+    + '<p class="sub">Uma vez por dia o app consulta o GitHub para saber se há versão nova. Nenhum dado seu é enviado.</p>'
+    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados não passam por nenhum servidor além do Google. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
+}
+/** Atualiza só o cartão (a área viva continua a mesma, para o leitor de tela anunciar) e, se preciso, o resto da tela. */
+function pintarAtualizacao(redesenhar) {
+  if (redesenhar) { agendarRender(); return; }
+  const est = $('#atu-estado'); const aco = $('#atu-acoes');
+  if (!est || !aco) return;
+  const ativo = document.activeElement; const foco = ativo && ativo.dataset ? ativo.dataset.foco : null;
+  est.innerHTML = estadoAtualizacaoHtml();
+  aco.innerHTML = acoesAtualizacaoHtml();
+  if (foco) { const n = document.querySelector(`[data-foco="${CSS.escape(foco)}"]`); if (n && n !== document.activeElement) n.focus({ preventScroll: true }); }
+}
+
+/* ---------- Folha "Atualizar para X" ---------- */
+function copiarTexto(texto) {
+  const alternativa = () => {
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(texto).then(() => true, () => alternativa());
+  return Promise.resolve(alternativa());
+}
+const dicaArquivo = (a) => (a.nome === 'appsscript' ? 'Só se ele aparecer no editor (Configurações do projeto › Mostrar arquivo de manifesto).' : '');
+function abrirAtualizar() {
+  const nova = atualizacaoNova();
+  if (!nova) return;
+  const st = { fase: 'carregando', m: null, erro: '', feitos: new Set(), erros: {}, copiando: -1, manual: null, aviso: '' };
+  const d = S.dados;
+  const urlEditor = /^[A-Za-z0-9_-]+$/.test(d.scriptId || '') ? `https://script.google.com/home/projects/${d.scriptId}/edit` : '';
+  const urlReload = /^https:\/\/script\.google\.com\//.test(d.urlApp || '') ? d.urlApp : '';
+  abrirFolha({
+    tipo: 'atualizar',
+    montar(el) {
+      el.innerHTML = topoFolha(`Atualizar para ${nova.versao}`, 'Atualização assistida')
+        + '<div class="folha-corpo" id="atu-corpo"></div>'
+        + '<footer class="folha-rodape"><p class="sub">Seus dados não mudam: só o código é trocado. Para voltar atrás, em Gerenciar implantações escolha a versão anterior.</p></footer>'
+        + '<p class="sr" role="status" id="atu-live"></p>';
+      const corpo = $('#atu-corpo', el);
+      const dizer = (t) => { const l = $('#atu-live', el); if (l) l.textContent = t; };
+      const linha = (a, i) => {
+        const feito = st.feitos.has(i);
+        return `<div class="atu-arq${feito ? ' feito' : ''}"><div class="atu-arq-nome">${esc(a.editor)}${dicaArquivo(a) ? `<span class="sub">${esc(dicaArquivo(a))}</span>` : ''}</div>`
+          + `<button type="button" class="botao${feito ? '' : ' primario'} pequeno-toque" data-f="copiar" data-i="${i}" data-foco="atu-cp-${i}"${st.copiando === i ? ' disabled' : ''} aria-label="${feito ? 'Copiado' : 'Copiar'} ${esc(a.editor)}">${st.copiando === i ? 'Baixando…' : feito ? 'Copiado ✓' : 'Copiar'}</button>`
+          + (st.erros[i] ? `<p class="atu-erro" role="alert">${esc(st.erros[i])}</p>` : '')
+          + (st.manual && st.manual.i === i ? `<label class="campo atu-manual">Copie com Ctrl+C<textarea readonly rows="6" data-foco="atu-manual">${esc(st.manual.texto)}</textarea></label>` : '')
+          + '</div>';
+      };
+      const desenhar = () => {
+        if (st.fase === 'carregando') { corpo.innerHTML = '<p class="sub">Consultando a lista de arquivos…</p>'; return; }
+        if (st.fase === 'erro') {
+          corpo.innerHTML = `<p class="atu-erro" role="alert">${esc(st.erro)}</p><div class="acoes"><button type="button" class="botao" data-f="repetir" data-foco="atu-repetir">Tentar de novo</button></div>`;
+          return;
+        }
+        const passos = [
+          `<li><strong>Abra o editor.</strong>${urlEditor
+            ? `<a class="botao" href="${esc(urlEditor)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir o editor do Apps Script</a>`
+            : '<span class="sub">Na planilha, use Extensões › Apps Script.</span>'}</li>`,
+          `<li><strong>Troque o conteúdo de cada arquivo.</strong><span class="sub">No editor, abra o arquivo, apague tudo (Ctrl+A) e cole (Ctrl+V). Se o arquivo não existir, crie com + › HTML e o nome indicado.</span>`
+            + `<div class="atu-arquivos">${st.m.arquivos.map(linha).join('')}</div></li>`,
+          '<li><strong>Salve com Ctrl+S.</strong></li>',
+          '<li><strong>Publique no mesmo endereço.</strong><span class="sub">Implantar › Gerenciar implantações › ✏️ › Versão: <strong>Nova versão</strong> › Implantar. Não use “Nova implantação”: ela cria outro endereço.</span></li>',
+          `<li><strong>Recarregue o app.</strong>${urlReload
+            ? `<a class="botao" href="${esc(urlReload)}" target="_top">Recarregar</a>`
+            : '<span class="sub">Recarregue esta página do navegador.</span>'}</li>`,
+        ];
+        corpo.innerHTML = `<ol class="atu-passos">${passos.join('')}</ol>`;
+      };
+      const carregar = async () => {
+        st.fase = 'carregando'; desenhar();
+        try {
+          const m = lerManifesto(await buscarArquivo(nova.ref, 'versao.json'));
+          if (m.versao !== nova.versao || m.ref !== nova.ref || !m.arquivos.length) throw new Error('manifesto da tag não confere');
+          st.m = m; st.fase = 'pronta';
+        } catch (e) {
+          st.fase = 'erro';
+          st.erro = e && e.status === 404 ? `A versão ${nova.versao} ainda está sendo publicada. Tente de novo em alguns minutos.` : 'Não consegui consultar o GitHub agora. Tente de novo mais tarde.';
+        }
+        desenhar();
+      };
+      const copiar = async (i) => {
+        const a = st.m.arquivos[i];
+        st.copiando = i; st.erros[i] = ''; st.manual = null; desenhar();
+        let texto = null;
+        try {
+          const bytes = await buscarArquivo(st.m.ref, a.caminho);
+          if ((await sha256Hex(bytes)) !== a.sha256) st.erros[i] = 'O arquivo baixado não confere com a versão publicada. Tente de novo mais tarde.';
+          else texto = new TextDecoder().decode(bytes);
+        } catch (e) {
+          st.erros[i] = e && e.status === 404 ? `A versão ${nova.versao} ainda está sendo publicada. Tente de novo em alguns minutos.` : 'Não consegui baixar o arquivo agora. Tente de novo mais tarde.';
+        }
+        if (texto !== null) {
+          if (await copiarTexto(texto)) { st.feitos.add(i); dizer(`${a.editor} copiado.`); }
+          else { st.manual = { i, texto }; dizer('Não consegui copiar sozinho. Copie o texto da caixa com Ctrl+C.'); }
+        } else dizer(st.erros[i]);
+        st.copiando = -1; desenhar();
+        const alvo = st.manual ? $('[data-foco="atu-manual"]', el) : $(`[data-foco="atu-cp-${i}"]`, el);
+        if (alvo) { alvo.focus({ preventScroll: true }); if (st.manual && alvo.select) alvo.select(); }
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        if (b.dataset.f === 'fechar') fecharFolha();
+        else if (b.dataset.f === 'repetir') carregar();
+        else if (b.dataset.f === 'copiar' && st.m && st.copiando < 0) copiar(Number(b.dataset.i));
+      });
+      carregar();
+    },
+  });
+}
+
 /* ---------- Avisos rápidos (com Desfazer) ---------- */
 function aviso(msg, { acao, fn, tipo = 'info', tempo = 6500 } = {}) {
   const box = $('#avisos');
@@ -1867,6 +2132,7 @@ function irPara(tela, opc = {}) {
   render();
   window.scrollTo(0, 0);
   $('#tela').focus({ preventScroll: true });
+  if (tela === 'ajustes') verificarAtualizacao();
 }
 function mudarMes(d) {
   const k = deChave(chaveMes(S.ano, S.mes) + d);
@@ -1947,6 +2213,8 @@ const ACOES = {
     aviso('Meta de economia removida.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes }) });
   },
   'planejar-sem-plano': () => planejarSemPlano(),
+  atualizar: () => abrirAtualizar(),
+  'verificar-atualizacao': () => verificarAtualizacao({ forcar: true }),
   'detalhe-reserva': () => abrirDetalheReserva(),
   'como-funciona': () => abrirComoFunciona(),
   'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
@@ -2008,6 +2276,7 @@ const ACOES = {
   recarregar: () => location.reload(),
 };
 const MUDAR = {
+  'atualizacao-auto': (el) => { LS.gravar('atualizacao-auto', el.checked); if (el.checked) verificarAtualizacao(); },
   'filtro-cat': (el) => { S.filtroCat = el.value; renderExtrato($('#tela')); },
   plano: (el) => {
     const txt = el.value.trim(); const v = txt ? paraNumero(txt) : null;
@@ -2104,6 +2373,7 @@ function montarApp() {
   $('#carga').hidden = true; $('#boasvindas').hidden = true; $('#app').hidden = false;
   S.montado = true;
   render();
+  setTimeout(() => verificarAtualizacao(), 4000);
 }
 function mostrarErroCarga(e) {
   const box = $('#carga');

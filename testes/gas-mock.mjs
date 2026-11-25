@@ -115,6 +115,10 @@ export function criarServidor(abasIniciais = {}) {
     console,
     SpreadsheetApp: { getActiveSpreadsheet: () => planilha.ss, flush: () => {} },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
+    ScriptApp: {
+      getScriptId: () => 'ID_DO_PROJETO_DE_TESTE',
+      getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/ID_DA_IMPLANTACAO_DE_TESTE/exec' }),
+    },
     Utilities: { getUuid: () => crypto.randomUUID() },
     HtmlService: {
       createHtmlOutputFromFile: (n) => saida(fs.readFileSync(path.join(SRC, n + '.html'), 'utf8')),

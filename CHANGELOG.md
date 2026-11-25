@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.7.0 — 2026-11-24
+
+### Novo
+- **Instalação em um clique.** O instalador da bsdesenv (pasta `instalador/`, projeto separado) cria a planilha, o projeto e a publicação no seu Drive em uns 20 segundos, depois de conferir a autorização, a chave da API e os arquivos. Se a instalação falhar, a planilha criada vai para a lixeira. Instalar à mão continua possível.
+- **Atualização em um clique.** Em **Ajustes › Atualizações**, **Atualizar agora** abre o instalador já apontando para o seu projeto, guarda uma cópia de segurança e troca o código no mesmo endereço. O link leva só os IDs do projeto e da implantação. Vale para quem instalou pelo instalador e para quem instalou à mão.
+- **Aviso de versão nova.** Uma vez por dia, o navegador consulta o arquivo público de versões no GitHub e acende um ponto discreto em **Ajustes** quando há atualização. A consulta não envia dados seus e pode ser desligada.
+- **Atualização à mão, guiada.** **Atualizar à mão…** copia cada arquivo da versão nova, conferido por SHA-256, para colar no editor e publicar no mesmo endereço. Os dados da planilha não mudam.
+
+### Mantido
+- **Permissão só desta planilha.** O app continua pedindo apenas `spreadsheets.currentonly`. O instalador, opcional, tem permissões próprias, não lê seus dados e ainda mostra o aviso de app não verificado do Google.
+
 ## 2.6.2 — 2026-11-22
 
 ### Mudou

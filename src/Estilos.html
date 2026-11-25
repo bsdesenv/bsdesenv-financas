@@ -515,6 +515,39 @@ table.planilha { border-collapse: separate; border-spacing: 0; width: 100%; font
 .ajustes { display: grid; gap: 12px; max-width: 860px; }
 .ajustes .cartao > h2 { margin-bottom: 4px; }
 .ajustes .campo { margin-top: 12px; }
+/* Atualizações: indicador de versão nova, cartão em Ajustes e folha de passos */
+.ponto-novo { width: 9px; height: 9px; border-radius: 50%; background: var(--acima); flex: none; box-shadow: 0 0 0 2px var(--cartao); }
+.lat-item .ponto-novo { margin-left: auto; }
+.inf-item { position: relative; }
+.inf-item .ponto-novo { position: absolute; top: 7px; left: calc(50% + 8px); }
+button.versao-nova { align-self: flex-start; min-height: 44px; padding: 0 12px; cursor: pointer; color: var(--acento-forte); background: var(--acento-fraco); border-color: var(--acento); }
+button.versao-nova:hover { filter: brightness(.97); }
+.atu-estado { margin-top: 10px; font-size: 14px; color: var(--tinta-2); display: grid; gap: 6px; }
+.atu-estado p { margin: 0; }
+.atu-estado strong { color: var(--tinta); }
+.atu-ok { display: flex; align-items: flex-start; gap: 8px; color: var(--ok); }
+.atu-ok .ic { flex: none; margin-top: 1px; }
+.acoes .atu-como { flex-basis: 100%; margin: 2px 0 0; }
+.atu-novidades { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.interruptor { margin-top: 8px; }
+.atu-sobre { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--linha-2); }
+.atu-passos { list-style: none; counter-reset: passo; margin: 0; padding: 0; display: grid; gap: 16px; }
+.atu-passos > li { counter-increment: passo; position: relative; padding-left: 40px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 14px; }
+.atu-passos > li::before {
+  content: counter(passo); position: absolute; left: 0; top: -1px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--acento-fraco); color: var(--acento-forte); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.atu-passos .botao { white-space: normal; text-align: center; }
+.atu-arquivos { width: 100%; display: grid; gap: 8px; margin-top: 4px; }
+.atu-arq { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio-m); min-width: 0; }
+.atu-arq.feito { border-color: var(--ok-borda); background: var(--ok-fundo); }
+.atu-arq-nome { flex: 1 1 150px; min-width: 0; overflow-wrap: anywhere; font-weight: 650; display: flex; flex-direction: column; gap: 2px; }
+.atu-arq-nome .sub { font-weight: 400; }
+.atu-arq .botao { flex: 0 0 auto; }
+.atu-erro { flex: 1 1 100%; margin: 0; font-size: 13px; color: var(--perigo); }
+.atu-manual { flex: 1 1 100%; }
+.atu-manual textarea { width: 100%; min-height: 120px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--chip-borda); background: var(--cartao); color: var(--tinta); font: 12px/1.4 ui-monospace, monospace; resize: vertical; }
+.atu-manual textarea:focus { border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px var(--acento-fraco); }
 .linha-ajuste { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--linha-2); flex-wrap: wrap; }
 .linha-ajuste:first-child { border-top: 0; }
 .linha-ajuste .entrada { flex: 1 1 160px; }

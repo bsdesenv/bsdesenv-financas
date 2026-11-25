@@ -1,0 +1,39 @@
+# Publica a versão: cria a tag v<versao> e o GitHub Release.
+#
+# Por que as tags importam: o app, ao se atualizar, baixa os arquivos DA TAG
+# (raw.githubusercontent.com/.../v<versao>/...) e confere o sha256 do versao.json
+# daquela tag. Sem a tag, a atualização assistida não tem de onde baixar.
+name: Publicar versão
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm test
+      - name: Criar tag e Release se a versão for nova
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSAO=$(node -p "require('./versao.json').versao")
+          TAG="v$VERSAO"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "A tag $TAG já existe; nada a fazer."
+            exit 0
+          fi
+          node testes/gerar-versao.mjs --notas > notas.md
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$VERSAO" --notes-file notas.md --verify-tag

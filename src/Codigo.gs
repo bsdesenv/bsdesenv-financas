@@ -19,7 +19,7 @@
  * "somente esta planilha".
  */
 
-var VERSAO_APP = '2.6.2';
+var VERSAO_APP = '2.7.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -237,6 +237,16 @@ function gravarModelo_(m) {
   SpreadsheetApp.flush();
 }
 
+/** Identificador do projeto, para o app montar o link do editor ('' se não der). */
+function idScript_() {
+  try { return String(ScriptApp.getScriptId() || ''); } catch (e) { return ''; }
+}
+
+/** Endereço publicado do app, para o link "Recarregar" ('' se não der). */
+function urlApp_() {
+  try { return String(ScriptApp.getService().getUrl() || ''); } catch (e) { return ''; }
+}
+
 /** Formato que o app usa: lançamentos e planos agrupados por ano. */
 function paraCliente_(m) {
   var anos = {};
@@ -257,6 +267,8 @@ function paraCliente_(m) {
   var ss = planilha_();
   return {
     versaoApp: VERSAO_APP,
+    scriptId: idScript_(),
+    urlApp: urlApp_(),
     planilha: { id: ss.getId(), nome: ss.getName(), url: ss.getUrl() },
     revisao: Number(m.cfg.revisao) || 0,
     nome: m.cfg.nome || m.cfg.titular || '',

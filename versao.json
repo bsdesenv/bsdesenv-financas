@@ -1,0 +1,55 @@
+{
+  "app": "bsdesenv-financas",
+  "versao": "2.7.0",
+  "ref": "v2.7.0",
+  "data": "2026-11-24",
+  "novidades": [
+    "Instalação em um clique",
+    "Atualização em um clique",
+    "Aviso de versão nova",
+    "Atualização à mão, guiada",
+    "Permissão só desta planilha"
+  ],
+  "arquivos": [
+    {
+      "nome": "Codigo",
+      "tipo": "SERVER_JS",
+      "caminho": "src/Codigo.gs",
+      "editor": "Código.gs",
+      "bytes": 18262,
+      "sha256": "49b295034005dd9ce2b130128fb3d4fde29a6f61154418dc48acc2fca7fea88e"
+    },
+    {
+      "nome": "Index",
+      "tipo": "HTML",
+      "caminho": "src/Index.html",
+      "editor": "Index.html",
+      "bytes": 1415,
+      "sha256": "817b5ab650f6e219de162588d479ee95738b034dd3fee44fe29a6023a3bee8be"
+    },
+    {
+      "nome": "Estilos",
+      "tipo": "HTML",
+      "caminho": "src/Estilos.html",
+      "editor": "Estilos.html",
+      "bytes": 59927,
+      "sha256": "2cfb94f654839c769d7a055c3be57b35d7dfdd022b1d4448e234ab91a661ec01"
+    },
+    {
+      "nome": "App",
+      "tipo": "HTML",
+      "caminho": "src/App.html",
+      "editor": "App.html",
+      "bytes": 163704,
+      "sha256": "37a513aa56d1dfb554a8183c317f7dab0b4caa839721aef267b1c0ae1c4340fb"
+    },
+    {
+      "nome": "appsscript",
+      "tipo": "JSON",
+      "caminho": "src/appsscript.json",
+      "editor": "appsscript.json",
+      "bytes": 287,
+      "sha256": "5a89b91d711064c29ee6a39e7100570408a89af053c8ee402e33ee66fdb83516"
+    }
+  ]
+}

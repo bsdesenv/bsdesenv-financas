@@ -38,25 +38,28 @@
 - **Tudo na tela.** Disponível, ritmo, meta e cobertura do plano.
 - **Sincronizado.** Celular e computador não se sobrescrevem; offline funciona.
 - **Acessível.** Contraste AA, toque de 44 px e teclado.
+- **Atualiza em um clique.** O app avisa quando há versão nova; você confirma e o instalador troca o código, guardando antes uma cópia de segurança. Quem preferir atualiza à mão.
 
-## Novidades da versão 2.6.0
+## Novidades da versão 2.7.0
 
-- **Layout atualizado** para desktop, tablet e celular, com os temas claro e escuro alinhados.
-- **Indicadores legíveis em telas estreitas:** valores do mês não são cortados nem em 320 px.
-- **Planilha anual mais fácil de navegar no celular:** rolagem indicada, categorias fixas e acesso por teclado.
-- **Planejamento mais enxuto:** a explicação dos cálculos fica disponível para expandir sem ocupar a tela toda.
+- **Instalação em um clique.** O [instalador](https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec) cria a planilha, o projeto e a publicação no seu Drive em uns 20 segundos. Quem preferir continua instalando à mão.
+- **Atualização em um clique.** Em **Ajustes › Atualizações**, **Atualizar agora** troca o código mantendo o mesmo endereço, depois de guardar uma cópia de segurança.
+- **Aviso de versão nova.** Uma vez por dia o navegador consulta o arquivo público de versões no GitHub e acende um ponto em **Ajustes**. A consulta não envia dados seus e pode ser desligada.
+- **Atualização à mão, guiada.** **Atualizar à mão…** copia cada arquivo, conferido por SHA-256, para você colar no editor.
 
-**Atualização 2.6.1:** o tema azul/índigo e o ícone original voltaram, mantendo o layout novo.
+**Atualização 2.6.x:** o tema azul/índigo voltou e o layout de PC, tablet e celular foi refinado.
 
-As regras financeiras permanecem iguais. Veja os detalhes no [changelog](CHANGELOG.md#261--2026-11-22) e no guia [Como usar](docs/USAR.md).
+As regras financeiras permanecem iguais. Veja os detalhes no [changelog](CHANGELOG.md) e no guia [Como usar](docs/USAR.md).
 
-## Comece em 10 minutos
+## Comece em 2 minutos
 
-Sem programar: são três passos e uns 10 minutos.
+1. **Abra o [instalador do Finanças](https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec)** e autorize com a sua conta Google.
+2. **Escolha o nome da planilha** e clique em **Instalar** (leva uns 20 segundos).
+3. **Abra o Finanças** e faça o primeiro acesso.
 
-1. **Crie uma planilha** em [sheets.new](https://sheets.new).
-2. **Cole os arquivos** de [`src/`](src) em **Extensões › Apps Script**.
-3. **Publique** como **App da Web**, com *Executar como: Eu* e *Quem pode acessar: Somente eu*.
+Se o Google mostrar o aviso de app não verificado, o passo a passo está em [Instalar](docs/INSTALAR.md#instalar-com-o-instalador-recomendado).
+
+**Prefere instalar sem o instalador?** Dá para fazer à mão, em uns 10 minutos: crie a planilha, cole os arquivos de [`src/`](src) e publique como App da Web. Está em [Instalar à mão](docs/INSTALAR.md#instalar-à-mão).
 
 [Passo a passo completo](docs/INSTALAR.md) · [Problemas comuns](docs/INSTALAR.md#problemas-comuns) · [Já uso a versão 1](docs/ATUALIZAR.md)
 
@@ -85,21 +88,24 @@ A planilha é a fonte da verdade: `lancamentos`, `categorias`, `orcamento` e `co
 ## Privacidade
 
 - Roda na sua conta, com acesso só seu.
-- Permissão apenas para esta planilha (`@OnlyCurrentDoc`).
+- O app pede permissão apenas para esta planilha (`@OnlyCurrentDoc`). O instalador tem permissões próprias e não lê seus dados; veja [Segurança](docs/SEGURANCA.md).
 - Os dados ficam no seu Google Drive e não passam por outro servidor.
 - Texto que viraria fórmula é gravado como texto.
+- A consulta de versão é uma leitura pública do GitHub, sem enviar dados; o GitHub vê o IP, como em qualquer site. Detalhes em [Segurança e privacidade](docs/SEGURANCA.md).
 
 <details>
 <summary><strong>Desenvolvimento</strong></summary>
 
 ```
 src/          arquivos do Apps Script (é o que vai para o projeto)
+instalador/   projeto Apps Script separado que instala e atualiza o Finanças
 testes/       servidor rodando no Node sobre uma planilha falsa, e testes no navegador
 exemplos/     dados fictícios para experimentar e para os testes
 docs/         guias e imagens
+versao.json   canal de versões lido pelo app (versão, tag, novidades e SHA-256)
 ```
 
-As versões ficam marcadas como tags (`v2.1.0`...) e o que mudou em cada uma está no [CHANGELOG.md](CHANGELOG.md).
+As versões ficam marcadas como tags (`v2.1.0`...) e o que mudou em cada uma está no [CHANGELOG.md](CHANGELOG.md). O workflow [`.github/workflows/publicar-versao.yml`](.github/workflows/publicar-versao.yml) roda os testes e cria a tag e o Release quando a versão muda na `main`.
 
 ```bash
 npm test             # testes do servidor (Node 20+, sem dependências)

@@ -105,7 +105,7 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas.
 
 ### Ajustes
 
-Nome do controle, tema (automático, claro ou escuro), categorias e a seção **Seus dados**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e na seção **Sobre**.
+Nome do controle, tema (automático, claro ou escuro), categorias, a seção **Atualizações** e a seção **Seus dados**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
 
 ## Seus dados e backup
 

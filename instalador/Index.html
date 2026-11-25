@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Instalador do Finanças</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&amp;display=swap">
+<style>
+:root {
+  --fundo: #F4F6F9; --cartao: #FFFFFF; --tinta: #0E1525; --tinta-2: #475467; --linha: #E4E8EE;
+  --acento: #4338CA; --acento-tinta: #FFFFFF; --acento-fraco: #EEF0FF;
+  --ok: #047857; --ok-fundo: #ECFDF5; --erro: #B42318; --erro-fundo: #FEF3F2;
+  --aviso-fundo: #FFF5E6; --aviso-tinta: #8A4B08;
+  --fonte: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0B0F17; --cartao: #131A26; --tinta: #E8ECF3; --tinta-2: #B3BDCC; --linha: #232C3B;
+    --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340;
+    --ok: #34D399; --ok-fundo: #0D2A20; --erro: #F87171; --erro-fundo: #2D1517;
+    --aviso-fundo: #2A1F0E; --aviso-tinta: #F5C67A;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fundo); color: var(--tinta); font: 16px/1.5 var(--fonte); }
+main { max-width: 620px; margin: 0 auto; padding: 20px 16px 96px; }
+header { margin-bottom: 20px; }
+h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
+h2 { margin: 0 0 6px; font-size: 1.05rem; }
+.sub { color: var(--tinta-2); font-size: .9rem; margin: 0; }
+.cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+.cartao p { margin: 6px 0; }
+a { color: var(--acento); }
+:focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
+.botao { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 13px;
+  border: 1px solid var(--acento); background: var(--acento); color: var(--acento-tinta); font: 600 1rem var(--fonte);
+  text-decoration: none; cursor: pointer; }
+.botao.sec { background: transparent; color: var(--acento); }
+.botao[disabled] { opacity: .5; cursor: not-allowed; }
+.acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+input { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 13px; border: 1px solid var(--linha); background: var(--fundo);
+  color: var(--tinta); font: 1rem var(--fonte); }
+.aviso { background: var(--aviso-fundo); color: var(--aviso-tinta); border-radius: 13px; padding: 12px 14px; margin-top: 12px; font-size: .92rem; }
+.erro-msg { background: var(--erro-fundo); color: var(--erro); border-radius: 13px; padding: 12px 14px; margin-top: 12px; }
+.girando { display: inline-block; width: 1em; height: 1em; margin-right: 8px; vertical-align: -2px; border-radius: 50%;
+  border: 2px solid var(--linha); border-top-color: var(--acento); animation: girar .8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .girando { animation-duration: 2.4s; } }
+ul.novidades { margin: 8px 0 0; padding-left: 20px; }
+footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--cartao); border-top: 1px solid var(--linha); font-size: .8rem; color: var(--tinta-2); text-align: center; }
+@media (prefers-reduced-motion: no-preference) { .botao { transition: opacity .15s; } }
+</style>
+</head>
+<body data-script="<?= script ?>" data-implantacao="<?= implantacao ?>">
+<main>
+  <header>
+    <h1>Finanças · instalador</h1>
+    <p class="sub">um projeto bsdesenv</p>
+  </header>
+  <div id="conteudo" aria-live="polite"></div>
+</main>
+<footer>
+  Código aberto: <a href="https://github.com/bsdesenv/bsdesenv-financas/tree/main/instalador" target="_blank" rel="noopener">github.com/bsdesenv/bsdesenv-financas (pasta instalador)</a>
+  · <a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/docs/SEGURANCA.md" target="_blank" rel="noopener">Segurança</a>
+</footer>
+<script>
+(function () {
+  var SCRIPT = document.body.getAttribute('data-script') || '';
+  var IMPL = document.body.getAttribute('data-implantacao') || '';
+  var URL_CONFIG = 'https://script.google.com/home/usersettings';
+  var raiz = document.getElementById('conteudo');
+
+  // Todo texto vindo do servidor ou do GitHub passa por aqui antes de entrar no HTML.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  // Só aceita links do Google em https para botões (o servidor já os monta, mas a página confere).
+  function link(url) {
+    return /^https:\/\/(script|docs|drive)\.google\.com\//.test(url || '') ? esc(url) : '#';
+  }
+  function maior(a, b) {
+    var x = a.split('.').map(Number), y = b.split('.').map(Number);
+    for (var i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+    return false;
+  }
+  // O Apps Script entrega o erro do servidor como "Error: texto"; a pessoa só precisa do texto.
+  function msg(e) {
+    return String((e && e.message) || e || 'Algo deu errado. Tente de novo.').replace(/^(Error|Exception|Erro):\s*/, '');
+  }
+  function mostrar(html) { raiz.innerHTML = html; var h = raiz.querySelector('h2'); if (h) { h.tabIndex = -1; h.focus(); } }
+  function falha(texto) {
+    var antigo = raiz.querySelector('.erro-msg'); if (antigo) antigo.remove();
+    var d = document.createElement('div');
+    d.className = 'erro-msg'; d.setAttribute('role', 'alert'); d.textContent = texto;
+    raiz.appendChild(d);
+  }
+  function deNovo(id) { var b = document.getElementById(id); if (b) b.onclick = carregar; }
+
+  function carregar() {
+    mostrar('<section class="cartao"><p><span class="girando" aria-hidden="true"></span>Verificando…</p></section>');
+    google.script.run.withSuccessHandler(desenhar).withFailureHandler(function (e) {
+      mostrar('<section class="cartao"><h2>Não deu para verificar agora</h2><p>' + esc(msg(e)) + '</p>' +
+        '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>');
+      deNovo('de-novo');
+    }).estado(SCRIPT, IMPL);
+  }
+
+  // Mostra só o que falta: autorizar, ligar a API ou, com tudo pronto, instalar/atualizar.
+  function desenhar(e) {
+    if (e.autorizar) return desenharAutorizar(e.autorizar);
+    if (!e.apiLigada) return desenharApi();
+    if (SCRIPT) return desenharAtualizar(e);
+    desenharInstalar(e);
+  }
+
+  function desenharAutorizar(url) {
+    mostrar('<section class="cartao"><h2>Autorize o instalador</h2>' +
+      '<p>Na tela do Google, marque <strong>todas</strong> as permissões (ou “Selecionar tudo”) e continue. Sem elas o instalador não consegue criar nem atualizar o Finanças.</p>' +
+      '<div class="acoes"><a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Autorizar</a>' +
+      '<button class="botao sec" id="de-novo" type="button">Já autorizei</button></div></section>');
+    deNovo('de-novo');
+  }
+
+  function desenharApi() {
+    mostrar('<section class="cartao"><h2>Ligue a API do Apps Script</h2>' +
+      '<p>Uma vez só: nas configurações do Apps Script, ligue a chave <strong>API Google Apps Script</strong>. É ela que deixa o instalador criar e atualizar o app no seu Drive.</p>' +
+      '<div class="acoes"><a class="botao" href="' + URL_CONFIG + '" target="_blank" rel="noopener">Abrir as configurações</a>' +
+      '<button class="botao sec" id="de-novo" type="button">Já liguei</button></div></section>');
+    deNovo('de-novo');
+  }
+
+  function trabalhando(titulo) {
+    document.getElementById('area').innerHTML = '<section class="cartao"><h2>' + esc(titulo) + '</h2>' +
+      '<p class="sub"><span class="girando" aria-hidden="true"></span>Leva uns 20 segundos. Não feche esta página.</p></section>';
+  }
+
+  /* ---------- instalar ---------- */
+  function desenharInstalar(e) {
+    var v = e.versao;
+    mostrar('<section class="cartao"><h2>Instale o Finanças no seu Google Drive</h2>' +
+      '<p>O instalador cria uma planilha e o app dela no <strong>seu</strong> Drive. Seus dados ficam só nessa planilha; o instalador não lê seus dados nem outras planilhas.</p>' +
+      '<label for="nome">Nome da planilha</label><input id="nome" maxlength="80" value="Finanças" autocomplete="off">' +
+      '<div class="acoes">' + (v
+        ? '<button class="botao" id="instalar" type="button">Instalar o Finanças ' + esc(v.versao) + '</button>'
+        : '<button class="botao sec" id="de-novo" type="button">Tentar de novo</button>') + '</div>' +
+      (e.versaoErro ? '<div class="erro-msg" role="alert">' + esc(e.versaoErro) + '</div>' : '') + '</section><div id="area"></div>');
+    if (v) document.getElementById('instalar').onclick = instalar;
+    else deNovo('de-novo');
+  }
+
+  function instalar() {
+    var botao = document.getElementById('instalar');
+    botao.disabled = true;
+    trabalhando('Instalando…');
+    google.script.run.withSuccessHandler(function (r) {
+      mostrar('<section class="cartao"><h2>Pronto!</h2><p>O Finanças ' + esc(r.versao) + ' está instalado no seu Drive.</p>' +
+        '<div class="acoes"><a class="botao" href="' + link(r.appUrl) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' +
+        '<a class="botao sec" href="' + link(r.planilhaUrl) + '" target="_blank" rel="noopener">Abrir a planilha</a></div>' +
+        '<div class="aviso">Na primeira vez o Google pede para você autorizar o app (só a planilha dele). Ele aparece como “não verificado” porque foi criado agora, na sua conta: o desenvolvedor é você.</div>' +
+        '<p class="sub">Guarde o endereço do app nos favoritos ou adicione à tela inicial do celular. As próximas versões aparecem no próprio app, em Ajustes.</p></section>');
+    }).withFailureHandler(function (e) {
+      document.getElementById('area').innerHTML = '';
+      botao.disabled = false;
+      falha(msg(e));
+    }).instalar({ nome: document.getElementById('nome').value });
+  }
+
+  /* ---------- atualizar ---------- */
+  function desenharAtualizar(e) {
+    var a = e.alvo, v = e.versao;
+    if (!a || e.alvoErro) return mostrar('<section class="cartao"><h2>Não deu para abrir o projeto</h2><p>' + esc(e.alvoErro || 'Não encontrei o projeto (ou você não tem acesso a ele).') + '</p></section>');
+    if (!a.ehFinancas) return mostrar('<section class="cartao"><h2>Este projeto não é o Finanças</h2><p>Nada foi alterado.</p></section>');
+    if (!v) {
+      mostrar('<section class="cartao"><h2>Versão indisponível</h2><p>' + esc(e.versaoErro || 'Não consegui consultar a versão publicada.') + '</p>' +
+        '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>');
+      return deNovo('de-novo');
+    }
+    var impl = a.implantacoes.filter(function (d) { return d.id === IMPL; })[0] || a.implantacoes[0];
+    var voltar = impl ? '<a class="botao sec" href="' + link(impl.url) + '" target="_blank" rel="noopener">Voltar ao Finanças</a>' : '';
+    if (!maior(v.versao, a.versaoAtual)) {
+      return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><p>Versão instalada: ' + esc(a.versaoAtual) + '.</p><div class="acoes">' + voltar + '</div></section>');
+    }
+    mostrar('<section class="cartao"><h2>Nova versão disponível</h2><p>' + esc(a.versaoAtual) + ' → <strong>' + esc(v.versao) + '</strong>' + (v.data ? ' · ' + esc(v.data) : '') + '</p>' +
+      (v.novidades && v.novidades.length ? '<ul class="novidades">' + v.novidades.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
+      '<p class="sub">Só o código muda; os dados da planilha e o endereço do app continuam os mesmos.</p>' +
+      '<div class="acoes"><button class="botao" id="atualizar" type="button">Atualizar para ' + esc(v.versao) + '</button></div></section><div id="area"></div>');
+    var botao = document.getElementById('atualizar');
+    botao.onclick = function () {
+      botao.disabled = true;
+      trabalhando('Atualizando…');
+      google.script.run.withSuccessHandler(function (r) {
+        if (r.jaAtual) return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><div class="acoes">' + voltar + '</div></section>');
+        var url = r.implantacoes && r.implantacoes[0];
+        mostrar('<section class="cartao"><h2>Atualizado para ' + esc(r.versaoNova) + '!</h2>' +
+          '<p>Recarregue o Finanças para usar a versão nova.</p>' +
+          (r.extrasMantidos && r.extrasMantidos.length ? '<p class="sub">Arquivos seus mantidos: ' + esc(r.extrasMantidos.join(', ')) + '.</p>' : '') +
+          '<div class="acoes">' + (url ? '<a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' : '') + '</div>' +
+          '<p class="sub">Para voltar atrás: no editor do Apps Script, Implantar › Gerenciar implantações, escolha a versão ' + esc(r.copiaSeguranca) + '.</p></section>');
+      }).withFailureHandler(function (err) {
+        document.getElementById('area').innerHTML = '';
+        botao.disabled = false;
+        falha(msg(err));
+      }).atualizar(SCRIPT, IMPL, v.versao);
+    };
+  }
+
+  carregar();
+})();
+</script>
+</body>
+</html>

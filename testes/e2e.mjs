@@ -8,6 +8,7 @@
  *
  *   node testes/e2e.mjs            roda os cenários
  *   node testes/e2e.mjs --prints   também regrava os prints de docs/img/
+ *   E2E_SO="3.1.0" node testes/e2e.mjs   roda só os cenários com esse texto no nome
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -74,7 +75,7 @@ async function abrir(amb, vp, url, { tema, contexto, antes } = {}) {
   await p.setRequestInterception(true);
   p.on('request', (req) => {
     if (!HOSTS_GITHUB.test(req.url())) {
-      // Sem rede de verdade: o Google Fonts às vezes trava a carga por dezenas de segundos. Só com --prints as fontes passam.
+      // Sem rede de verdade: a fonte vem embutida desde a 3.0.0 e o GitHub é simulado acima. Só com --prints outros pedidos passam.
       if (!PRINTS && /^https?:/.test(req.url())) { req.abort('failed').catch(() => {}); return; }
       req.continue().catch(() => {}); return;
     }
@@ -101,7 +102,7 @@ async function abrir(amb, vp, url, { tema, contexto, antes } = {}) {
   paginas.push(p);
   return p;
 }
-/** Espera a fonte DM Sans (Google Fonts) chegar, para os prints saírem com a tipografia certa. */
+/** Espera a fonte DM Sans (embutida no Estilos.html) ficar pronta, para os prints saírem com a tipografia certa. */
 async function fontes(p) {
   await p.waitForFunction(() => document.fonts.check('600 16px "DM Sans"'), { timeout: 20000 }).catch(() => console.log('  (aviso: DM Sans não carregou; print com fonte do sistema)'));
   await p.evaluate(() => document.fonts.ready);
@@ -118,15 +119,32 @@ async function folhaAberta(p) { await p.waitForSelector('.folha.aberta'); await 
 async function semFolha(p) { await p.waitForFunction(() => !document.querySelector('.folha')); }
 async function irPara(p, tela) { await p.evaluate((t) => irPara(t), tela); await sleep(120); }
 async function digitarTeclado(p, numeros) { for (const d of numeros) { await p.tap(`.teclado [data-v="${d}"]`); await sleep(30); } }
+/** Campo de valor (.valor): o app seleciona o conteúdo um instante depois do foco, então espera isso passar antes de digitar. */
+async function digitarValor(p, seletor, texto) {
+  await p.$eval(seletor, (e) => e.focus());
+  await sleep(80);
+  await p.type(seletor, texto);
+}
 /** Foca o campo, seleciona tudo e digita por cima (como uma pessoa faria). */
 async function substituir(p, seletor, texto) {
   await p.$eval(seletor, (e) => { e.focus(); e.select(); });
   await p.type(seletor, texto);
 }
-const kpiDe = (p, rotulo) => p.$$eval('.kpi', (els, r) => {
-  const e = els.find((x) => x.querySelector('.rotulo').textContent === r);
-  return e ? { valor: e.querySelector('.kpi-valor').textContent, sub: e.querySelector('.sub')?.textContent || '' } : null;
+/** Lê uma linha da composição do herói (versão do computador: "Renda…", "− Já saiu", "− Contas a pagar", "= Disponível"). */
+const compDe = (p, rotulo) => p.$$eval('.heroi-composicao > div', (els, r) => {
+  const e = els.find((x) => x.querySelector('span').textContent.includes(r));
+  return e ? { rotulo: e.querySelector('span').textContent, valor: e.querySelector('strong').textContent } : null;
 }, rotulo);
+/** Renda do herói: valor, texto do rótulo (traz "recebida X" quando há a receber) e o "A receber" da ponte. */
+const rendaDe = async (p) => {
+  const topo = await p.$eval('.heroi-composicao > div:first-child', (e) => ({ rotulo: e.querySelector('span').textContent, valor: e.querySelector('strong').textContent }));
+  const aReceber = await p.$$eval('.heroi-bridge span', (els) => { const e = els.find((x) => x.firstChild && x.firstChild.textContent.startsWith('A receber')); return e ? e.querySelector('strong').textContent : null; });
+  return { ...topo, aReceber };
+};
+/** "Reservado" do herói (legenda do celular; some quando é zero). */
+const reservadoDe = (p) => p.$$eval('.heroi-legenda > div', (els) => { const e = els.find((x) => x.querySelector('span').textContent === 'Reservado'); return e ? e.querySelector('strong').textContent : null; });
+const jaSaiuDe = (p) => p.$$eval('.heroi-legenda > div', (els) => els.find((x) => x.querySelector('span').textContent === 'Já saiu').querySelector('strong').textContent);
+const cartaoDe = (p, id) => p.$eval('#' + id, (e) => e.closest('section').innerText);
 const esperarHeroi = (p, valor) => p.waitForFunction((v) => document.querySelector('.numero-heroi')?.textContent === v, {}, valor);
 
 /** Regra da 2.8.0: disponível = renda (recebida + a receber) − já saiu − o que falta de cada plano (exceto o das categorias encerradas). */
@@ -156,7 +174,10 @@ function contasEsperadas(d, ano, mes, encerradas = []) {
 const livreEsperado = (d, ano, mes, encerradas) => contasEsperadas(d, ano, mes, encerradas).disponivel;
 
 const resultados = [];
+// E2E_SO="3.1.0" roda só os cenários cujo nome contém o texto; o de erros de JavaScript roda sempre.
+const SO = process.env.E2E_SO || '';
 async function caso(nome, fn) {
+  if (SO && !nome.includes(SO) && !nome.startsWith('nenhum erro de JavaScript')) return;
   const t0 = Date.now();
   try { await fn(); resultados.push(['✔', nome, Date.now() - t0]); }
   catch (e) { resultados.push(['✖', nome, Date.now() - t0, (process.env.E2E_VERBOSE ? e.message : e.message.split('\n')[0])]); }
@@ -273,16 +294,17 @@ await caso('computador: lançamento rápido da barra do topo salva direto', asyn
   assert.equal(await pc.$eval('#quick', (e) => e.value), '', 'o campo limpa depois de salvar');
 });
 
-await caso('topo: anel de composição e micrográficos nos KPIs', async () => {
+await caso('topo: anel de composição e barras dos cartões (sem KPIs)', async () => {
   const p = await abrir(amb, PC, montarPagina(amb, 'topo-moderno'));
   await pronto(p);
   assert.ok(await p.$('.heroi .anel'), 'anel de composição');
   const legenda = await p.$eval('.heroi-legenda', (e) => e.textContent);
   assert.ok(legenda.includes('Já saiu') && legenda.includes('Reservado') && legenda.includes('Disponível'), 'legenda da composição');
-  assert.ok(await p.$('.kpi .spark'), 'sparkline da renda');
-  assert.ok(await p.$('.kpi .mini-barras'), 'barras diárias');
-  assert.ok(await p.$('.kpi .kpi-lista'), 'lista das maiores reservas');
-  assert.ok(await p.$('.kpi .kpi-meta'), 'progresso da meta');
+  assert.equal(await p.$('.kpi'), null, 'os quatro números do topo saíram da 3.0.0');
+  assert.ok(await p.$('#h-vencer'), 'cartão “O que falta pagar”');
+  assert.ok(await p.$('section[aria-labelledby="h-planos"] .plano-ritmo .barra'), 'barra do ritmo do plano');
+  assert.ok(await p.$('section[aria-labelledby="h-planos"] .plano-meta [data-acao="criar-guardar"]'), 'a meta de economia oferece criar Guardar (o exemplo não tem)');
+  assert.ok(await p.$('.g-onde .onde-barra'), 'barras de “Onde foi”');
   await p.close();
 });
 
@@ -390,18 +412,19 @@ await caso('renda com plano: receber parte do previsto não muda o disponível e
   const p = await abrir(a, PC, montarPagina(a, 'renda-plano'));
   await pronto(p);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'antes: renda 10.000 + 400 a receber − 100 ainda no plano do mercado');
-  assert.equal((await kpiDe(p, 'Renda do mês')).valor, moeda(10400), 'a renda do mês já inclui o que falta receber');
+  assert.equal((await rendaDe(p)).valor, moeda(10400), 'a renda do mês já inclui o que falta receber');
   const lancar = (v) => p.evaluate((x) => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'outras-rendas', descricao: 'renda extra', valor: x } }), v);
   await lancar(150); await sincronizado(p);
-  await p.waitForFunction((v) => (document.querySelector('.kpi .sub')?.textContent || '').includes('recebida ' + v), {}, moeda(10150));
+  await p.waitForFunction((v) => (document.querySelector('.heroi-composicao > div')?.textContent || '').includes('recebida ' + v), {}, moeda(10150));
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10300), 'receber 150 dos 400 previstos não muda o disponível');
-  const kpi = await kpiDe(p, 'Renda do mês');
-  assert.equal(kpi.valor, moeda(10400), 'a renda do mês continua 10.400');
-  assert.ok(kpi.sub.includes('recebida ' + moeda(10150)) && kpi.sub.includes('a receber ' + moeda(250)), 'o resto aparece como a receber: ' + kpi.sub);
+  const renda1 = await rendaDe(p);
+  assert.equal(renda1.valor, moeda(10400), 'a renda do mês continua 10.400');
+  assert.ok(renda1.rotulo.includes('recebida ' + moeda(10150)) && renda1.aReceber === moeda(250), 'o resto aparece como a receber: ' + JSON.stringify(renda1));
+  assert.ok((await cartaoDe(p, 'h-vencer')).includes('recebido ' + moeda(150) + ' de ' + moeda(400)), 'o cartão “O que falta pagar” mostra o que falta receber');
   assert.ok(a.servidor.planilha.ler('lancamentos').find((l) => l[4] === 'outras-rendas' && l[6] === 150), 'renda de 150 gravada em Outras Rendas');
   await lancar(450); await sincronizado(p);
   await esperarHeroi(p, moeda(10500));
-  assert.equal((await kpiDe(p, 'Renda do mês')).valor, moeda(10600), 'passando do plano (600 recebidos de 400), o excedente soma na renda e no disponível');
+  assert.equal((await rendaDe(p)).valor, moeda(10600), 'passando do plano (600 recebidos de 400), o excedente soma na renda e no disponível');
   await p.close();
 });
 
@@ -458,14 +481,12 @@ await caso('disponível: só o lançado e o plano gravado; apagar lançamento ou
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'sobra'));
   await pronto(p);
-  const kpi = (rot) => p.$$eval('.kpi', (els, r) => els.find((e) => e.querySelector('.rotulo').textContent === r)?.querySelector('.kpi-valor').textContent, rot);
   // 10.000 de salário previsto − 1.000 de aluguel previsto − 800 lançados no mercado. Carro não entra.
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8200));
-  assert.equal(await kpi('Reservado'), moeda(1000));
-  assert.equal(await kpi('Já saiu'), moeda(800));
-  const ritmo = await p.$eval('section[aria-labelledby="h-ritmo"]', (e) => e.textContent);
-  assert.ok(ritmo.includes('Gasto ' + moeda(0)), 'a barra compara só categorias com plano (aluguel: nada lançado)');
-  assert.ok(ritmo.includes('Plano ' + moeda(1000)), 'o plano do aluguel aparece na barra');
+  assert.equal(await reservadoDe(p), moeda(1000));
+  assert.equal(await jaSaiuDe(p), moeda(800));
+  const ritmo = await cartaoDe(p, 'h-planos');
+  assert.ok(ritmo.includes('gasto ' + moeda(0) + ' de ' + moeda(1000)), 'a barra compara só categorias com plano (aluguel: nada lançado): ' + ritmo);
   const cobertura = await p.$eval('#tela', (e) => e.innerText);
   assert.ok(cobertura.includes('Sem plano: ' + moeda(800) + ' em 1 categoria'), 'o mercado sem plano aparece à parte');
   await irPara(p, 'planilha');
@@ -485,7 +506,7 @@ await caso('disponível: só o lançado e o plano gravado; apagar lançamento ou
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'aluguel' && l[2] === 11), 'plano apagado na planilha');
   await p.click('[data-modo="acompanhar"]'); await irPara(p, 'inicio');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9700), 'sem o plano, o aluguel previsto sai do disponível');
-  assert.equal(await kpi('Reservado'), moeda(0), 'sem plano, não há mais 1.000 reservados');
+  assert.equal(await reservadoDe(p), null, 'sem plano, não há mais 1.000 reservados (a linha some do herói)');
   await p.close();
 });
 
@@ -505,7 +526,7 @@ await caso('disponível: plano variável sem lançamento também é reservado no
   const heroi = await p.$eval('.numero-heroi', (e) => e.textContent);
   assert.equal(heroi, moeda(8200), '10.000 − 500 lançados − 1.300 ainda nos planos');
   assert.notEqual(heroi, moeda(8500), 'a regra antiga, só com contas fixas a vencer, daria 8.500');
-  assert.equal((await kpiDe(p, 'Reservado')).valor, moeda(1300), 'aluguel e luz ainda estão reservados');
+  assert.equal(await reservadoDe(p), moeda(1300), 'aluguel e luz ainda estão reservados');
   await p.close();
 });
 
@@ -537,7 +558,7 @@ await caso('de onde vem: a folha mostra contas a pagar e o que resta nos planos'
   await p.close();
 });
 
-await caso('variáveis do mês: resumo, gráfico e atalhos de lançar e ajustar plano', async () => {
+await caso('variáveis do mês: resumo no Plano do mês, “Onde foi” e atalho para ajustar plano', async () => {
   const dados = {
     nome: 'Painel', categorias: [
       { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
@@ -553,14 +574,14 @@ await caso('variáveis do mês: resumo, gráfico e atalhos de lançar e ajustar 
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'variaveis-painel'));
   await pronto(p);
-  const texto = await p.$eval('#tela', (e) => e.innerText);
-  assert.ok(texto.includes('Gasto ' + moeda(1000)), 'resumo do gasto variável');
-  assert.ok(texto.includes('Plano ' + moeda(1300)), 'resumo do plano variável');
-  assert.ok(texto.includes('Ainda nos planos ' + moeda(300)), 'resumo do que ainda resta nos planos (200 do mercado + 100 do lazer)');
-  assert.ok(texto.includes('Para onde foi'), 'gráfico de participação');
-  assert.ok(await p.$('.grafico-variaveis .gv-barra'), 'barra do gráfico');
-  assert.ok(await p.$('[data-foco="cats-novo"]'), 'atalho para lançar');
-  await p.click('[data-foco="cats-planejar"]'); await sleep(150);
+  const plano = await cartaoDe(p, 'h-planos');
+  assert.ok(plano.includes('gasto ' + moeda(1000) + ' de ' + moeda(1300)), 'resumo do gasto e do plano variável: ' + plano);
+  assert.ok(plano.includes('Mercado') && plano.includes('Lazer'), 'cada variável do mês aparece no cartão');
+  assert.equal((await compDe(p, 'Ainda nos planos')).valor, moeda(300), 'o que ainda resta nos planos (200 do mercado + 100 do lazer) está na composição do herói');
+  const onde = await cartaoDe(p, 'h-onde');
+  assert.ok(onde.includes('Onde foi') && onde.includes('Mercado') && onde.includes('Lazer'), 'gráfico de participação');
+  assert.ok(await p.$('.g-onde .onde-barra'), 'barra do gráfico');
+  await p.click('[data-foco="ajustar-planos"]'); await sleep(150);
   assert.ok(await p.$('#pl-mercado'), 'atalho leva ao planejamento');
   assert.equal(await p.$eval('[data-modo="planejar"]', (e) => e.getAttribute('aria-pressed')), 'true');
   await p.close();
@@ -614,7 +635,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   await pronto(p);
   // A média de 1.000 não é plano: o disponível continua 10.000.
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(10000));
-  assert.equal((await kpiDe(p, 'Reservado')).valor, moeda(0));
+  assert.equal(await reservadoDe(p), null, 'nada reservado sem plano');
   await irPara(p, 'mes');
   await p.click('[data-modo="planejar"]'); await sleep(150);
   assert.equal(await p.$eval('#pl-mercado', (e) => e.value), '', 'campo do plano começa vazio');
@@ -628,7 +649,7 @@ await caso('sugestão de média: aparece, mas só entra no plano quando você us
   assert.ok(plano && plano[3] === 1000, 'a sugestão só vira plano quando você usa');
   await irPara(p, 'inicio');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'agora o plano reserva 1.000');
-  assert.equal((await kpiDe(p, 'Reservado')).valor, moeda(1000));
+  assert.equal(await reservadoDe(p), moeda(1000));
   await p.close();
 });
 
@@ -647,9 +668,10 @@ await caso('renda parcial: o vale não muda o disponível e aparece como a receb
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'renda-parcial'));
   await pronto(p);
-  const renda = await kpiDe(p, 'Renda do mês');
+  const renda = await rendaDe(p);
   assert.equal(renda.valor, moeda(10000), 'a renda do mês é a recebida mais a receber');
-  assert.ok(renda.sub.includes('recebida ' + moeda(5000)) && renda.sub.includes('a receber ' + moeda(5000)), 'a metade que falta aparece como a receber: ' + renda.sub);
+  assert.ok(renda.rotulo.includes('recebida ' + moeda(5000)) && renda.aReceber === moeda(5000), 'a metade que falta aparece como a receber: ' + JSON.stringify(renda));
+  assert.ok((await cartaoDe(p, 'h-vencer')).includes('A receber'), 'o cartão “O que falta pagar” tem o bloco “A receber”');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(8500), '10.000 de renda − 500 que saiu − 1.000 do aluguel');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(livreEsperado(dados, 2026, 11)));
   await p.close();
@@ -677,7 +699,7 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'meta-economia'));
   await pronto(p);
-  assert.ok((await p.evaluate(() => document.body.textContent)).includes('Meta de economia'), 'o cartão aparece sem Guardar');
+  assert.ok((await cartaoDe(p, 'h-planos')).includes('crie a categoria Guardar'), 'o Plano do mês oferece criar a meta sem Guardar');
   const botao = await p.waitForSelector('[data-acao="criar-guardar"]');
   const valor = Number(await botao.evaluate((e) => e.dataset.valor));
   assert.ok(valor > 0, 'a sugestão tem valor');
@@ -689,9 +711,10 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   assert.ok(cats.some((l) => l[0] === 'guardar' && l[2] === 'fixo'), 'a categoria Guardar foi criada');
   const planoLido = a.servidor.planilha.ler('orcamento').find((l) => Number(l[0]) === 2026 && l[1] === 'guardar' && l[2] === 11);
   assert.ok(planoLido && planoLido[3] === valor, 'o plano de Guardar foi gravado');
-  assert.equal((await kpiDe(p, 'Reservado')).valor, moeda(valor), 'a meta fica reservada no disponível');
+  assert.equal(await reservadoDe(p), moeda(valor), 'a meta fica reservada no disponível');
+  assert.ok((await cartaoDe(p, 'h-vencer')).includes('Guardar'), 'a meta aparece em “O que falta pagar”');
   await p.waitForFunction(() => !document.querySelector('.aviso'), { timeout: 20000 }); // o aviso de “criada” cobre o botão no canto
-  await p.click('[data-foco="meta-confirmar"]');
+  await p.click('[data-acao="confirmar"][data-cat="guardar"]');
   await sincronizado(p);
   await sleep(200);
   const transferencia = a.servidor.planilha.ler('lancamentos').find((l) => Number(l[1]) === 2026 && l[2] === 11 && l[4] === 'guardar');
@@ -700,7 +723,7 @@ await caso('meta de economia: criar Guardar reserva no disponível; confirmar ma
   await p.close();
 });
 
-await caso('meta: mostra % da renda, ajusta pelo atalho e limpa a meta', async () => {
+await caso('meta: aparece no Plano do mês e “Limpar meta” remove', async () => {
   const dados = {
     nome: 'Meta %', categorias: [
       { id: 'guardar', nome: 'Guardar', grupo: 'fixo', ordem: 1 },
@@ -715,10 +738,10 @@ await caso('meta: mostra % da renda, ajusta pelo atalho e limpa a meta', async (
   const p = await abrir(a, PC, montarPagina(a, 'meta-percentual'));
   await pronto(p);
   const texto = await p.$eval('#tela', (e) => e.innerText);
-  assert.ok(texto.includes('Meta ' + moeda(2000) + ' · 20,0% da renda'), 'meta em % da renda');
-  assert.ok(texto.includes('Meta de economia: ' + moeda(2000) + ' (20,0% da renda)'), 'ritmo mostra a meta');
-  await p.click('[data-acao="meta-foco"]'); await sleep(100);
-  assert.equal(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-foco')), 'meta-guardar');
+  assert.ok(texto.includes('Meta de economia') && texto.includes('meta ' + moeda(2000)), 'o Plano do mês mostra a meta');
+  assert.equal(await p.$eval('[data-foco="meta-guardar"]', (e) => e.value), '2.000,00', 'o campo da meta traz o valor');
+  assert.ok(await p.$('section[aria-labelledby="h-planos"] .plano-meta .barra'), 'barra do progresso da meta');
+  assert.ok((await cartaoDe(p, 'h-vencer')).includes('faltam ' + moeda(2000) + ' da meta de ' + moeda(2000)), 'o cartão “O que falta pagar” lembra da meta');
   await p.click('[data-acao="meta-limpar"]'); await sincronizado(p); await sleep(200);
   assert.ok(!a.servidor.planilha.ler('orcamento').some((l) => l[1] === 'guardar' && l[2] === 11), 'meta removida da planilha');
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(9000), 'sem a meta, o disponível sobe');
@@ -754,7 +777,7 @@ await caso('cobertura do plano: planejar a categoria sem plano grava e limpa o �
   await pronto(p);
   await p.waitForSelector('[data-foco="planejar-sem-plano"]');
   const texto = await p.$eval('#tela', (e) => e.innerText);
-  assert.ok(texto.includes('Cobertura do plano'), 'o cartão de cobertura aparece');
+  assert.ok((await cartaoDe(p, 'h-planos')).includes('Planejar pela média'), 'o Plano do mês oferece planejar pela média');
   assert.ok(texto.includes('Sem plano: ' + moeda(500)), 'o valor sem plano aparece');
   await p.click('[data-foco="planejar-sem-plano"]');
   await sincronizado(p);
@@ -780,11 +803,11 @@ await caso('barra agregada: 82% do plano com 60% do mês fica em atenção', asy
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'barra-atencao'));
   await pronto(p);
-  assert.ok(await p.$('section[aria-labelledby="h-ritmo"] .barra .enchido.atencao'), 'a barra agregada fica em atenção');
-  assert.equal(await p.$('section[aria-labelledby="h-ritmo"] .barra .enchido.acima'), null, 'sem estourar o plano');
-  const legenda = await p.$eval('section[aria-labelledby="h-ritmo"]', (e) => e.textContent);
-  assert.ok(legenda.includes('82% do plano usado'));
-  assert.ok(legenda.includes('hoje: 60% do mês'));
+  assert.ok(await p.$('section[aria-labelledby="h-planos"] .plano-ritmo .barra .enchido.atencao'), 'a barra agregada fica em atenção');
+  assert.equal(await p.$('section[aria-labelledby="h-planos"] .plano-ritmo .barra .enchido.acima'), null, 'sem estourar o plano');
+  const legenda = await p.$eval('section[aria-labelledby="h-planos"] .plano-ritmo', (e) => e.textContent);
+  assert.ok(legenda.includes('Acima do ritmo'), 'a situação diz “Acima do ritmo”');
+  assert.ok(legenda.includes('82% do plano') && legenda.includes('60% do mês'), 'legenda: ' + legenda);
   await p.close();
 });
 
@@ -905,14 +928,15 @@ await caso('celular: com a barra do navegador, o lançamento mostra categorias, 
   }
 });
 
-await caso('primeiro acesso: planilha vazia vira um controle pronto em 2 passos', async () => {
+await caso('primeiro acesso: planilha vazia vira um controle pronto (passo “Seu mês” pulado)', async () => {
   const vazio = criarAmbiente({});
   const p = await abrir(vazio, CEL, montarPagina(vazio, 'vazio'));
   await p.waitForSelector('#boasvindas:not([hidden]) .bv');
   await p.type('#bv-nome', 'Teste');
   await p.tap('[data-b="avancar"]'); await sleep(100);
   await p.tap('input[value="familia"]');
-  await p.tap('[data-b="concluir"]');
+  await p.tap('[data-b="seu-mes"]'); await sleep(100);
+  await p.tap('[data-b="pular"]');
   await p.waitForFunction(() => S.montado && !document.querySelector('#app').hidden);
   await sincronizado(p);
   assert.equal(vazio.servidor.planilha.ler('categorias').length, 18);
@@ -1201,9 +1225,10 @@ await caso('2.8.0 renda: receber o vale não muda o herói; “Não vem mais” 
   assert.equal(antes, moeda(7900));
   await p.evaluate(() => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'salario', descricao: 'Vale', valor: 2160 } }));
   await sincronizado(p);
-  await p.waitForFunction(() => (document.querySelector('.kpi .sub')?.textContent || '').includes('recebida'), {}, 0);
+  await p.waitForFunction(() => (document.querySelector('.heroi-composicao > div')?.textContent || '').includes('recebida'), {}, 0);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), antes, 'lançar o vale não muda o herói');
-  assert.ok((await kpiDe(p, 'Renda do mês')).sub.includes('a receber ' + moeda(4740)), 'faltam 4.740 a receber');
+  assert.equal((await rendaDe(p)).aReceber, moeda(4740), 'faltam 4.740 a receber');
+  assert.ok((await cartaoDe(p, 'h-vencer')).includes('Salário') && (await cartaoDe(p, 'h-vencer')).includes('Não vem'), 'o cartão oferece “Não vem” para o salário');
   await p.evaluate(() => abrirCategoria('salario', 2026, 11)); await folhaAberta(p);
   assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Não vem mais (tira ${moeda(4740)})`);
   await p.click('.folha [data-f="encerrar"]'); await sincronizado(p);
@@ -1340,7 +1365,7 @@ await caso('2.8.0 vários valores no painel da categoria: “217,93 176,15” vi
   await p.close();
 });
 
-await caso('2.8.0 aviso único da mudança: aparece com meses anteriores, some no Entendi e não volta', async () => {
+await caso('2.8.0 aviso único da mudança: só para quem veio de antes da 2.8.0, some no Entendi e não volta', async () => {
   const dados = { nome: 'Aviso mudança', categorias: catsBase(), anos: { 2026: { lancamentos: [
     { id: 'am1', mes: 10, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
     { id: 'am2', mes: 10, dia: 2, categoriaId: 'mercado', descricao: '', valor: 100 },
@@ -1351,6 +1376,14 @@ await caso('2.8.0 aviso único da mudança: aparece com meses anteriores, some n
   const ctx = await browser.createBrowserContext();
   const p = await abrir(a, PC, arq, { contexto: ctx });
   await pronto(p);
+  await sleep(500);
+  assert.equal(await p.$('.aviso-mudanca'), null, 'instalação nova não conheceu a regra antiga: sem aviso');
+  // Simula quem atualizou da 2.7.1: o cache local deste aparelho ainda é daquela versão.
+  for (let i = 0; i < 2; i++) {
+    await p.evaluate(() => LS.gravar('cache', Object.assign({}, S.dados, { versaoApp: '2.7.1' })));
+    await sleep(400);
+  }
+  await p.reload({ waitUntil: 'domcontentloaded' }); await pronto(p);
   await p.waitForSelector('.aviso-mudanca');
   assert.ok((await p.$eval('.aviso-mudanca', (e) => e.textContent)).includes('As contas do mês mudaram na versão 2.8.0'));
   await p.click('[data-acao="aviso-mudanca-ok"]');
@@ -1557,6 +1590,266 @@ await caso('2.8.1 Ctrl+Z: dois lançamentos rápidos saem da planilha, na ordem 
   assert.equal(a.linhas().length, 1, 'sobrou só o salário');
   await p.close();
 });
+
+/* ---------- 3.0.0 ---------- */
+const numDe = (t) => Number(t.replace(/[^\d,−-]/g, '').replace(',', '.').replace('−', '-'));
+/** Altura da página do Início a 390 px com os dados de exemplo, medida na versão anterior (commit 488f5ed^, 2.8.x). */
+const ALTURA_390 = { antiga: 3981 };
+
+await caso('3.0.0 Início do mês atual: herói, O que falta pagar, Plano do mês, Onde foi e Últimos, sem KPIs e mais baixo no celular', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const p = await abrir(a, CEL, montarPagina(a, 'v3-inicio'));
+  await pronto(p);
+  const ids = await p.$$eval('.grade-inicio > section h2', (els) => els.map((e) => e.id));
+  assert.deepEqual(ids, ['h-livre', 'h-vencer', 'h-planos', 'h-onde', 'h-ult'], 'ordem dos cartões');
+  const titulos = await p.$$eval('.grade-inicio > section h2', (els) => els.map((e) => e.textContent));
+  assert.deepEqual(titulos.slice(1), ['O que falta pagar', 'Plano do mês', 'Onde foi', 'Últimos lançamentos']);
+  assert.ok(titulos[0].startsWith('Disponível para gastar'), 'o herói vem primeiro');
+  assert.equal(await p.$('.kpi'), null, 'sem os quatro números do topo');
+  for (const antigo of ['h-ritmo', 'h-cobertura', 'h-meta', 'h-variaveis', 'h-ano']) assert.equal(await p.$('#' + antigo), null, 'saiu do Início: ' + antigo);
+  const ordemY = await p.$$eval('.grade-inicio > section', (els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  assert.deepEqual(ordemY, [...ordemY].sort((x, y) => x - y), 'de cima para baixo, nesta ordem');
+  const altura = await p.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+  ALTURA_390.nova = altura;
+  console.log(`  [3.0.0] altura da página a 390 px: ${altura} px`);
+  assert.ok(altura < ALTURA_390.antiga, `a página ficou mais baixa: ${altura} < ${ALTURA_390.antiga} (2.8.x)`);
+  await p.close();
+});
+
+await caso('3.0.0 Onde foi: barras do maior para o menor, com valor e percentual; clicar abre o painel da categoria', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const p = await abrir(a, PC, montarPagina(a, 'v3-onde'));
+  await pronto(p);
+  const linhas = await p.$$eval('.g-onde .onde-linha', (els) => els.map((e) => ({
+    nome: e.querySelector('.onde-nome').textContent, valor: e.querySelector('.onde-valor').childNodes[0].textContent.trim(),
+    pct: e.querySelector('.onde-valor em').textContent, largura: parseFloat(e.querySelector('.onde-barra i').style.width), botao: e.tagName === 'BUTTON', cat: e.dataset.cat || '',
+  })));
+  assert.ok(linhas.length >= 3, 'há várias barras');
+  const valores = linhas.map((l) => numDe(l.valor));
+  assert.deepEqual(valores.slice(0, linhas.filter((l) => l.botao).length), [...valores.slice(0, linhas.filter((l) => l.botao).length)].sort((x, y) => y - x), 'do maior para o menor');
+  const larguras = linhas.filter((l) => l.botao).map((l) => l.largura);
+  assert.deepEqual(larguras, [...larguras].sort((x, y) => y - x), 'a largura das barras acompanha a ordem');
+  assert.equal(larguras[0], 100, 'a maior barra ocupa tudo');
+  for (const l of linhas) { assert.match(l.valor, /^R\$/, 'valor em reais'); assert.match(l.pct, /^\d+%$/, 'percentual'); }
+  const total = numDe(await p.$eval('#h-onde', (e) => e.closest('section').querySelector('.cartao-topo .sub').textContent));
+  linhas.forEach((l, i) => assert.equal(Number(l.pct.replace('%', '')), Math.round((valores[i] / total) * 100), `percentual de ${l.nome}`));
+  const primeira = linhas.find((l) => l.botao);
+  assert.ok(primeira.cat, 'a primeira barra é um botão da categoria');
+  await p.click(`.onde-linha[data-cat="${primeira.cat}"]`); await folhaAberta(p);
+  assert.ok((await p.$eval('.folha', (e) => e.innerText)).includes(primeira.nome), 'o painel é o da categoria ' + primeira.nome);
+  await p.keyboard.press('Escape'); await semFolha(p);
+  await p.close();
+});
+
+await caso('3.0.0 Planilha: gráfico do ano no topo e clicar num mês abre o Início daquele mês', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const p = await abrir(a, PC, montarPagina(a, 'v3-planilha'));
+  await pronto(p);
+  assert.equal(await p.$('#h-ano'), null, 'o Início não tem mais o gráfico do ano');
+  await irPara(p, 'planilha');
+  assert.ok(await p.$('.planilha-ano #h-ano'), 'gráfico dentro de .planilha-ano');
+  assert.equal(await p.$$eval('.planilha-ano .ga-mes', (e) => e.length), 12, 'doze meses');
+  const [topoGrafico, topoTabela] = await p.evaluate(() => [document.querySelector('.planilha-ano').getBoundingClientRect().top, document.querySelector('.planilha-caixa').getBoundingClientRect().top]);
+  assert.ok(topoGrafico < topoTabela, 'o gráfico fica acima da tabela');
+  await p.click('.planilha-ano .ga-mes[data-mes="9"]');
+  await p.waitForFunction(() => S.tela === 'inicio' && S.mes === 9);
+  assert.equal(await p.$eval('.titulo-mes', (e) => e.textContent), 'Setembro 2026');
+  assert.ok(await p.$('#h-fecho'), 'Início de mês passado (herói de fechamento)');
+  await p.close();
+});
+
+await caso('3.0.0 fechamento: mês passado com pendência, folha, “Foi pago”, fechar grava fechado: e editar pede o segundo toque', async () => {
+  const dados = {
+    nome: 'Fechar', categorias: catsBase(),
+    anos: { 2026: { lancamentos: [
+      { id: 'f1', mes: 10, dia: 5, categoriaId: 'salario', descricao: '', valor: 5000 },
+      { id: 'f2', mes: 10, dia: 6, categoriaId: 'mercado', descricao: 'Feira', valor: 300 },
+    ], orcamento: { aluguel: { 10: 1000 }, salario: { 10: 5000 }, mercado: { 10: 400 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'v3-fechar'));
+  await pronto(p);
+  await p.evaluate(() => irParaMes(2026, 10)); await sleep(150);
+  assert.ok((await p.$eval('#h-fecho', (e) => e.closest('section').innerText)).includes('Fechar outubro'), 'o herói oferece fechar outubro');
+  await p.click('[data-acao="fechar-mes"][data-foco="fechar-mes"]'); await folhaAberta(p);
+  assert.equal(await p.$eval('#fech-ok', (e) => e.disabled), true, 'com pendência, o botão de fechar fica desligado');
+  const item = await p.$eval('.fech-item', (e) => e.innerText);
+  assert.ok(item.includes('Aluguel') && item.includes('Foi pago') && item.includes('Não aconteceu') && item.includes('Depois'), 'a pendência e as três saídas');
+  await p.click('.fech-item [data-f="feito"]'); await sincronizado(p);
+  assert.ok(a.linhas().some((l) => l[4] === 'aluguel' && l[2] === 10 && l[6] === 1000), 'o aluguel foi lançado em outubro');
+  assert.equal(await p.$eval('#fech-ok', (e) => e.disabled), false, 'sem pendências o botão liga');
+  assert.ok((await p.$eval('#fech-sobra', (e) => e.textContent)).includes(moeda(3700)), 'sobra realizada 5.000 − 300 − 1.000');
+  await p.click('#fech-ok'); await semFolha(p); await sincronizado(p);
+  const marca = configDe(a, 'fechado:2026-10');
+  assert.ok(marca && Number(marca[1]) === 3700, 'linha fechado: na config ' + JSON.stringify(marca));
+  assert.ok((await p.$eval('#h-fecho', (e) => e.textContent)).includes('Mês fechado'), 'o herói mostra a marca de mês fechado');
+  // editar um lançamento daquele mês: primeiro toque avisa, segundo grava
+  await irPara(p, 'extrato');
+  await p.click('#extrato-lista .linha-lanc[data-id="f2"]'); await folhaAberta(p);
+  await substituir(p, '#ed-valor', '350');
+  await p.click('.folha [data-f="salvar"]'); await sleep(200);
+  assert.ok((await p.$eval('#ed-erro', (e) => e.textContent)).includes('está fechado. Toque de novo'), 'pede o segundo toque');
+  assert.equal(a.linhas().find((l) => l[0] === 'f2')[6], 300, 'nada gravado no primeiro toque');
+  await p.click('.folha [data-f="salvar"]'); await semFolha(p); await sincronizado(p);
+  assert.equal(a.linhas().find((l) => l[0] === 'f2')[6], 350, 'o segundo toque grava');
+  await esperar(() => Number((configDe(a, 'fechado:2026-10') || [])[1]) === 3650);
+  await p.close();
+});
+
+await caso('3.0.0 seletor de mês: março de 2025 pela folha; e a página abre direto com ?tela=mes&ano=2026&mes=3', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const url0 = montarPagina(a, 'v3-seletor');
+  const p = await abrir(a, PC, url0);
+  await pronto(p);
+  assert.equal(await p.$eval('.titulo-mes', (e) => e.getAttribute('data-acao')), 'seletor-mes');
+  await p.click('[data-acao="seletor-mes"]'); await folhaAberta(p);
+  assert.equal(await p.$$eval('.seletor-grade .mes-opcao', (e) => e.length), 12, 'doze meses');
+  assert.equal(await p.$eval('.seletor-ano strong', (e) => e.textContent), '2026');
+  await p.click('[data-f="ano-ant"]'); await sleep(60);
+  assert.equal(await p.$eval('.seletor-ano strong', (e) => e.textContent), '2025', 'ano anterior');
+  await p.click('.seletor-grade [data-m="3"]'); await semFolha(p);
+  assert.equal(await p.$eval('.titulo-mes', (e) => e.textContent), 'Março 2025');
+  assert.equal(await p.evaluate(() => [S.ano, S.mes]).then((x) => x.join('-')), '2025-3');
+  assert.match(await p.evaluate(() => location.search), /ano=2025/, 'o endereço acompanha o mês');
+  assert.match(await p.evaluate(() => location.search), /mes=3/);
+  await p.click('[data-acao="seletor-mes"]'); await folhaAberta(p);
+  await p.click('[data-f="hoje"]'); await semFolha(p);
+  assert.equal(await p.$eval('.titulo-mes', (e) => e.textContent), 'Novembro 2026', '“Hoje” volta ao mês atual');
+  await p.close();
+  // link direto (a query funciona em file:)
+  const q = await abrir(a, PC, url0 + '?tela=mes&ano=2026&mes=3');
+  await pronto(q);
+  assert.equal(await q.evaluate(() => [S.tela, S.ano, S.mes].join('-')), 'mes-2026-3', 'a tela e o mês do link');
+  assert.equal(await q.$eval('.titulo-mes', (e) => e.textContent), 'Março 2026');
+  await q.close();
+});
+
+await caso('3.0.0 Planejar: “salvo” ao lado do campo, “Copiar de” com duas opções e médias só no segundo toque', async () => {
+  const dados = {
+    nome: 'Planejar', categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 2 },
+      { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+    ],
+    anos: { 2026: { lancamentos: [], orcamento: { mercado: { 10: 900 } } } },
+  };
+  for (const mes of [8, 9, 10]) {
+    dados.anos[2026].lancamentos.push({ id: 'pm' + mes, mes, dia: 5, categoriaId: 'mercado', descricao: '', valor: 1000 });
+    dados.anos[2026].lancamentos.push({ id: 'pl' + mes, mes, dia: 6, categoriaId: 'lazer', descricao: '', valor: 200 });
+  }
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'v3-planejar'));
+  await pronto(p);
+  await irPara(p, 'mes');
+  await p.click('[data-modo="planejar"]'); await sleep(100);
+  assert.equal(await p.$('.plano-salvo'), null, 'antes de digitar não há “salvo”');
+  await substituir(p, '#pl-mercado', '150');
+  await p.keyboard.press('Tab'); await sincronizado(p);
+  await p.waitForSelector('.plano-salvo');
+  assert.equal(await p.$eval('.plano-salvo', (e) => e.textContent), 'salvo');
+  assert.equal(await p.$eval('.plano-salvo', (e) => e.closest('.lp-campo').querySelector('#pl-mercado') !== null), true, 'ao lado do campo de Mercado');
+  assert.equal(a.servidor.planilha.ler('orcamento').find((l) => l[1] === 'mercado' && l[2] === 11)[3], 150);
+  await p.waitForFunction(() => !document.querySelector('.plano-salvo'), { timeout: 6000 });
+  // Copiar de outubro
+  assert.equal(await p.$eval('[data-acao="plano-copiar"]', (e) => e.textContent), 'Copiar de outubro');
+  assert.equal(await p.$('[data-acao="plano-copiar-plano"]'), null, 'as opções só aparecem depois do toque');
+  await p.click('[data-acao="plano-copiar"]'); await sleep(100);
+  const opcPlano = await p.$eval('[data-acao="plano-copiar-plano"]', (e) => e.textContent);
+  const opcReal = await p.$eval('[data-acao="plano-copiar-real"]', (e) => e.textContent);
+  assert.ok(opcPlano.includes('Copiar o plano de outubro') && opcPlano.includes('1 categoria') && opcPlano.includes(moeda(900)), opcPlano);
+  assert.ok(opcReal.includes('Copiar o lançado em outubro') && opcReal.includes('2 categorias') && opcReal.includes(moeda(1200)), opcReal);
+  assert.ok(await p.$('[data-acao="plano-copiar-cancelar"]'), 'dá para cancelar');
+  await p.click('[data-acao="plano-copiar-cancelar"]'); await sleep(100);
+  assert.equal(await p.$('[data-acao="plano-copiar-plano"]'), null, 'cancelar fecha a escolha');
+  assert.equal(a.servidor.planilha.ler('orcamento').find((l) => l[1] === 'mercado' && l[2] === 11)[3], 150, 'cancelar não grava nada');
+  // Preencher com as médias: só no segundo toque
+  const planosNov = () => a.servidor.planilha.ler('orcamento').filter((l) => l[2] === 11).map((l) => l.join('|')).sort().join(';');
+  const antes = planosNov();
+  await p.click('[data-acao="plano-media"]'); await sleep(200); await sincronizado(p);
+  assert.equal(planosNov(), antes, 'o primeiro toque não grava');
+  assert.ok((await p.$eval('[data-acao="plano-media"]', (e) => e.textContent)).includes('Toque de novo'), 'o botão pede o segundo toque');
+  await p.click('[data-acao="plano-media"]'); await sincronizado(p); await sleep(200);
+  const orc = a.servidor.planilha.ler('orcamento').filter((l) => l[2] === 11);
+  assert.equal(orc.find((l) => l[1] === 'mercado')[3], 1000, 'média do mercado gravada');
+  assert.equal(orc.find((l) => l[1] === 'lazer')[3], 200, 'média do lazer gravada');
+  // Limpar o mês: também só no segundo toque
+  await p.click('[data-acao="plano-limpar"]'); await sleep(200); await sincronizado(p);
+  assert.equal(a.servidor.planilha.ler('orcamento').filter((l) => l[2] === 11).length, 2, 'o primeiro toque não limpa');
+  await p.click('[data-acao="plano-limpar"]'); await sincronizado(p); await sleep(200);
+  assert.equal(a.servidor.planilha.ler('orcamento').filter((l) => l[2] === 11).length, 0, 'o segundo toque limpa');
+  await p.close();
+});
+
+await caso('3.0.0 primeiro acesso: o modo exemplo não grava nada e “Começar do zero” volta às boas-vindas', async () => {
+  const vazio = criarAmbiente({});
+  const p = await abrir(vazio, CEL, montarPagina(vazio, 'v3-exemplo'));
+  await p.waitForSelector('#boasvindas:not([hidden]) .bv');
+  const chavesAntes = await p.evaluate(() => Object.keys(localStorage).sort());
+  await p.tap('[data-b="exemplo"]');
+  await p.waitForFunction(() => S.exemplo && S.montado && !document.querySelector('#app').hidden);
+  await p.waitForSelector('#faixa-exemplo');
+  assert.ok((await p.$eval('#faixa-exemplo', (e) => e.innerText)).includes('Começar do zero'), 'faixa do modo exemplo');
+  assert.ok(await p.$eval('.numero-heroi', (e) => e.textContent.length > 0), 'o Início mostra os dados de exemplo');
+  // mexe nos dados de exemplo: lançar e planejar não podem chegar à planilha
+  await p.tap('.inf-mais'); await folhaAberta(p);
+  await digitarTeclado(p, ['9', '9', '0', '0']);
+  await p.tap('#nv-salvar'); await semFolha(p); await sleep(400);
+  await p.evaluate(() => registrar({ t: 'cfg', k: 'nome', v: 'Mudado no exemplo' }));
+  await sleep(600);
+  assert.equal(vazio.servidor.planilha.ler('lancamentos').length, 0, 'nenhum lançamento na planilha');
+  assert.equal(vazio.servidor.planilha.ler('categorias').length, 0, 'nenhuma categoria na planilha');
+  assert.equal(vazio.servidor.planilha.ler('orcamento').length, 0, 'nenhum plano na planilha');
+  assert.ok(!vazio.servidor.planilha.ler('config').some((l) => l[1] === 'Mudado no exemplo'), 'a config não mudou');
+  const chavesDepois = await p.evaluate(() => Object.keys(localStorage).sort());
+  assert.deepEqual(chavesDepois, chavesAntes, 'nada novo no localStorage (cache e fila ficam de fora)');
+  assert.equal(await p.evaluate(() => S.fila.length), 0, 'a fila de envio fica vazia');
+  await p.tap('[data-acao="sair-exemplo"]');
+  await p.waitForSelector('#boasvindas:not([hidden]) .bv');
+  assert.equal(await p.$('#faixa-exemplo'), null, 'a faixa some');
+  assert.equal(await p.$eval('#app', (e) => e.hidden), true, 'o app fica escondido atrás das boas-vindas');
+  assert.ok((await p.$eval('#boasvindas', (e) => e.innerText)).includes('Bem-vindo'), 'volta ao passo 1');
+  await sleep(300);
+  assert.equal(vazio.servidor.planilha.ler('lancamentos').length + vazio.servidor.planilha.ler('categorias').length, 0, 'a planilha continua vazia');
+  assert.deepEqual(await p.evaluate(() => Object.keys(localStorage).sort()), chavesAntes, 'localStorage igual ao do começo');
+});
+
+const REPETICOES_SEU_MES = 3;
+for (let rodada = 1; rodada <= REPETICOES_SEU_MES; rodada++) {
+  await caso(`3.0.0 primeiro acesso: passo “Seu mês” preenchido grava renda, moradia, meta e o gasto anterior (execução ${rodada}/${REPETICOES_SEU_MES})`, async () => {
+    const vazio = criarAmbiente({});
+    const p = await abrir(vazio, CEL, montarPagina(vazio, 'v3-seu-mes-' + rodada));
+    await p.waitForSelector('#boasvindas:not([hidden]) .bv');
+    await p.type('#bv-nome', 'Meu mês');
+    await p.tap('[data-b="avancar"]'); await sleep(100);
+    await p.tap('input[value="familia"]');
+    await p.tap('[data-b="seu-mes"]');
+    await p.waitForSelector('#bv-renda');
+    assert.equal(await p.$eval('h1', (e) => e.textContent), 'Seu mês');
+    assert.ok(await p.$('#bv-moradia'), 'o modelo tem Moradia, então o campo aparece');
+    await digitarValor(p, '#bv-renda', '7.900');
+    await digitarValor(p, '#bv-moradia', '1.850');
+    await digitarValor(p, '#bv-meta', '500');
+    await digitarValor(p, '#bv-gasto', '320');
+    assert.deepEqual(await p.evaluate(() => ['renda', 'moradia', 'meta', 'gasto'].map((k) => document.querySelector('#bv-' + k).value)), ['7.900', '1.850', '500', '320'], 'os quatro campos ficaram como digitados');
+    await p.tap('[data-b="concluir"]');
+    await p.waitForFunction(() => S.montado && !document.querySelector('#app').hidden);
+    await sincronizado(p);
+    await sleep(150);
+    const cats = vazio.servidor.planilha.ler('categorias');
+    const idDe = (nome) => (cats.find((l) => l[1] === nome) || [])[0];
+    const plano = (nome) => (vazio.servidor.planilha.ler('orcamento').find((l) => Number(l[0]) === 2026 && l[1] === idDe(nome) && l[2] === 11) || [])[3];
+    assert.equal(plano('Salário'), 7900, 'plano de renda');
+    assert.equal(plano('Moradia'), 1850, 'plano de Moradia');
+    assert.equal(plano('Guardar'), 500, 'plano de Guardar');
+    const gasto = vazio.servidor.planilha.ler('lancamentos').filter((l) => l[5] === 'Antes de começar o app');
+    assert.equal(gasto.length, 1, 'um lançamento “Antes de começar o app”');
+    assert.equal(gasto[0][6], 320);
+    assert.equal(gasto[0][4], idDe('Outros'));
+    assert.equal(vazio.servidor.planilha.ler('orcamento').filter((l) => l[2] === 11).length, 3, 'só os três planos');
+    assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(7900 - 320 - 1850 - 500), 'o herói reflete tudo');
+    await p.close();
+  });
+}
 
 await caso('nenhum erro de JavaScript em nenhuma página', async () => {
   const erros = paginas.flatMap((p) => p.erros);

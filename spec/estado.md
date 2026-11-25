@@ -12,7 +12,7 @@ Branch de trabalho: `main`. Branch principal: `main`.
 | Tema | Situação |
 |---|---|
 | Plano financeiro e UX | Em revisão: a sessão atual trabalha na revisão do plano financeiro e da experiência de uso do app. |
-| Versão 3.0.0 | Publicada. O app avisa quando houver nova versão; o instalador faz atualização preservando dados. |
+| Versão 3.1.0 | Publicada em 25/11/2026 (planejamento de verdade: recorrências, parcelas, sobra levada, importar extrato). O app avisa quando houver nova versão; o instalador faz atualização preservando dados. |
 
 ---
 
@@ -52,4 +52,4 @@ Uma suposição é uma lacuna que foi preenchida com um palpite razoável para n
 
 | ID | Suposição | Status | Resolução |
 |---|---|---|---|
-| ASM-001 | A revisão de UX não muda a regra do `disponível` nem a estrutura das abas. | aberta | Confirmar com o usuário. |
+| ASM-001 | A revisão de UX não muda a regra do `disponível` nem a estrutura das abas existentes. | fechada | A regra do `disponível` não mudou. A 3.1.0 acrescentou só a aba opcional `recorrencias`, sem colunas novas nas abas antigas (R-004). |

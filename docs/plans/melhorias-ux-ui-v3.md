@@ -1,6 +1,6 @@
 # Plano detalhado — Verdade financeira e clareza de decisão (v3)
 
-**Status:** em execução. Decisões tomadas em 25/11/2026 (seção 15). Publicadas em 25/11/2026, com tag e Release no GitHub: **2.8.0** (seção 6), **2.8.1** (seção 7) e **3.0.0** (seção 8). Em andamento: **3.1.0** (seção 9), depois a Fase 3 (seção 10, sem a 10.4).
+**Status:** em execução. Decisões tomadas em 25/11/2026 (seção 15). Publicadas em 25/11/2026, com tag e Release no GitHub: **2.8.0** (seção 6), **2.8.1** (seção 7) e **3.0.0** (seção 8). **3.1.0** (seção 9) implementada em 25/11/2026, a publicar; depois a Fase 3 (seção 10, sem a 10.4).
 **Base analisada:** bsdesenv-financas 2.6.2 (novembro de 2026, commit `de8b639`; os números de linha valem para ele). A 2.7.0 (commit `54f748c`, 24/11/2026: instalador e atualização em um clique) saiu durante a revisão sem mexer nos cálculos, e os achados reproduzem nela; as versões deste plano começam na 2.8.0.
 **Objetivo:** aumentar a confiança nos números e reduzir o esforço de decisão, sem trocar a arquitetura de dados (Google Sheets + Apps Script), sem perder a privacidade e sem transformar a home em um relatório.
 
@@ -19,6 +19,7 @@
 | 4 | 25/11/2026 | O dono delegou as decisões da seção 15. Decididas e registradas ali, com a reversão (15.2). A principal: o herói adota a alternativa da seção 4.7, que reserva o que falta de todos os planos, inclusive os variáveis, como pede o caso 454 do E2E. A 2.8.0 foi implementada no mesmo dia, no branch `melhorias-v3-2.8.0`, e publicada (merge no `main`, tag `v2.8.0`). Testes na publicação: 87/87 de unidade e servidor, 42/42 E2E. |
 | 5 | 25/11/2026 | 2.8.1 implementada (seção 7): avisos fora da folha, "Repetir até dezembro" com confirmação e Desfazer, troca de grupo protegida, categoria de economia com id estável, importação com prévia e confirmação digitada, Desfazer em pilha com Ctrl+Z e os itens de acessibilidade. Testes: 92/92 de unidade e servidor; E2E com os cenários da 2.8.0 e da 2.8.1. |
 | 6 | 25/11/2026 | 3.0.0 implementada e publicada (seção 8): Início por perguntas (disponível, o que falta pagar, plano do mês, onde foi e últimos), fechamento do mês com a sobra realizada em `config` (`fechado:AAAA-MM`), seletor de mês com o endereço acompanhando a navegação, Planejar com retorno, dados de exemplo e o passo "Seu mês" no primeiro acesso, cores pela ordem, DM Sans embutida e tamanhos em `rem`. O backup passa a levar os meses fechados e a categoria de economia, e o aviso da 2.8.0 só aparece para quem usou uma versão anterior neste aparelho. Altura do Início a 390 px: de 3.981 para 3.099 px. Testes: 96/96 de unidade e servidor; 68/68 E2E. |
+| 7 | 25/11/2026 | 3.1.0 implementada (seção 9): aba opcional `recorrencias` (com `pular:` e `categoriaSobra` em `config`), plano efetivo (o gravado prevalece sobre a recorrência), vencimentos em "O que falta pagar", parcelas de 2 a 48 vezes, duplicar e repetir, transporte de sobra no fechamento, importação de extrato (CSV e OFX) e backup 3 com recorrências, "Último backup" e os dois CSVs. Sem colunas novas nas abas existentes. |
 
 ### Parecer técnico (revisão 3)
 
@@ -576,6 +577,8 @@ Ordem recomendada:
 
 **Objetivo:** contas com vencimento, recorrência e parcelas reais; menos digitação.
 
+**Status:** implementada em 25/11/2026, no branch `melhorias-v3-2.8.0`; publicação pendente. Todos os itens 9.1 a 9.6 entraram. O "só depois" da 9.5 (`acumula` por categoria) continua fora.
+
 #### 9.1 Recorrências e vencimentos
 
 - [ ] Aba nova opcional `recorrencias`: `id | categoriaId | descricao | valor | dia | inicio | fim | ativa`, com `inicio` e `fim` como números aaaamm (202611; `fim` opcional), como as abas atuais guardam ano e mês; texto "2026-11" pode virar data no Sheets (não conferido numa planilha real; o mock só imita a conversão de números). Não adicionar colunas às abas existentes: a v1 e a v2 regravam só as colunas que conhecem (`escrever_`, `src/Codigo.gs:164–170`), e a coluna nova fica desalinhada quando um lançamento é apagado.
@@ -843,7 +846,7 @@ O dono delegou as decisões ("vou deixar você escolher as melhores decisões") 
 ### 15.2 Reversão
 
 - **Código:** cada versão publicada tem tag e Release (`v2.8.0`, `v2.8.1`, `v3.0.0`). Voltar é reimplantar no mesmo endereço o código da versão anterior: "Atualizar agora" (2.7.0) guarda uma cópia do projeto antes de trocar o código, e a versão anterior continua em **Gerenciar implantações**. O desenvolvimento segue no branch `melhorias-v3-2.8.0` (worktree `.claude/worktrees/v2.8.0`).
-- **Dados:** nenhuma versão deste plano acrescentou colunas. A 2.8.0 grava chaves `encerrada:` na aba `config`; a 2.8.1, `categoriaGuardar`; a 3.0.0, `fechado:AAAA-MM`. A versão anterior preserva as chaves que não conhece e as ignora (testes de compatibilidade com o código da 2.7.1, da 2.8.0 e da 2.8.1 em `testes/servidor.test.mjs`): depois de voltar, os números seguem a regra daquela versão. A 3.1.0 traz a primeira aba nova (`recorrencias`, seção 9.1), que as versões anteriores não leem nem regravam.
+- **Dados:** nenhuma versão deste plano acrescentou colunas. A 2.8.0 grava chaves `encerrada:` na aba `config`; a 2.8.1, `categoriaGuardar`; a 3.0.0, `fechado:AAAA-MM`. A versão anterior preserva as chaves que não conhece e as ignora (testes de compatibilidade com o código da 2.7.1, da 2.8.0 e da 2.8.1 em `testes/servidor.test.mjs`): depois de voltar, os números seguem a regra daquela versão. A 3.1.0 traz a primeira aba nova (`recorrencias`, seção 9.1), que as versões anteriores não leem nem regravam, e as chaves `pular:AAAA-MM:<id>` e `categoriaSobra` em `config`.
 - **Nunca** voltar para a v1: ela regrava todas as abas, inclusive a `config`.
 
 ## 16. Ordem de execução

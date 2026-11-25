@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.1.0 — 2026-11-25
+
+### Novo
+- **Contas e rendas que se repetem.** Na folha de cada categoria, o bloco **Todo mês** guarda o que se repete: descrição, valor, dia do vencimento, "Débito automático ou Pix Automático" (só em saídas), a partir de quando e até quando. O mês seguinte já nasce com o plano pronto, sem digitar. Se você grava um plano no mês, ele vale no lugar da recorrência, e **Apagar plano** volta ao valor que se repete.
+- **Vencimentos em "O que falta pagar".** Cada conta mostra "vence dia 10", "vence hoje" ou "atrasada desde dia 5", sempre em texto, e a lista vem ordenada por dia. Conta com débito automático mostra "sai sozinha dia 10". **Confirmar** lança no dia do vencimento, uma conta por vez.
+- **Não vem em {mês}.** Pula uma recorrência só naquele mês, com **Desfazer**. **Encerrar** põe fim a ela a partir do mês na tela.
+- **Mudar o valor de uma recorrência.** O app pergunta: **Só em {mês}** ou **De {mês} em diante**. Em "de agora em diante", a conta antiga termina no mês anterior e começa uma nova.
+- **Parcelar.** No **Novo lançamento** de um gasto, **Parcelar** divide a compra em 2 a 48 vezes, pelo total ou pelo valor de cada parcela. A primeira parcela cai, por padrão, no mês seguinte. A sobra de centavos vai para a primeira, e a soma das parcelas é sempre o total. O lançamento rápido entende "1200x10 geladeira" e abre o Novo já parcelado. Editar ou apagar uma parcela pergunta: **Só nesta** ou **Nesta e nas próximas**. Os meses futuros mostram o que já está lançado.
+- **Duplicar e repetir.** Na folha **Editar**: **Duplicar**, **Repetir no próximo mês** e **Repetir todo mês**, que vira uma recorrência. Todas têm **Desfazer**.
+- **Levar a sobra para o mês seguinte.** Ao fechar um mês com sobra, a caixa **Levar R$ X para {mês}** lança o valor como renda no dia 1 do mês seguinte, na categoria **Sobra do mês anterior**, que o app cria na primeira vez. O valor levado não conta como renda nos totais do ano, na meta de Guardar nem nas médias, para a mesma sobra não ser contada duas vezes.
+- **Importar extrato.** Em **Ajustes** e no **Extrato**, traz lançamentos de um arquivo **CSV** ou **OFX** do banco, até 2 MB e 2.000 linhas. No CSV, você escolhe as colunas de data, descrição e valor. **Fatura de cartão** inverte o sinal. A prévia sugere a categoria pelo seu histórico e mostra a situação de cada linha: nova, já importada, repetida no arquivo, parece repetida ou inválida. Só entra o que você marca, e há um **Desfazer** para o conjunto. O arquivo é lido no navegador e não sai do seu aparelho.
+- **Backup e CSVs.** Ajustes mostra "Último backup" (guardado só neste aparelho). O backup passa para a versão 3 completa, com recorrências, "não vem" e a categoria da sobra. Há dois CSVs: **CSV dos lançamentos** e **CSV da tabela de {ano}**. A prévia de importação mostra as recorrências do arquivo.
+
+### Mudou
+- **Mês futuro com lançamentos.** O herói diz quanto das saídas já está lançado (parcelas, por exemplo), e a composição fala em "Já lançado".
+- **Apagar uma categoria que tem recorrências** pede confirmação e leva as recorrências junto.
+- **O fechamento confirma as automáticas.** Quando há mais de uma conta de débito automático pendente, **Confirmar todas as automáticas (N)** lança todas de uma vez.
+
+### Dados
+- Nasce uma aba nova, `recorrencias`, **só quando você grava a primeira recorrência**. As outras abas não ganham colunas, e a `config` ganha as chaves `pular:AAAA-MM:<id>` e `categoriaSobra`. Quem volta para a 3.0 ou anterior perde de vista as recorrências, mas não perde nada: a aba e as chaves ficam guardadas. Um backup 3 importado numa versão anterior ignora o que ela não conhece.
+
 ## 3.0.0 — 2026-11-25
 
 ### Novo

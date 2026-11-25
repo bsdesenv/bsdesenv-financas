@@ -64,12 +64,61 @@ No **Novo lançamento**, o seletor de tipo tem **Gasto**, **Estorno** e **Renda*
 
 - Vários valores de uma vez, no painel da categoria: `217,93 176,15`.
 - Repetir um valor, com asterisco: `36*4` são quatro valores de 36.
-- A letra `x` não multiplica. `1200x10` é recusado, porque parece parcelamento.
+- A letra `x` não multiplica. No campo de valor, `1200x10` é recusado com a dica de usar **Parcelar** (veja a seção Parcelar). Na barra de lançamento rápido, `1200x10 geladeira` abre o **Novo lançamento** já parcelado.
 - A exceção é o teclado numérico do celular, no Novo lançamento: ali os dígitos entram nos centavos. `6430` vira **R$ 64,30**.
 
 **Valor fora do normal.** Se o valor for muito acima do habitual daquela categoria, o app pede confirmação antes de salvar. O botão vira **Confirmar R$ X**.
 
 Errou? Logo depois de salvar aparece **Desfazer** (veja a seção Avisos e Desfazer). Para corrigir depois, toque no lançamento no **Extrato**.
+
+## Parcelar
+
+No **Novo lançamento** de um gasto, toque em **Parcelar** e escolha:
+
+- **Em quantas vezes:** de 2 a 48.
+- **O valor é:** o **total** da compra (o padrão) ou o valor **de cada parcela**.
+- **Primeira parcela em:** por padrão, o mês seguinte ao da compra.
+
+A prévia mostra, por exemplo, "10× de R$ 120,00 (a primeira de R$ 120,05), de dez/2026 a set/2027". Quando o total não divide certo, a sobra de centavos vai para a primeira parcela, e a soma das parcelas é sempre o total.
+
+Cada parcela é um lançamento com a descrição "Geladeira (3/10)", no mesmo dia da compra (ou no último dia do mês, se ele não existir). Os meses futuros já mostram o que está lançado, e a sobra prevista de cada um desconta as parcelas.
+
+Um toque em **Desfazer** apaga o conjunto inteiro. Ao editar ou apagar uma parcela no **Extrato**, o app pergunta se a mudança vale **Só nesta** ou **Nesta e nas próximas (n)**. A data muda só na parcela aberta.
+
+## Duplicar e repetir
+
+Na folha **Editar** de um lançamento (toque nele no **Extrato**):
+
+- **Duplicar:** cria uma cópia. Num lançamento do mês atual, a cópia vai para hoje; nos outros, fica na mesma data.
+- **Repetir no próximo mês:** cria uma cópia no mês seguinte, no mesmo dia (ou no último dia do mês).
+- **Repetir todo mês:** abre o formulário de **Todo mês**, já preenchido com a categoria, a descrição, o valor e o dia desse lançamento (veja a seção seguinte).
+
+Todas têm **Desfazer**. Numa parcela, esses botões não aparecem.
+
+## O que se repete todo mês
+
+Aluguel, internet, salário: o que acontece todo mês pode ser cadastrado uma vez só. Abra a categoria (toque nela na tela **Mês** ou no **Início**) e use o bloco **Todo mês**.
+
+- **Nova conta que se repete** (em renda, **Nova renda que se repete**; em variáveis, **Novo gasto que se repete**): descrição, valor, **dia** do vencimento (opcional), **Débito automático ou Pix Automático** (só em saídas, opcional), **A partir de** e **Até** (opcional). O seletor não oferece meses que já passaram.
+- **Plano do mês:** sem plano gravado, o plano da categoria é a soma do que se repete nela. O mês seguinte já nasce pronto, sem digitar. Se você grava um plano naquele mês, **ele vale no lugar da recorrência**. **Apagar plano** volta ao valor que se repete. No **Planejar**, a categoria mostra "↻ todo mês" e o valor como dica do campo.
+- **Não vem em {mês}:** a conta não conta só naquele mês. Aparece "não vem em {mês}" e um **Desfazer**.
+- **Editar o valor:** se a conta já começou antes do mês na tela, o app pergunta **Só em {mês}** (grava o plano do mês) ou **De {mês} em diante** (a antiga termina no mês anterior e começa uma nova).
+- **Encerrar:** a conta termina no mês anterior ao da tela, sem mexer no passado. Se ela ainda nem tinha começado, é apagada. Tem **Desfazer**.
+- **Apagar a categoria** apaga também as recorrências dela, e o app avisa antes: toque em **Apagar mesmo**.
+
+**Vencimentos.** Em **O que falta pagar**, cada conta mostra a situação, em texto, e a lista vem ordenada por dia:
+
+| Texto | Quando |
+|---|---|
+| vence dia 10 | falta pagar, o dia ainda não chegou |
+| vence hoje | o dia é hoje |
+| atrasada desde dia 5 | o dia passou e falta pagar |
+| sai sozinha dia 10 | débito automático, antes do dia |
+| debitada dia 10? Confirme | débito automático, depois do dia (nunca vira "atrasada") |
+| recebe dia 5 | renda |
+| paga dia 10 | a conta já foi coberta por lançamentos |
+
+**Confirmar** lança o que falta no dia do vencimento (limitado ao mês), com a descrição da conta, uma conta por vez. **Desfazer** apaga todos os lançamentos criados. O app mostra lembretes só dentro da tela: não envia notificação nem e-mail.
 
 ## Avisos e Desfazer
 
@@ -97,9 +146,9 @@ O endereço do app acompanha o mês que você está vendo. Assim, dá para guard
 O Início responde, de cima para baixo, a perguntas sobre o mês:
 
 - **Disponível:** quanto ainda dá para gastar até o fim do mês. O número grande é o **Disponível**. Abaixo, a linha "Cerca de R$ ... por dia nos próximos N dias, além dos planos" mostra o valor por dia, arredondado. Toque em **Ver composição** para abrir a conta completa, com o botão **Ajustar planos**. A barra separa **Já saiu**, **Reservado** e **Disponível**, com valores e percentuais.
-- **O que falta pagar:** três grupos. **Contas** são as contas fixas que faltam neste mês. **Confirmar** lança o que falta, com a data de hoje, e **Quitar** aparece quando a conta já teve pagamento parcial. **Guardar** mostra o que falta da meta, com o botão **Guardar**. **A receber** são as rendas que ainda não chegaram: **Recebi** lança o que entrou, e **Não vem** tira o que não vai entrar. O total ao lado do título soma contas e Guardar.
+- **O que falta pagar:** três grupos. **Contas** são as contas fixas que faltam neste mês. **Confirmar** lança o que falta, no dia do vencimento quando a conta se repete todo mês (senão, hoje), e **Quitar** aparece quando a conta já teve pagamento parcial. Contas com dia mostram "vence dia 10", "vence hoje" ou "atrasada desde dia 5" (veja **O que se repete todo mês**). **Guardar** mostra o que falta da meta, com o botão **Guardar**. **A receber** são as rendas que ainda não chegaram: **Recebi** lança o que entrou, e **Não vem** tira o que não vai entrar. O total ao lado do título soma contas e Guardar.
 - **Plano do mês:** como você está nos planos. Em cima, o **ritmo** diz se o consumo está **No ritmo**, **Acima do ritmo** ou **Acima do plano**. Depois vem a **meta de economia**: o que já foi guardado e o campo **Meta de <mês>**. Digite a meta no campo; a palavra **salvo** aparece quando grava. **Usar sugestão** aparece quando há uma sugestão diferente da meta (80% da sua sobra de consumo dos últimos 3 meses fechados), e **Limpar meta** remove a meta do mês. Sem a categoria Guardar, o bloco oferece criá-la. Em seguida, as categorias variáveis, cada uma com gasto, plano e ritmo. No celular, aparecem só as primeiras; **Ver todas as categorias** leva à tela Mês. Os **avisos** mostram categorias que passaram do plano ou que estão gastando rápido demais. **Ver lançamentos** abre as contas que somaram a categoria. Se há gasto sem plano, o bloco mostra o valor e oferece **Planejar pela média**. No topo do bloco, **Ajustar planos** leva à tela Mês, e **Como funciona** explica os cálculos.
-- **Onde foi:** barras com as 6 maiores saídas do mês, com nome, valor e percentual, e **Demais categorias**. Guardar não entra. Toque numa barra para lançar ou ajustar o plano daquela categoria. Num mês que já passou, o título é **Para onde foi o dinheiro**. Num mês futuro, em vez dele aparece **Plano por categoria**, com o plano de cada uma.
+- **Onde foi:** barras com as 6 maiores saídas do mês, com nome, valor e percentual, e **Demais categorias**. Guardar não entra. Toque numa barra para lançar ou ajustar o plano daquela categoria. Num mês que já passou, o título é **Para onde foi o dinheiro**. Num mês futuro, em vez dele aparece **Plano por categoria**, com o plano de cada uma. Num mês futuro que já tem lançamentos (parcelas, por exemplo), o topo diz quanto das saídas já está lançado, e a composição mostra **Já lançado** no lugar de **Já saiu**.
 - **Últimos lançamentos:** os 6 mais recentes do mês. **Ver extrato** abre o Extrato.
 
 O link **Ver <ano> na Planilha** fecha a tela e leva ao ano inteiro.
@@ -150,13 +199,24 @@ Em **Fechar <mês>**, cada pendência pede uma resposta:
 
 O botão **Fechar <mês>** só libera quando não sobra nenhuma pendência. Ao fechar, o mês guarda a **sobra realizada**: o que entrou menos o que saiu. O aviso de fechamento oferece **Desfazer**. No Início, o mês aparece como **Mês fechado**, com esse valor.
 
+Se houver mais de uma conta de débito automático pendente, o botão **Confirmar todas as automáticas (N)** lança todas de uma vez.
+
+### Levar a sobra para o mês seguinte
+
+Quando a sobra realizada é positiva, a folha de fechamento mostra a caixa **Levar R$ X para {mês}**, já marcada. Ao fechar, o app:
+
+- cria a categoria de renda **Sobra do mês anterior**, na primeira vez (ela não pode ser apagada nem virar gasto);
+- lança o valor nela, no dia 1 do mês seguinte, com a descrição "Sobra de {mês}".
+
+Assim o dinheiro que sobrou entra na renda do mês seguinte e aumenta o disponível dele. A sobra levada **não conta como renda** nos totais do ano, no gráfico **Sobra mês a mês**, na meta de Guardar nem nas médias, para a mesma sobra não ser contada duas vezes. Fechar o mês de novo atualiza o mesmo lançamento. **Desfazer** apaga o lançamento.
+
 Depois de fechado, mudar um lançamento desse mês pede confirmação. Vale para editar, apagar ou lançar. O primeiro toque avisa que o mês está fechado. O segundo grava, e a sobra registrada é atualizada.
 
 Se a sobra mudar depois do fechamento, por exemplo porque outra pessoa ou outro aparelho alterou o mês, o Início mostra **Alterado depois do fechamento: a sobra era R$ ...**. O botão **Fechar de novo** grava a sobra nova.
 
 ### Extrato
 
-Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e filtros, como o filtro **Saídas**. Toque num lançamento para editar ou apagar.
+Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e filtros, como o filtro **Saídas**. Toque num lançamento para editar, duplicar ou apagar. O botão **Importar extrato** traz lançamentos de um arquivo do banco (veja **Importar extrato**).
 
 Com texto na busca, escolha entre **Neste mês** e **Em <ano>**, que procura no ano inteiro. A opção do ano já vem marcada.
 
@@ -167,6 +227,7 @@ Cada categoria com o que foi gasto, o plano e o ritmo. No topo, para o mês atua
 - **Copiar de** (nome do mês anterior): mostra duas opções. **Copiar o plano de <mês>** usa os planos do mês passado. **Copiar o lançado em <mês>** usa o que foi lançado nele; onde não houve lançamento, vale o plano. O aviso mostra quantas categorias e o total, e dá para **Desfazer**.
 - **Preencher com as médias:** grava como plano a média dos últimos 3 meses fechados de cada categoria com histórico, só com o que foi lançado. O botão mostra antes quantas categorias e o total, e pede um segundo toque: **Preencher 3 categorias (R$ 1.200,00)? Toque de novo**. Depois de gravar, o aviso oferece **Desfazer**.
 - **Repetir até dezembro:** no painel da categoria, digite o valor do plano e toque em **Repetir até dezembro**. O plano vale do mês que está na tela até dezembro. Se algum desses meses já tem um plano diferente, o primeiro toque só avisa, com "Substituir N planos? Toque de novo", e diz quais meses vão mudar. O segundo toque grava. Depois, o aviso oferece **Desfazer**.
+- **Contas que se repetem:** a categoria cujo plano vem de **Todo mês** mostra o campo vazio, com o valor como dica e a marca "↻ todo mês". Digitar grava o plano só daquele mês, e **Apagar plano** volta ao valor que se repete. **Copiar de**, **Preencher com as médias** e **Repetir até dezembro** avisam quantas categorias que se repetem passam a usar o valor copiado.
 - **Usar sugestão:** a média de cada categoria (só com o que foi lançado nos 3 meses fechados antes deste) aparece como **texto ao lado do campo**, com um botão **Usar sugestão**. O campo do plano fica vazio (placeholder `0,00`) até você digitar ou tocar em **Usar sugestão**. Digite como se escreve, por exemplo `1200` ou `12,00`. A sugestão **não entra nos totais** enquanto não virar plano.
 - **Limpar o mês:** apaga os planos deste mês. O primeiro toque mostra quantos planos saem e o total; o segundo toque apaga. Isso não cancela as despesas lançadas: elas só deixam de ser reservadas no disponível.
 - **Salvo:** quando você grava um plano, a palavra **salvo** aparece ao lado do campo por alguns segundos.
@@ -197,16 +258,40 @@ Em **Ajustes › Categorias**:
 - **Trocar o grupo:** entre **Fixos** e **Variáveis**, a troca é livre, e o aviso traz **Desfazer**.
 - **Renda e gasto:** uma categoria com lançamentos não muda entre renda e gasto. Isso inverteria o sinal do que já foi lançado. O app avisa e sugere criar outra categoria.
 - **Categoria de economia:** o botão de apagar fica desabilitado, e ela não pode virar renda.
+- **Sobra do mês anterior:** a categoria criada ao levar a sobra para o mês seguinte também não pode ser apagada nem deixar de ser renda.
 
 O navegador busca o ícone no GitHub. A fonte já vem com o app, então não há consulta ao Google Fonts. Se o aviso de versão estiver ligado, ele também consulta o arquivo de versões no GitHub ou no jsDelivr. O texto de Ajustes diz isso. Esses serviços veem o endereço IP de quem usa, mas nenhum dado da planilha é enviado.
+
+## Importar extrato
+
+Traz lançamentos de um arquivo do banco, sem digitar. Fica em **Ajustes** (ao lado de **Importar backup**) e no **Extrato**. O arquivo é lido no próprio navegador e não sai do seu aparelho.
+
+1. Escolha o arquivo: **OFX**, **QFX**, **CSV** ou **TXT**, até 2 MB. Passando de 2.000 linhas, só as primeiras são lidas, e o app avisa.
+2. No **CSV**, o app mostra as primeiras linhas e tenta adivinhar as colunas. Confira **data**, **descrição** e **valor**, e marque se a primeira linha é cabeçalho. Aceita `;`, vírgula e tabulação, datas como 25/11/2026 e valores como `1.234,56`.
+3. Marque **Fatura de cartão** se o arquivo é de um cartão: nele as compras vêm positivas, e o app inverte o sinal. No extrato de conta, o débito é negativo e vira gasto.
+4. Escolha a **categoria padrão** (uma para saídas, outra para rendas). Cada linha vem com a categoria sugerida pelo seu histórico, e dá para trocar.
+5. Revise a prévia e importe. Só entram as linhas marcadas.
+
+Cada linha mostra a situação:
+
+| Situação | O que acontece |
+|---|---|
+| nova | vem marcada |
+| parece repetida | já existe lançamento com a mesma data, valor e descrição; vem desmarcada, e você decide |
+| já importada | foi importada antes deste mesmo arquivo; fica de fora |
+| repetida no arquivo | o mesmo registro aparece duas vezes no arquivo; fica de fora |
+| inválida | sem data ou sem valor; fica de fora, com o motivo |
+
+Importar o mesmo arquivo duas vezes não duplica nada. Duas compras iguais no mesmo dia, com a mesma descrição, contam como duas. **Baixar backup antes** guarda uma cópia antes de gravar. Ao importar, **Desfazer** apaga todos os lançamentos do arquivo. Se alguma linha cai num mês já fechado, o app avisa e atualiza o fechamento.
 
 ## Seus dados e backup
 
 Tudo fica na planilha do seu Google Drive. O botão **Abrir a planilha** em Ajustes leva até ela.
 
-- **Baixar backup (JSON):** um arquivo com tudo, inclusive o tema escolhido e os encerramentos de categorias (formato 3). Vale fazer uma vez por mês e guardar no computador ou no Drive.
-- **Exportar lançamentos (CSV):** os lançamentos num arquivo que abre no Excel ou no Google Sheets. O botão fica em Ajustes e na Planilha.
-- **Importar backup:** traz de volta um arquivo baixado. Aceita os formatos 1, 2 e 3. Ao escolher o arquivo, o app mostra antes quantas categorias e quantos lançamentos vão entrar. Também mostra o que fica de fora e o motivo, por exemplo "dia inválido para o mês: 31" ou "categoria inexistente". Depois, pergunta se é para **juntar** com o que já existe ou **substituir tudo**. Ao substituir, o tema do arquivo é aplicado; ao juntar, o tema atual é mantido.
+- **Baixar backup (JSON):** um arquivo com tudo, inclusive o tema, os encerramentos de categorias, os meses fechados, as recorrências, os "não vem" e a categoria da sobra (formato 3). Vale fazer uma vez por mês e guardar no computador ou no Drive. Ajustes mostra "Último backup" com a data e a hora, guardadas só neste aparelho.
+- **CSV dos lançamentos:** todos os lançamentos, de todos os anos, num arquivo que abre no Excel ou no Google Sheets. O botão fica em Ajustes e na Planilha.
+- **CSV da tabela de {ano}:** a tabela do ano (categorias nas linhas, meses nas colunas, com os totais, saídas, renda e sobra). A sobra levada de um mês para o outro não entra na renda dessa tabela.
+- **Importar backup:** traz de volta um arquivo baixado. Aceita os formatos 1, 2 e 3. Ao escolher o arquivo, o app mostra antes quantas categorias e quantos lançamentos vão entrar. Mostra também as recorrências do arquivo e o que fica de fora, com o motivo, por exemplo "dia inválido para o mês: 31" ou "categoria inexistente". Depois, pergunta se é para **juntar** com o que já existe ou **substituir tudo**. Ao substituir, o tema do arquivo é aplicado; ao juntar, o tema atual é mantido.
 - **Substituir tudo** troca os dados atuais pelo conteúdo do arquivo. Por isso o botão mostra **Baixar backup agora**, e o botão **Substituir tudo** só libera depois que você digitar SUBSTITUIR.
 - No fim da importação, o aviso repete o que ficou de fora.
 - O próprio Google guarda versões antigas da planilha em **Arquivo › Histórico de versões**.

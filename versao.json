@@ -1,14 +1,14 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.0.0",
-  "ref": "v3.0.0",
+  "versao": "3.1.0",
+  "ref": "v3.1.0",
   "data": "2026-11-25",
   "novidades": [
-    "Início por perguntas",
-    "Fechar o mês",
-    "Escolher o mês num toque",
-    "Ver com dados de exemplo",
-    "Planejar com retorno"
+    "Contas e rendas que se repetem",
+    "Vencimentos em \"O que falta pagar\"",
+    "Não vem em {mês}",
+    "Mudar o valor de uma recorrência",
+    "Parcelar"
   ],
   "arquivos": [
     {
@@ -16,8 +16,8 @@
       "tipo": "SERVER_JS",
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
-      "bytes": 25009,
-      "sha256": "9c9b2e78335f7475345a5adf662bb4b10bb5486a909f9ce5d3e9dd0762f87a9a"
+      "bytes": 32662,
+      "sha256": "a22ba0ed5b8db967bf28df8fb27e3782ba2f92c6866d87cd45e56f972be597d3"
     },
     {
       "nome": "Index",
@@ -32,16 +32,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 152589,
-      "sha256": "c65c07cf983c0bb6334f35ff95b819726c7f0cd8e08fbffea0332b3fe4a156d3"
+      "bytes": 156831,
+      "sha256": "b9af9ed085a8bb7def99761f26693766be2f84dd775ec1b6d1ba83ffd3916988"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 205333,
-      "sha256": "87c598981a12cefd243804123dc05e9e7cfde5e8d0f4f9031a6706117ad6142c"
+      "bytes": 283823,
+      "sha256": "f86ccf05b105f396bdfe7a3a15835437769cdd9b2e7bcf07fce173a7dea54174"
     },
     {
       "nome": "appsscript",

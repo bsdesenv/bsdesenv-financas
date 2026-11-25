@@ -17,4 +17,11 @@ Entra aqui o termo que um recém-chegado entenderia errado, e principalmente **o
 | **revisão** | Número inteiro incrementado a cada sincronização; o app usa `estado()` para saber se precisa recarregar. |
 | **importar** | Operação que traz dados de outra planilha/cópia de segurança para dentro do app atual. |
 | **fechamento** | Ação de fechar um mês passado: as pendências aparecem uma a uma e a sobra realizada é guardada. |
+| **recorrência** | Conta ou renda que se repete todo mês, guardada na aba `recorrencias`: valor, dia, débito automático, início e fim. Não é o mesmo que o plano: sem plano gravado, o plano do mês é a soma delas. Na tela chama-se **Todo mês**. |
+| **Todo mês** | O bloco da folha da categoria que lista e edita as recorrências dela. |
+| **Não vem em {mês}** | Marca `pular:AAAA-MM:<id>` que tira uma recorrência de um único mês, sem apagá-la. Não é o mesmo que **Encerrar**, que dá fim à recorrência a partir de um mês. |
+| **parcela** | Lançamento de uma compra dividida em 2 a 48 vezes, com id `p{grupo}-{kk}` e descrição "base (k/n)". A soma é o total da compra. Cai no mês em que será paga, não no da compra. |
+| **transporte de sobra** | Lançamento de renda `sAAAAMM`, dia 1, que leva a sobra realizada de um mês ao seguinte, na categoria "Sobra do mês anterior" (`categoriaSobra`). Entra no disponível, mas não nos totais de renda do ano, na meta nem nas médias. |
+| **importar extrato** | Traz lançamentos de um CSV ou OFX do banco, lido no navegador, com prévia e Desfazer. Não é o mesmo que **importar** (backup JSON). |
+| **fatura de cartão** | Opção do importar extrato que inverte o sinal: no cartão as compras vêm positivas. |
 | **instalador** | Projeto Apps Script separado (`instalador/`) que cria a planilha, copia o código e publica o web app no Drive do usuário. |

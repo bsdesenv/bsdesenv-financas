@@ -40,6 +40,16 @@ Nos dados, aparece só uma linha nova por mês fechado, na aba `config` (`fechad
 
 **Voltar para a 2.8.1:** reimplante o código dela no mesmo endereço. Os dados continuam válidos.
 
+## Da 3.0 para a 3.1
+
+A 3.1 traz contas que se repetem todo mês, parcelas, o transporte da sobra e a importação de extrato. Nada muda para quem não usa essas telas.
+
+- **Aba nova, sozinha.** A aba `recorrencias` só aparece na planilha quando você grava a primeira conta que se repete. Você não precisa criá-la, e as outras abas não ganham colunas. Na `config` entram as linhas `pular:AAAA-MM:id` (uma conta que "não vem" num mês) e `categoriaSobra` (a categoria da sobra levada de um mês para o outro).
+- **Backup.** O arquivo passa a levar as recorrências e essas chaves. Um backup da 3.1 importado numa versão anterior perde o que ela não conhece, sem aviso: importe-o só na 3.1 ou mais nova.
+- **Importar extrato** é feito no navegador: o arquivo não vai para a planilha nem para fora do aparelho, e só os lançamentos que você marcar são gravados.
+
+**Voltar para a 3.0:** reimplante o código dela no mesmo endereço. A 3.0 não lê nem regrava a aba `recorrencias` e preserva as linhas novas da `config`: os dados continuam válidos, mas as contas que se repetem deixam de contar enquanto você estiver nela. As parcelas e a sobra levada continuam, porque são lançamentos comuns.
+
 ## Da 2.7 para a 2.8
 
 A 2.8.0 muda as contas do mês, não os dados. Nenhuma aba nem coluna nova.

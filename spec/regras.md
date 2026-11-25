@@ -43,7 +43,7 @@ O formato das abas (`lancamentos`, `categorias`, `orcamento`, `config`) é o mes
 
 **Por quê:** usuários têm anos de dados na planilha. Perder ou exigir reformatar é inaceitável.
 
-**Como fazer em vez disso:** novos campos entram como novas colunas ou novas chaves em `config`; código antigo ignora o que não entende. Se migração for inevitável, ela é feita pelo instalador, com backup.
+**Como fazer em vez disso:** novos campos entram como novas chaves em `config` ou como aba nova e opcional (como a `recorrencias`, criada só na primeira gravação); as abas existentes não ganham colunas, e código antigo ignora o que não entende. Se migração for inevitável, ela é feita pelo instalador, com backup.
 
 ---
 
@@ -100,3 +100,18 @@ Toda nova regra de bloqueio entra no `safety-net.sh` com fixture em `.claude/hoo
 **Por quê:** regra que não dispara é pior que regra ausente, porque parece cobertura. Fixture que só testa o que pega vira alarme falso.
 
 **Como fazer em vez disso:** escreva `reprova-*` e `passa-*` para cada nova régua; rode `sh spec/_fontes/verificar.test.sh` antes de declarar pronto.
+
+---
+
+## R-010 — Os números do plano seguem regras fixas
+
+Quatro regras do domínio não se negociam por tela ou conveniência:
+
+- **Plano efetivo.** O plano gravado no mês prevalece sobre a recorrência da categoria; sem plano gravado, vale a soma das recorrências ativas. Nunca os dois somados.
+- **Parcelas.** A soma das parcelas é exatamente o total da compra, em centavos inteiros; a sobra do arredondamento vai para a primeira.
+- **Sobra transportada.** O lançamento de sobra levada de um mês ao seguinte entra no disponível e na sobra daquele mês, mas fica fora dos totais de renda do ano, da meta de Guardar e das médias.
+- **Categoria da sobra.** É sempre de renda e não pode ser apagada nem virar gasto (`config.categoriaSobra`, validada no servidor).
+
+**Por quê:** contar a mesma renda ou o mesmo valor duas vezes faz o número principal mentir, e a pessoa decide com ele.
+
+**Como fazer em vez disso:** use `contasDoMes()` e `planoExp()`; para os totais do ano, use `resultado` e `rendaReal − transporte`. Nova conta que some ou duplica valor entra com teste em `testes/dominio.test.mjs`.

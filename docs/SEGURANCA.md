@@ -10,6 +10,7 @@ O Finanças é código aberto (MIT) e roda inteiro na sua conta Google. Esta pá
 - **Sem `ALLOWALL`.** Outros sites não conseguem embutir o app numa página.
 - **Validação no servidor.** Ids, mês, dia, valor, categoria e lote de operações são conferidos antes de qualquer gravação; texto que começaria com `=`, `+`, `-` ou `@` é gravado como texto para não virar fórmula.
 - **Texto escapado no navegador.** Tudo o que vem da planilha ou de arquivos públicos passa por escape antes de entrar no HTML.
+- **Extrato lido só no navegador.** O **Importar extrato** (CSV ou OFX, até 2 MB) lê o arquivo no próprio navegador, sem enviá-lo a nenhum serviço. Só os lançamentos que você marca vão para a planilha, pelo mesmo caminho validado dos demais, e as descrições passam por escape.
 
 ## Consulta de versão nova
 

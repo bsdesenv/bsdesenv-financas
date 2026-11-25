@@ -22,11 +22,13 @@ Não há papel gravado no banco nem autorização em camadas: a planilha pertenc
 | Módulo | O que faz | Entrada principal |
 |---|---|---|
 | Início | Responde, em ordem: quanto posso gastar, o que falta pagar, como estou nos planos e para onde foi o dinheiro | `src/Index.html` + `src/App.html` |
-| Lançar | Registra despesa, receita ou transferência com poucos toques | Tela de lançamento |
-| Extrato | Lista lançamentos, permite busca e filtros | Tela de extrato |
+| Lançar | Registra despesa, receita ou transferência com poucos toques; parcela uma compra em 2 a 48 vezes; duplica e repete lançamentos | Tela de lançamento |
+| Todo mês | Recorrências por categoria (conta ou renda com valor, dia e débito automático); viram o plano do mês e o vencimento em "O que falta pagar" | Folha da categoria |
+| Extrato | Lista lançamentos, permite busca e filtros; importa extrato de banco (CSV e OFX) no navegador | Tela de extrato |
 | Planilha | Mostra o ano em mapa de calor e os detalhes do mês selecionado | Aba do Google Sheets |
 | Planejar | Define valores planejados por categoria/mês, com "Copiar de" | Tela de planejamento |
-| Ajustes | Configura tema, atualização, versão e dados de exemplo | Tela de ajustes |
+| Ajustes | Configura tema, atualização, versão e dados de exemplo; backup (JSON v3), CSVs e importação | Tela de ajustes |
+| Fechamento | Fecha o mês passado, guarda a sobra realizada e pode levá-la como renda ao mês seguinte | Folha "Fechar {mês}" |
 
 ## Entidades e prefixos de coluna
 
@@ -35,9 +37,12 @@ Não há papel gravado no banco nem autorização em camadas: a planilha pertenc
 | Lançamento | `lancamentos` | — | `id`, `ano`, `mes`, `dia`, `categoriaId`, `descricao`, `valor` |
 | Categoria | `categorias` | — | `id`, `nome`, `grupo`, `ordem` |
 | Orçamento/Plano | `orcamento` | — | `ano`, `categoriaId`, `mes`, `valor` |
-| Configuração | `config` | — | `chave`, `valor` (inclui `revisao`, `atualizadoEm`, etc.) |
+| Configuração | `config` | — | `chave`, `valor` (inclui `revisao`, `atualizadoEm`, `categoriaGuardar`, `categoriaSobra`, e as marcas `encerrada:`, `fechado:` e `pular:`) |
+| Recorrência | `recorrencias` (opcional, nasce na primeira gravação) | — | `id`, `categoriaId`, `descricao`, `valor`, `dia`, `inicio`, `fim` (aaaamm), `ativa`, `automatico` |
 
 Não há convenção de FK por prefixo: as colunas são literais (`categoriaId` aponta para `categorias.id`).
+
+Parcela e transporte de sobra não têm aba: são lançamentos comuns com id de formato fixo (`p{grupo}-{kk}` nas parcelas, `sAAAAMM` na sobra levada, `x`+hash nos importados).
 
 ## Ambiente
 
@@ -45,7 +50,7 @@ Não há convenção de FK por prefixo: as colunas são literais (`categoriaId` 
 |---|---|
 | Frontend | HTML, CSS e JavaScript vanilla servidos pelo `HtmlService` do Apps Script |
 | Backend | Google Apps Script (runtime V8), `src/Codigo.gs` |
-| Banco | Google Sheets (`lancamentos`, `categorias`, `orcamento`, `config`) |
+| Banco | Google Sheets (`lancamentos`, `categorias`, `orcamento`, `config` e a opcional `recorrencias`) |
 | Deploy | Web App do Apps Script (`doGet`) |
 | Testes | Node.js 20+ com `node --test`, mocks da planilha em `testes/` |
 

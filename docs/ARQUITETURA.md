@@ -16,27 +16,34 @@
 
 ## Dados
 
-A planilha é a fonte da verdade. São quatro abas, no mesmo formato da versão 1:
+A planilha é a fonte da verdade. São cinco abas: as quatro da versão 1, no mesmo formato, e a `recorrencias`, opcional, que só nasce na primeira gravação (3.1.0):
 
 ```
 lancamentos  id | ano | mes | dia | categoriaId | descricao | valor
 categorias   id | nome | grupo (fixo|variavel|renda) | ordem
 orcamento    ano | categoriaId | mes | valor              ← o "plano"
 config       chave | valor   (nome, tema, revisao, atualizadoEm…)
+recorrencias id | categoriaId | descricao | valor | dia | inicio | fim | ativa | automatico   ← opcional
 ```
+
+`inicio` e `fim` são números aaaamm (202611), porque o texto "2026-11" viraria data no Sheets; `fim` e `dia` podem ficar vazios; `ativa` e `automatico` são 1 ou 0. Uma planilha sem a aba abre sem criá-la: `linhasOpcionais_()` lê com `getSheetByName`, e `gravarModelo_()` só cria a aba quando `m.sujo.recorrencias`. Está no mapa `CABECALHOS`, então editar a aba à mão também sobe a revisão (`onEdit`).
+
+Chaves da `config` além das básicas, todas preservadas pelas versões anteriores: `categoriaGuardar` (2.8.1), `encerrada:AAAA-MM:<categoriaId>` (2.8.0), `fechado:AAAA-MM` (3.0.0), `pular:AAAA-MM:<recId>` e `categoriaSobra` (3.1.0).
 
 O app recebe tudo agrupado por ano:
 
 ```js
 { revisao, nome, tema, planilha: { id, nome, url },
   categorias: [{ id, nome, grupo, ordem }],
+  recorrencias: [{ id, categoriaId, descricao, valor, dia, inicio, fim, ativa, automatico }],
+  marcas, fechados, categoriaGuardar, categoriaSobra,
   anos: { "2026": { lancamentos: [{ id, mes, dia, categoriaId, descricao, valor }],
                     orcamento: { mercado: { "11": 1200 } } } } }
 ```
 
-O backup em JSON (Ajustes › Baixar backup) usa esse mesmo formato e inclui o tema em `config: { tema }`. A importação aceita backups dos formatos 1, 2 e 3: no modo **substituir**, aplica o `config.tema` do arquivo se ele for válido; no modo **mesclar**, preserva o tema atual.
+O backup em JSON (Ajustes › Baixar backup, `exportarJSON()`) usa esse mesmo formato, versão 3, com `config: { tema, marcas, fechados, categoriaGuardar, categoriaSobra }` e `recorrencias` na raiz. O app guarda a data do último backup só no aparelho (`localStorage`, `ultimo-backup`). A importação aceita backups dos formatos 1, 2 e 3: no modo **substituir**, aplica o `config.tema` do arquivo se ele for válido e troca as recorrências e as marcas `pular:`; no modo **mesclar**, preserva o tema atual, insere ou substitui as recorrências pelo `id` e aceita `pular:` cuja recorrência exista. `categoriaSobra` segue a regra de `categoriaGuardar`, mas exige uma categoria de renda. Uma versão anterior à 3.1.0 que importe um backup 3 ignora o que não conhece, sem aviso: recorrências, marcas `pular:` e `categoriaSobra` se perdem.
 
-**Prévia e resumo.** Antes de gravar, o navegador mostra quantas categorias e lançamentos entram e o que fica de fora, com o motivo (até 5). A prévia (`previaImportacao()`) segue as mesmas regras do servidor. No modo substituir, o botão só libera depois de digitar SUBSTITUIR, e a folha oferece baixar um backup antes. O servidor aplica o `importar` em `importar_()`, que devolve `{ categorias: {aceitas, ignoradas}, lancamentos: {aceitos, ignorados}, planos: {aceitos, ignorados}, motivos }`, com até 5 motivos. Em `sincronizar`, esse resumo vem no campo `importacao`.
+**Prévia e resumo.** Antes de gravar, o navegador mostra quantas categorias e lançamentos entram e o que fica de fora, com o motivo (até 5). A prévia (`previaImportacao()`, que também conta as recorrências) segue as mesmas regras do servidor. No modo substituir, o botão só libera depois de digitar SUBSTITUIR, e a folha oferece baixar um backup antes. O servidor aplica o `importar` em `importar_()`, que devolve `{ categorias: {aceitas, ignoradas}, lancamentos: {aceitos, ignorados}, planos: {aceitos, ignorados}, recorrencias: {aceitas, ignoradas}, motivos }`, com até 5 motivos. Em `sincronizar`, esse resumo vem no campo `importacao`.
 
 ## Sincronização
 
@@ -45,7 +52,7 @@ O problema da versão 1: cada gravação mandava a base inteira, e o servidor re
 Na versão 2:
 
 1. **Operações, não a base.** Cada ação vira uma operação pequena:
-   `{t:'lanc', l:{…}}`, `{t:'lanc-', id}`, `{t:'cat', c:{…}}`, `{t:'cat-', id}`, `{t:'orc', ano, categoriaId, mes, valor}`, `{t:'cfg', k, v}` e `{t:'importar', dados, modo, confirmado:true}`.
+   `{t:'lanc', l:{…}}`, `{t:'lanc-', id}`, `{t:'cat', c:{…}}`, `{t:'cat-', id}`, `{t:'orc', ano, categoriaId, mes, valor}`, `{t:'rec', r:{…}}` (insere ou substitui pelo `id`), `{t:'rec-', id}` (apaga a recorrência e as marcas `pular:` dela), `{t:'cfg', k, v}` e `{t:'importar', dados, modo, confirmado:true}`.
 2. **O servidor aplica sobre o que está na planilha agora.** `sincronizar(revisao, ops)`, dentro de uma trava, lê as abas, aplica cada operação pelo `id`, grava só as abas que mudaram e aumenta a `revisao`.
 3. **Realinhamento.** Se a revisão do aparelho estava velha, ou se alguma operação foi recusada, a resposta traz a base completa. O app reaplica por cima dela o que ainda não tinha enviado.
 4. **Fila local.** As operações ficam numa fila guardada no aparelho até o servidor confirmar. Sem conexão, o app tenta de novo (2 s, 5 s, 10 s, 30 s, 60 s). Ao reabrir, reaplica e reenvia o que ficou.
@@ -166,7 +173,7 @@ Consequências, cobertas pelos testes de domínio:
 - estorno numa categoria com plano volta para o plano; sem plano, aumenta o disponível;
 - nenhum gasto positivo numa saída aumenta o disponível (teste de propriedade).
 
-**Encerrar no mês.** "Quitar" (conta fixa paga em parte), "Encerrar no mês" (variável) e "Não vem mais" (renda) gravam na aba `config` a marca `encerrada:AAAA-MM:<categoriaId>` com valor `1`. A falta daquela categoria naquele mês vira zero; o plano continua gravado. "Reabrir no mês" apaga a marca. O servidor valida a chave em `salvarCfg_` e devolve as marcas em `carregar()` (campo `marcas`); o backup as leva em `config.marcas` (formato 3). Versões anteriores preservam essas chaves ao regravar a `config`.
+**Encerrar no mês.** "Quitar" (conta fixa paga em parte), "Encerrar no mês" (variável) e "Não vem mais" (renda) gravam na aba `config` a marca `encerrada:AAAA-MM:<categoriaId>` com valor `1`. A falta daquela categoria naquele mês vira zero; o plano continua gravado. "Reabrir no mês" apaga a marca. O servidor valida a chave em `salvarCfg_` e devolve as marcas em `carregar()` (campo `marcas`); o backup as leva em `config.marcas` (formato 3). Versões anteriores preservam essas chaves ao regravar a `config`. A marca `pular:AAAA-MM:<recId>` (3.1.0) segue o mesmo tratamento: `salvarCfg_` valida a chave (`RE_PULAR`) e exige que a recorrência exista, e `carregar()` a devolve no mesmo campo `marcas`.
 
 **Por fase do mês:**
 
@@ -193,7 +200,36 @@ Um mês passado pode ser fechado. O fechamento é uma marca na aba `config`: a c
 - **Folha:** `abrirFechamento(ano, mes)` lista as pendências de `resumo().pendencias.itens`. Cada uma tem três ações: `feito` (lança o valor que falta, sem dia), `nao` (`encerrarCategoria`, que deixa de reservar o que faltava) e `depois` (só no estado da folha). O botão `fechar-mes` fica desabilitado enquanto há pendências. Quando não há nenhuma, grava `fechado:` com `sobraRealizada.toFixed(2)`. O aviso de fechamento oferece Desfazer, que volta ao valor anterior.
 - **Mudança em mês fechado:** `pedirConfirmacaoFechado(meses, estado)` faz o primeiro toque avisar e pede o segundo. O `estado` guarda a chave dos meses já avisados. Vale para editar, apagar e lançar pela Planilha. Depois da mudança, `atualizarFechamento(ano, mes)` regrava a marca com a sobra nova, se ela mudou. Os Desfazer dessas ações também chamam `atualizarFechamento`.
 - **Alterado depois:** se a `sobraRealizada` atual é diferente da marca, o herói mostra "Alterado depois do fechamento" e o link "Fechar de novo". Isso acontece quando outro aparelho ou a própria planilha muda o mês.
-- **Backup:** o backup gerado pelo app leva em `config` só `tema` e `marcas`. A importação aceita `config.fechados`, mas o backup ainda não o grava.
+- **Backup:** o backup gerado pelo app leva `config.fechados`, e a importação o aceita.
+
+## Recorrências, parcelas e transporte de sobra
+
+Tudo no domínio puro (`<dominio>` de `src/App.html`), testado em `testes/dominio.test.mjs`.
+
+**Recorrências (3.1.0).**
+
+- `recorrenciasDoMes(recs, ano, mes, pulada)` devolve, por categoria, `{ cent, itens }`. Entra a recorrência com `ativa`, `inicio <= aaaamm` e `fim` vazio ou `>= aaaamm`; o `dia` é limitado ao último dia do mês; o item pulado aparece, mas não soma.
+- **Plano efetivo.** `contasDoMes` recebe `p.recorrentes`. Em cada categoria vale o plano gravado no mês; sem ele, a soma das recorrências. Nada é gravado em massa, e nada é contado duas vezes. `porCat[].v.recorrente` marca o plano que veio delas. No app, `planoGravado()` lê só o `orcamento`, `planoExp()` devolve o plano efetivo, `pulada()` lê a marca e `recorrentesDoMes()` memoriza o Map por mês em `M()`.
+- `situacaoContas(itens, realCent, hojeDia)` reparte o lançado entre as contas não puladas, na ordem do dia, e devolve `pago`, `restante`, `atrasada` (dia passou, falta pagar e não é automática) e `venceHoje`. Débito automático nunca fica atrasado.
+- `aplicarOp` trata `rec` e `rec-` (este também limpa `pular:` em `d.marcas`). `abrirRecorrencia()`, `encerrarRec()` e `pularRec()` montam o bloco "Todo mês" da folha da categoria. `confirmarPrevisto()` e `lancarPrevisto()` lançam, no dia do vencimento, o `restante` de cada conta. O fechamento oferece `todas-auto`.
+- No servidor, `validarRec_`, `salvarRec_` e `apagarRec_` validam e aplicam as operações. `apagarCat_` apaga também as recorrências da categoria e as marcas `pular:` delas.
+
+**Parcelas.** `dividirParcelas(totalCent, n)` devolve `n` inteiros (2 a 48) que somam `totalCent`; a sobra do arredondamento vai para a primeira. `planoParcelas()` monta a prévia e as operações. Cada parcela é um `lanc` comum, com id `p{10 base36}-{kk}` (o mesmo prefixo liga as irmãs, mesmo entre anos) e descrição "base (k/n)". Como o id passa por `RE_ID`, o servidor não conhece o conceito: não há coluna nem aba. `registrarLote()` grava todas com um só Desfazer. `lerVezes()` e `pareceVezes()` reconhecem "1200x10". `proximasParcelas(id)` alimenta "Só nesta" e "Nesta e nas próximas". `copiarLancamento()` serve a Duplicar e a Repetir no próximo mês.
+
+**Transporte de sobra.** `levarSobra()` e `planoSobra()`, no fechamento. A categoria da sobra é uma categoria de renda técnica ("Sobra do mês anterior") guardada em `config.categoriaSobra`. O lançamento tem id determinístico `sAAAAMM` (do mês de origem), cai no dia 1 do mês seguinte, e fechar de novo atualiza o mesmo id. `salvarCat_` recusa tirá-la de renda, e `apagarCat_` recusa apagá-la. Em `contasDoMes`, `p.sid` separa o valor transportado: a saída ganha `transporte` e `resultado = sobraRealizada − transporte`. O disponível e a sobra do mês incluem o transporte, porque o dinheiro veio junto. Os totais do ano (gráfico, rodapé da Planilha, CSV da tabela), a média, o melhor e o pior mês, `sugestaoMeta()` e `media3()` usam `resultado` e `rendaReal − transporte`.
+
+## Importar extrato
+
+Folha `abrirImportarExtrato()`, aberta em Ajustes e no Extrato. O arquivo nunca sai do navegador. Limites: 2 MB (`LIMITE_EXTRATO`) e 2.000 linhas (`MAX_LINHAS_EXTRATO`). A decodificação usa `decodificarTexto()`: UTF-8 estrito e, se falhar, windows-1252 (também quando o OFX declara `CHARSET:1252`).
+
+- **Leitura:** `lerOFX()` (SGML e XML), `lerCSV()` (separador `;`, `,` ou tabulação detectado pela consistência das colunas, aspas e BOM), `adivinharColunasCSV()` e `extratoDeCSV()`. `lerDataBr()` e `lerValorBr()` leem os formatos brasileiros e os de fora ("1.234,56", "1,234.56", "(1.234,56)", sufixo D/C).
+- **Sinal:** no extrato, débito é negativo. `valorDoExtrato()` grava gasto positivo para débito e estorno para crédito em categoria de gasto; em renda, o sinal fica. `inverterSinal()` serve à opção "Fatura de cartão".
+- **Duplicados sem coluna nova.** O id do lançamento é `x` + dois `hash53` (cyrb53, base36) da conta e da chave: `idImportado(conta, chave)`. A chave é o `FITID`, quando existe; senão, `AAAA-MM-DD|centavos|descNormalizada|ocorrencia`, em que `ocorrencia` conta as linhas iguais do próprio arquivo. `classificarExtrato()` devolve a situação: `nova`, `ja-importada` (já existe o id), `duplicada-arquivo`, `possivel-duplicada` (mesma data, valor e descrição de um lançamento existente, contando ocorrências; vem desmarcada) ou `invalida`. `sugerirCategoria()` usa o histórico.
+- **Gravação:** uma operação `lanc` por linha, em lotes pela fila normal (`registrarLote()`), com um só Desfazer. Descrição com `esc` na tela; o servidor já protege fórmulas. Linha em mês fechado chama `atualizarFechamento`.
+
+## CSV
+
+`exportarCSV()` escreve com `;`, BOM e vírgula decimal. `textoCSV()` protege texto que começa com `=`, `+`, `-` ou `@`. `linhasTabelaAno(ano)` monta a tabela (categorias × meses, com saídas, renda e sobra sem o transporte). Os botões são "CSV dos lançamentos" e "CSV da tabela de {ano}".
 
 ## Navegação e links
 
@@ -224,7 +260,7 @@ Com `S.exemplo` definido:
 
 - `@OnlyCurrentDoc`: o script só enxerga a planilha onde está instalado.
 - Sem `ALLOWALL`: outros sites não conseguem embutir o app.
-- Validação no servidor: ids no padrão `[A-Za-z0-9_-]`, mês 1–12, dia válido para o mês (`diasNoMes_()` recusa 31/02, por exemplo), valor finito e diferente de zero, categoria existente, troca de grupo recusada quando a categoria tem lançamentos e muda entre renda e gasto (`salvarCat_`), lote de até 500 operações.
+- Validação no servidor: ids no padrão `[A-Za-z0-9_-]`, mês 1–12, dia válido para o mês (`diasNoMes_()` recusa 31/02, por exemplo), valor finito e diferente de zero, categoria existente, troca de grupo recusada quando a categoria tem lançamentos e muda entre renda e gasto (`salvarCat_`), lote de até 500 operações; recorrência com valor, dia, `inicio` e `fim` válidos e categoria existente; categoria da sobra sempre de renda.
 - Texto que começa com `=`, `+`, `-` ou `@` recebe um apóstrofo antes de ir para a planilha, para não virar fórmula.
 - No navegador, todo texto vindo dos dados é escapado antes de entrar no HTML.
 - A consulta de versão é feita pelo navegador (leitura pública, sem dados da planilha); o GitHub vê o IP. O instalador é opcional e tem escopos próprios, descritos em [SEGURANCA.md](SEGURANCA.md).
@@ -232,9 +268,10 @@ Com `S.exemplo` definido:
 ## Testes
 
 - `testes/gas-mock.mjs` imita `SpreadsheetApp`, `LockService` e `HtmlService`, inclusive o que a planilha faz com texto que parece número ou fórmula. O `Codigo.gs` de verdade roda dentro do Node.
-- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema e as marcas), data inválida, `onEdit` a página, as marcas `encerrada:` e os fechamentos `fechado:` na `config`, e a compatibilidade com o `Codigo.gs` da versão anterior.
-- `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões.
-- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado). Cobre também os recursos da 2.8.0 (quitar, encerrar no mês, não vem mais, estorno, lançamento rápido em outro mês, `1200x10`, valor fora do normal, aviso único) e da 2.8.1 (avisos fora da folha, repetir até dezembro com confirmação, proteção de grupo e de Guardar, importação com prévia, Desfazer em pilha e acessibilidade).
+- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema, as marcas e as recorrências), data inválida, `onEdit` a página, as marcas `encerrada:`, `pular:` e os fechamentos `fechado:` na `config`, a aba `recorrencias` (que não é criada ao ler e nasce na primeira gravação), `categoriaSobra` e a compatibilidade com o `Codigo.gs` da versão anterior.
+- `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões; da 3.1.0, as recorrências e o plano efetivo, os vencimentos, a divisão de parcelas, o transporte de sobra e a leitura de extrato (CSV, OFX, datas, valores, ids e duplicados).
+- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado). Cobre também os recursos da 2.8.0 (quitar, encerrar no mês, não vem mais, estorno, lançamento rápido em outro mês, `1200x10`, valor fora do normal, aviso único) e da 2.8.1 (avisos fora da folha, repetir até dezembro com confirmação, proteção de grupo e de Guardar, importação com prévia, Desfazer em pilha e acessibilidade). Os cenários da 3.1.0 cobrem recorrências e vencimentos, parcelas, duplicar e repetir, transporte de sobra, importação de extrato (CSV e OFX) e o backup com CSVs.
+- Para rodar o e2e é preciso o `puppeteer` (`npm i -D puppeteer`, ou `PUPPETEER_MODULE` com o caminho do módulo) e um Chrome, indicado por `CHROME_PATH`. `node testes/e2e.mjs` roda os cenários; `--prints` também regrava os prints de `docs/img/`; `E2E_SO="3.1.0"` roda só os cenários com esse texto no nome.
 - `testes/versao.test.mjs` confere o `versao.json` contra o `package.json`, o `VERSAO_APP`, o changelog e os hashes dos arquivos.
 - `testes/instalador.test.mjs` roda o `instalador/Codigo.gs` num `vm` com as APIs do Google e do GitHub simuladas: canal, hashes, instalação e atualização (cópia de segurança, arquivo `Código` removido, extras mantidos, só a implantação pedida).
 - `npm run versao -- --conferir` falha se o `versao.json` estiver desatualizado; o workflow de publicação roda os testes antes de criar a tag.

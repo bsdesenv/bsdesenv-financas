@@ -548,3 +548,217 @@ test('compatibilidade: o servidor da 2.8.0 preserva categoriaGuardar ao gravar o
   assert.equal(chaves.categoriaGuardar, 'mercado');
   assert.equal(chaves.nome, 'Casa');
 });
+
+const rec = (id, extra = {}) => ({ t: 'rec', r: { id, categoriaId: 'mercado', descricao: 'Internet', valor: 99.9, dia: 10, inicio: 202601, fim: null, ativa: 1, automatico: 0, ...extra } });
+const cabecalhoRec = ['id', 'categoriaId', 'descricao', 'valor', 'dia', 'inicio', 'fim', 'ativa', 'automatico'];
+
+test('recorrências: planilha sem a aba abre sem criá-la', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const d = JSON.parse(ctx.carregar());
+  assert.deepEqual(d.recorrencias, []);
+  assert.equal(d.categoriaSobra, '');
+  assert.ok(!planilha.abas.has('recorrencias'), 'a aba só nasce na primeira gravação');
+});
+
+test('recorrências: a primeira gravação cria a aba com cabeçalho e grava número em início e fim', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [rec('internet')]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(planilha.abas.get('recorrencias').dados[0], cabecalhoRec);
+  assert.deepEqual(planilha.ler('recorrencias')[0], ['internet', 'mercado', 'Internet', 99.9, 10, 202601, '', 1, 0]);
+  assert.deepEqual(JSON.parse(ctx.carregar()).recorrencias, [
+    { id: 'internet', categoriaId: 'mercado', descricao: 'Internet', valor: 99.9, dia: 10, inicio: 202601, fim: null, ativa: true, automatico: false },
+  ]);
+});
+
+test('recorrências: validações recusam o que não cabe no formato', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    rec('v1', { valor: 0 }),
+    rec('v2', { valor: -5 }),
+    rec('v3', { valor: 1e9 }),
+    rec('v4', { dia: 0 }),
+    rec('v5', { dia: 32 }),
+    rec('v6', { inicio: 202613 }),
+    rec('v7', { inicio: 189912 }),
+    rec('v8', { inicio: '' }),
+    rec('v9', { inicio: 202611, fim: 202610 }),
+    rec('v10', { categoriaId: 'nao-existe' }),
+    rec('<x>'),
+    rec('v12', { fim: 220101 }),
+  ]);
+  assert.equal(r.aplicadas, 0);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.match(r.rejeitadas[0].motivo, /valor inválido/);
+  assert.match(r.rejeitadas[3].motivo, /dia inválido/);
+  assert.match(r.rejeitadas[6].motivo, /início inválido/);
+  assert.match(r.rejeitadas[8].motivo, /fim anterior ao início/);
+  assert.match(r.rejeitadas[9].motivo, /categoria inexistente/);
+  assert.match(r.rejeitadas[10].motivo, /id de recorrência inválido/);
+  assert.ok(!planilha.abas.has('recorrencias'), 'nada gravado, a aba não nasce');
+});
+
+test('recorrências: descrição corta em 300, vazios viram null, ativa e automático têm padrão e aceitam true/false', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    { t: 'rec', r: { id: 'd1', categoriaId: 'mercado', descricao: '  ' + 'a'.repeat(400), valor: 10, dia: '', inicio: 202601, fim: '' } },
+    { t: 'rec', r: { id: 'd2', categoriaId: 'mercado', descricao: '=SOMA(1)', valor: 10, inicio: 202601, ativa: false, automatico: true } },
+  ]);
+  assert.equal(r.aplicadas, 2);
+  const [d1, d2] = JSON.parse(ctx.carregar()).recorrencias;
+  assert.equal(d1.descricao.length, 300);
+  assert.equal(d1.dia, null);
+  assert.equal(d1.fim, null);
+  assert.equal(d1.ativa, true);
+  assert.equal(d1.automatico, false);
+  assert.equal(d2.descricao, '=SOMA(1)', 'texto que parece fórmula fica como texto');
+  assert.equal(d2.ativa, false);
+  assert.equal(d2.automatico, true);
+  assert.equal(planilha.ler('recorrencias')[1][2], '=SOMA(1)');
+  assert.ok(!String(planilha.ler('recorrencias')[1][2]).startsWith('#FORMULA#'));
+  assert.deepEqual(planilha.ler('recorrencias')[1].slice(7), [0, 1], 'ativa e automático gravados como 1/0');
+});
+
+test('recorrências: rec- apaga a recorrência e as marcas pular dela; pular exige recorrência', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const k = 'pular:2026-11:internet';
+  let r = sinc(ctx, 0, [{ t: 'cfg', k, v: '1' }, { t: 'cfg', k: 'pular:2026-13:internet', v: '1' }, { t: 'cfg', k, v: 'talvez' }]);
+  assert.equal(r.aplicadas, 0);
+  assert.match(r.rejeitadas[0].motivo, /recorrência inexistente: internet/);
+  assert.match(r.rejeitadas[1].motivo, /marca inválida/);
+  assert.match(r.rejeitadas[2].motivo, /valor de marca inválido/);
+
+  r = sinc(ctx, 0, [rec('internet'), { t: 'cfg', k, v: '1' }]);
+  assert.equal(r.aplicadas, 2);
+  assert.deepEqual(marcasDe(ctx), { [k]: '1' });
+
+  r = sinc(ctx, r.revisao, [{ t: 'rec-', id: 'internet' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(marcasDe(ctx), {}, 'a marca foi junto');
+  assert.ok(!planilha.ler('config').some((l) => String(l[0]).startsWith('pular:')));
+  assert.equal(planilha.ler('recorrencias').length, 0);
+  assert.deepEqual(JSON.parse(ctx.carregar()).recorrencias, []);
+});
+
+test('recorrências: pular sem a recorrência sai da lista de marcas ao carregar; desmarcar com vazio apaga', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const k = 'pular:2026-11:internet';
+  sinc(ctx, 0, [rec('internet'), { t: 'cfg', k, v: '1' }]);
+  planilha.abas.get('recorrencias').dados.length = 0;
+  planilha.abas.get('recorrencias').dados.push(cabecalhoRec);
+  assert.deepEqual(marcasDe(ctx), {}, 'marca órfã não aparece');
+  const r = sinc(ctx, 2, [{ t: 'cfg', k, v: '' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.ok(!planilha.ler('config').some((l) => l[0] === k));
+});
+
+test('recorrências: apagar categoria leva junto as recorrências dela e as marcas pular', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r0 = sinc(ctx, 0, [
+    { t: 'cat', c: { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 9 } },
+    rec('streaming', { categoriaId: 'lazer', descricao: 'Streaming', valor: 40 }),
+    rec('internet'),
+    { t: 'cfg', k: 'pular:2026-11:streaming', v: '1' },
+    { t: 'cfg', k: 'pular:2026-11:internet', v: '1' },
+  ]);
+  assert.equal(r0.aplicadas, 5);
+  const r = sinc(ctx, r0.revisao, [{ t: 'cat-', id: 'lazer' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(JSON.parse(ctx.carregar()).recorrencias.map((x) => x.id), ['internet']);
+  assert.deepEqual(marcasDe(ctx), { 'pular:2026-11:internet': '1' });
+  assert.deepEqual(planilha.ler('recorrencias').map((l) => l[0]), ['internet']);
+});
+
+test('categoriaSobra: só renda; salvarCat_ e apagarCat_ protegem a categoria', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  let r = sinc(ctx, 0, [
+    { t: 'cfg', k: 'categoriaSobra', v: 'mercado' },
+    { t: 'cfg', k: 'categoriaSobra', v: 'fantasma' },
+    { t: 'cfg', k: 'categoriaSobra', v: 'salario' },
+  ]);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1]);
+  assert.match(r.rejeitadas[0].motivo, /categoria da sobra inválida: mercado/);
+  assert.equal(JSON.parse(ctx.carregar()).categoriaSobra, 'salario');
+  assert.equal(cfgDe(planilha).categoriaSobra, 'salario');
+
+  r = sinc(ctx, r.revisao, [
+    { t: 'cat', c: { id: 'salario', nome: 'Salário', grupo: 'variavel', ordem: 3 } },
+    { t: 'cat-', id: 'salario' },
+  ]);
+  assert.equal(r.rejeitadas.length, 2);
+  assert.match(r.rejeitadas[0].motivo, /precisa ser de renda/);
+  assert.match(r.rejeitadas[1].motivo, /sobra transportada não pode ser apagada/);
+
+  r = sinc(ctx, r.revisao, [{ t: 'cfg', k: 'categoriaSobra', v: '' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.equal(JSON.parse(ctx.carregar()).categoriaSobra, '');
+  assert.equal(cfgDe(planilha).categoriaSobra, undefined);
+});
+
+test('importar backup 3: recorrências, marcas pular e categoriaSobra em substituir e mesclar', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const base = {
+    versao: 3,
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }, { id: 'pago', nome: 'Pago', grupo: 'renda', ordem: 2 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  const recsBackup = [
+    { id: 'internet', categoriaId: 'mercado', descricao: 'Internet', valor: 99.9, dia: 10, inicio: 202601, fim: null, ativa: true, automatico: false },
+    { id: 'pro-labore', categoriaId: 'pago', descricao: 'Pró-labore', valor: 500, dia: null, inicio: 202601, fim: 202612, ativa: true, automatico: true },
+    { id: 'ruim', categoriaId: 'fantasma', valor: 1, inicio: 202601 },
+    { id: 'ruim-fim', categoriaId: 'mercado', valor: 1, inicio: 202605, fim: 202601 },
+  ];
+  const marcasBackup = { 'pular:2026-11:internet': '1', 'pular:2026-11:ruim': '1', 'pular:2026-11:fantasma': '1' };
+
+  let r = sinc(ctx, 0, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: { ...base, recorrencias: recsBackup, config: { categoriaSobra: 'pago', marcas: marcasBackup } } }]);
+  let d = JSON.parse(r.dados);
+  assert.deepEqual(d.recorrencias.map((x) => x.id), ['internet', 'pro-labore']);
+  assert.equal(d.recorrencias[1].automatico, true);
+  assert.equal(d.recorrencias[1].dia, null);
+  assert.equal(d.categoriaSobra, 'pago');
+  assert.deepEqual(d.marcas, { 'pular:2026-11:internet': '1' }, 'marca de recorrência inexistente fica de fora');
+  assert.equal(r.importacao.recorrencias.aceitas, 2);
+  assert.equal(r.importacao.recorrencias.ignoradas, 2);
+  assert.ok(r.importacao.motivos.some((t) => /^recorrência ruim: categoria inexistente: fantasma/.test(t)));
+  assert.ok(r.importacao.motivos.some((t) => /^recorrência ruim-fim: fim anterior ao início/.test(t)));
+
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: { ...base, recorrencias: [
+    { id: 'internet', categoriaId: 'mercado', descricao: 'Internet nova', valor: 120, inicio: 202601 },
+    { id: 'luz', categoriaId: 'mercado', descricao: 'Luz', valor: 80, inicio: 202602 },
+  ], config: { categoriaSobra: 'salario', marcas: { 'pular:2026-11:luz': '1' } } } }]);
+  d = JSON.parse(r.dados);
+  assert.deepEqual(d.recorrencias.map((x) => x.id), ['internet', 'pro-labore', 'luz'], 'mesclar substitui pelo id e acrescenta');
+  assert.equal(d.recorrencias[0].descricao, 'Internet nova');
+  assert.equal(d.categoriaSobra, 'pago', 'mesclar não troca a sobra que já existe');
+  assert.deepEqual(d.marcas, { 'pular:2026-11:internet': '1', 'pular:2026-11:luz': '1' });
+
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: base }]);
+  d = JSON.parse(r.dados);
+  assert.deepEqual(d.recorrencias, [], 'backup sem recorrências no substituir zera as atuais');
+  assert.deepEqual(d.marcas, {});
+  assert.equal(d.categoriaSobra, 'pago', 'sem a chave no arquivo, a sobra que ainda é renda fica');
+  assert.equal(planilha.ler('recorrencias').length, 0);
+});
+
+test('recorrências: edição à mão na aba aumenta a revisão', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  sinc(ctx, 0, [rec('internet')]);
+  const rev = ctx.estado().revisao;
+  ctx.onEdit({ range: planilha.ss.getSheetByName('recorrencias').getRange(2, 4) });
+  assert.equal(ctx.estado().revisao, rev + 1);
+});
+
+test('compatibilidade: o servidor da 3.0.0 preserva a aba de recorrências e as chaves novas', () => {
+  const antigo = execFileSync('git', ['show', 'v3.0.0:src/Codigo.gs'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+  const abas = planilhaV1();
+  abas.config.push(['pular:2026-11:internet', '1'], ['categoriaSobra', 'salario']);
+  abas.recorrencias = [cabecalhoRec, ['internet', 'mercado', 'Internet', 99.9, 10, 202601, '', 1, 0]];
+  const { ctx, planilha } = criarServidor(abas, { codigo: antigo });
+  const r = sinc(ctx, 0, [{ t: 'cfg', k: 'nome', v: 'Casa' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(planilha.ler('recorrencias')[0], ['internet', 'mercado', 'Internet', 99.9, 10, 202601, '', 1, 0]);
+  const chaves = cfgDe(planilha);
+  assert.equal(chaves['pular:2026-11:internet'], 1);
+  assert.equal(chaves.categoriaSobra, 'salario');
+  assert.equal(chaves.nome, 'Casa');
+});

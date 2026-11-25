@@ -32,6 +32,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const normal = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const novoId = () => 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const novoGrupoParcela = () => 'p' + (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + '0000000000').slice(0, 10);
 const diasNoMes = (a, m) => new Date(a, m, 0).getDate();
 const chaveMes = (a, m) => a * 12 + (m - 1);
 const deChave = (k) => ({ ano: Math.floor(k / 12), mes: (k % 12) + 1 });
@@ -105,10 +106,12 @@ function indexarAno(bloco) {
  *   disponível  = renda − já saiu − contas a pagar (fixos) − falta guardar − ainda nos planos (variáveis)
  * Assim gastar dentro do plano não mexe no disponível, gastar fora dele reduz na mesma medida,
  * e receber parte de uma renda prevista não derruba o número.
- *   p = { cats, idx, ano, mes, hoje, gid, encerrada(cid) }
+ *   p = { cats, idx, ano, mes, hoje, gid, encerrada(cid), recorrentes (Map de recorrenciasDoMes), sid }
+ * Plano do mês: o gravado vale; sem gravado, o das recorrências do mês (quando houver).
  */
 function contasDoMes(p) {
   const { cats, idx, ano, mes, gid } = p;
+  const recMap = p.recorrentes || new Map(); const sid = p.sid;
   const h = p.hoje; const enc = p.encerrada || (() => false);
   const f = faseDe(ano, mes, h);
   const t = {
@@ -121,7 +124,9 @@ function contasDoMes(p) {
   for (const c of cats) {
     const cel = idx.cel.get(c.id + '|' + mes) || VAZIA;
     const o = idx.orc[c.id];
-    const planoC = o ? Math.max(0, centavos(o[mes])) : 0;
+    const gravado = Boolean(o) && o[mes] !== undefined && o[mes] !== null && o[mes] !== '';
+    const rec = gravado ? undefined : recMap.get(c.id);
+    const planoC = gravado ? Math.max(0, centavos(o[mes])) : rec ? Math.max(0, rec.cent) : 0;
     const realC = cel.cent;
     const encerrada = Boolean(planoC && enc(c.id));
     let faltaC = planoC > 0 && !encerrada ? Math.max(0, planoC - realC) : 0;
@@ -156,12 +161,14 @@ function contasDoMes(p) {
       v: {
         valor: (cel.qtd ? realC : planoC) / 100, real: realC / 100, qtd: cel.qtd, plano: planoC / 100,
         tipo: cel.qtd ? 'real' : planoC ? 'previsto' : 'vazio', fase: f, falta: faltaC / 100, encerrada,
+        ...(rec ? { recorrente: true } : {}),
       },
     });
   }
   const R = (cent) => cent / 100;
   const reservado = t.contasAPagar + t.faltaGuardar + t.nosPlanos;
   const disponivel = t.recebida + t.aReceber - t.jaSaiu - reservado;
+  const transporteC = sid ? (idx.cel.get(sid + '|' + mes) || VAZIA).cent : 0;
   const dias = diasNoMes(ano, mes);
   const restantes = f === 'atual' ? dias - h.dia + 1 : 0;
   const pendSaidas = pend.filter((x) => !x.renda).reduce((a, x) => a + x.cent, 0);
@@ -180,6 +187,7 @@ function contasDoMes(p) {
     // Regra até a 2.7: o lançado substitui o plano no primeiro lançamento. Só para o aviso "O que mudou".
     legado: { disponivel: R(t.legRenda - t.legSaidas) },
     rendaReal: R(t.recebida), gastoReal: R(t.jaSaiu), sobraReal: R(t.recebida - t.jaSaiu),
+    transporte: R(transporteC), resultado: R(t.recebida - t.jaSaiu - transporteC),
   };
 }
 
@@ -194,6 +202,402 @@ function mediaRealizada(p) {
   let cent = 0; let n = 0;
   for (let k = fim; k >= ini; k--) { const d = deChave(k); cent += centavos(p.somaDe(d.ano, d.mes)); n++; }
   return n ? Math.round(cent / n) / 100 : 0;
+}
+
+/* ---------------------------------------------------------------------
+   3.1.0: recorrências, parcelas, situação das contas e leitura de extrato.
+   Só cálculo: não toca no DOM nem no estado.
+   --------------------------------------------------------------------- */
+const ausente = (v) => v === null || v === undefined || v === '';
+/** Ordem das contas: dia crescente (sem dia por último) e, depois, descrição. */
+function ordemItem(a, b) {
+  const da = ausente(a.dia) ? Infinity : a.dia;
+  const db = ausente(b.dia) ? Infinity : b.dia;
+  if (da !== db) return da < db ? -1 : 1;
+  return String(a.r.descricao ?? '').localeCompare(String(b.r.descricao ?? ''), 'pt-BR');
+}
+/**
+ * Recorrências do mês: Map categoriaId → { cent, itens }. Entra a recorrência ativa, que já começou
+ * (inicio aaaamm) e não terminou (fim vazio ou aaaamm <= fim). Item pulado (pulada(id)) aparece com
+ * pulada: true e não entra no cent. O dia é limitado ao último dia do mês.
+ */
+function recorrenciasDoMes(recs, ano, mes, pulada) {
+  const aaaamm = ano * 100 + mes;
+  const ultimo = diasNoMes(ano, mes);
+  const out = new Map();
+  for (const r of recs || []) {
+    if (!r || !r.ativa) continue;
+    if (!(Number(r.inicio) <= aaaamm)) continue;
+    if (!ausente(r.fim) && aaaamm > Number(r.fim)) continue;
+    const pul = typeof pulada === 'function' ? Boolean(pulada(r.id)) : false;
+    const cent = centavos(r.valor);
+    const d = Number(r.dia);
+    const dia = ausente(r.dia) || !(d >= 1) ? null : Math.min(d, ultimo);
+    let g = out.get(r.categoriaId);
+    if (!g) out.set(r.categoriaId, (g = { cent: 0, itens: [] }));
+    if (!pul) g.cent += cent;
+    g.itens.push({ r, cent, dia, pulada: pul });
+  }
+  for (const g of out.values()) g.itens.sort(ordemItem);
+  return out;
+}
+
+/**
+ * Situação das contas de uma categoria: o lançado (realCent, nunca negativo) é distribuído em ordem
+ * de dia, guloso. Itens pulados ficam de fora. atrasada: venceu antes de hoje, falta pagar e não é
+ * automática (débito automático não vira atraso: vira "debitada, confirme").
+ */
+function situacaoContas(itens, realCent, hojeDia) {
+  let resta = Math.max(0, Number(realCent) || 0);
+  const ativos = (itens || []).filter((i) => !i.pulada).slice().sort(ordemItem);
+  const hoje = !ausente(hojeDia);
+  return ativos.map((it) => {
+    const pagoCent = Math.max(0, Math.min(resta, it.cent));
+    resta -= pagoCent;
+    const restante = it.cent - pagoCent;
+    return {
+      r: it.r, cent: it.cent, dia: it.dia, pagoCent, restante, pago: restante <= 0,
+      atrasada: hoje && !ausente(it.dia) && it.dia < hojeDia && restante > 0 && !it.r.automatico,
+      venceHoje: hoje && it.dia === hojeDia && restante > 0,
+    };
+  });
+}
+
+/** Divide um total em centavos em n parcelas inteiras; a sobra do arredondamento vai para a primeira. */
+function dividirParcelas(totalCent, n) {
+  const k = Number(n);
+  if (!Number.isInteger(k) || k < 2 || k > 48) throw new RangeError('o número de parcelas deve estar entre 2 e 48');
+  const total = Math.round(Number(totalCent) || 0);
+  const base = Math.trunc(total / k);
+  const sobra = total - base * k;
+  return Array.from({ length: k }, (_, i) => (i === 0 ? base + sobra : base));
+}
+
+/** Data real (mês de 1 a 12, dia dentro do mês). */
+function dataValida(ano, mes, dia) {
+  return Number.isInteger(ano) && mes >= 1 && mes <= 12 && dia >= 1 && dia <= diasNoMes(ano, mes);
+}
+
+/** Texto de data brasileiro ou ISO → { ano, mes, dia }; qualquer outra coisa ou data inexistente é null. */
+function lerDataBr(txt) {
+  const t = String(txt ?? '').trim();
+  const ok = (ano, mes, dia) => (dataValida(ano, mes, dia) ? { ano, mes, dia } : null);
+  let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})$/);
+  if (m) return ok(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), Number(m[2]), Number(m[1]));
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return ok(Number(m[1]), Number(m[2]), Number(m[3]));
+  m = t.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/) || t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) return ok(Number(m[3]), Number(m[2]), Number(m[1]));
+  return null;
+}
+
+/**
+ * Valor em formato brasileiro ou americano → número; texto inválido é null. Aceita "R$", o sinal
+ * Unicode de menos, parênteses (negativo), sufixo " D" (negativo) e " C" (positivo).
+ */
+function lerValorBr(txt) {
+  let s = String(txt ?? '').replace(/−/g, '-').trim();
+  if (!s) return null;
+  let neg = false;
+  const par = s.match(/^\((.*)\)$/);
+  if (par) { neg = true; s = par[1]; }
+  const suf = s.match(/\s*([DC])$/i);
+  if (suf) { neg = suf[1].toUpperCase() === 'D'; s = s.slice(0, suf.index); }
+  s = s.replace(/r\$/i, '').replace(/\s/g, '');
+  const sinal = s.match(/^([-+]?)(.*)$/);
+  if (sinal[1] === '-' && !suf) neg = true;
+  const corpo = sinal[2];
+  if (!/^\d+([.,]\d+)*$/.test(corpo)) return null;
+  const temC = corpo.includes(','); const temP = corpo.includes('.');
+  let num = corpo;
+  if (temC && temP) {
+    const dec = corpo.lastIndexOf(',') > corpo.lastIndexOf('.') ? ',' : '.';
+    num = corpo.split(dec === ',' ? '.' : ',').join('').replace(dec, '.');
+  } else if (temC) {
+    num = corpo.split(',').length > 2 ? corpo.split(',').join('') : corpo.replace(',', '.');
+  } else if (temP && /^\d{1,3}(\.\d{3})+$/.test(corpo)) {
+    num = corpo.split('.').join('');
+  }
+  const v = Number(num);
+  if (!Number.isFinite(v)) return null;
+  return neg ? -v : v;
+}
+
+/** cyrb53 com semente: inteiro de 53 bits em base 36. */
+function hash53(str, seed) {
+  const s = String(str);
+  let h1 = 0xdeadbeef ^ seed; let h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+/** Id estável de um lançamento importado: cabe no formato de id aceito pelo servidor. */
+function idImportado(conta, chave) {
+  const k = String(conta ?? '') + '|' + String(chave);
+  return 'x' + hash53(k, 0) + hash53(k, 1);
+}
+
+/** Descrição para comparar: minúscula, sem acento, espaços colapsados e sem pontuação nas pontas. */
+function normDesc(s) {
+  return normal(s).replace(/\s+/g, ' ').trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+}
+
+/**
+ * Classifica cada linha do extrato contra os lançamentos já existentes. Status, nesta ordem:
+ * invalida, duplicada-arquivo, ja-importada, possivel-duplicada, nova.
+ * linhas = [{ fitid, data, valor, descricao }]; existentes = [{ id, ano, mes, dia, valor, descricao }].
+ */
+function classificarExtrato(linhas, existentes, conta) {
+  const cta = conta ?? '';
+  const ex = existentes || [];
+  const ja = new Set(ex.map((e) => e.id));
+  const emExistentes = new Map();
+  for (const e of ex) {
+    const k = isoData(e.ano, e.mes, e.dia) + '|' + Math.abs(centavos(e.valor)) + '|' + normDesc(e.descricao);
+    emExistentes.set(k, (emExistentes.get(k) || 0) + 1);
+  }
+  const porChave = new Map(); const porAbs = new Map(); const fitids = new Set();
+  return (linhas || []).map((l) => {
+    const base = { fitid: l.fitid || null, data: l.data || null, valor: Number.isFinite(l.valor) ? l.valor : null, descricao: l.descricao ?? '' };
+    if (!l.data) return { ...base, ocorrencia: null, chave: null, id: null, status: 'invalida', motivo: 'sem data' };
+    if (!Number.isFinite(l.valor)) return { ...base, ocorrencia: null, chave: null, id: null, status: 'invalida', motivo: 'sem valor' };
+    const dk = isoData(l.data.ano, l.data.mes, l.data.dia);
+    const desc = normDesc(l.descricao);
+    const vc = centavos(l.valor);
+    const kSinal = dk + '|' + vc + '|' + desc;
+    const kAbs = dk + '|' + Math.abs(vc) + '|' + desc;
+    const oc = (porChave.get(kSinal) || 0) + 1; porChave.set(kSinal, oc);
+    const ocAbs = (porAbs.get(kAbs) || 0) + 1; porAbs.set(kAbs, ocAbs);
+    const chave = l.fitid ? String(l.fitid) : kSinal + '|' + oc;
+    const id = idImportado(cta, chave);
+    let status = 'nova';
+    if (l.fitid && fitids.has(String(l.fitid))) status = 'duplicada-arquivo';
+    else if (ja.has(id)) status = 'ja-importada';
+    else if (ocAbs <= (emExistentes.get(kAbs) || 0)) status = 'possivel-duplicada';
+    if (l.fitid) fitids.add(String(l.fitid));
+    return { ...base, ocorrencia: oc, chave, id, status, motivo: null };
+  });
+}
+
+/** Separador entre ; , e tab, pela consistência das colunas nas primeiras linhas. Aspas com "" escapado. */
+function lerCSV(texto) {
+  const txt = String(texto ?? '').replace(/^﻿/, '');
+  const ler = (sep) => {
+    const linhas = []; let linha = []; let campo = ''; let aspas = false;
+    for (let i = 0; i < txt.length; i++) {
+      const ch = txt[i];
+      if (aspas) {
+        if (ch !== '"') campo += ch;
+        else if (txt[i + 1] === '"') { campo += '"'; i++; }
+        else aspas = false;
+      } else if (ch === '"') aspas = true;
+      else if (ch === sep) { linha.push(campo); campo = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && txt[i + 1] === '\n') i++;
+        linha.push(campo); linhas.push(linha); linha = []; campo = '';
+      } else campo += ch;
+    }
+    if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+    return linhas.filter((l) => l.some((c) => c.trim() !== ''));
+  };
+  let melhor = null;
+  for (const sep of [';', ',', '\t']) {
+    const linhas = ler(sep);
+    const cols = linhas.slice(0, 5).map((l) => l.length);
+    if (!cols.length) continue;
+    const consistente = cols[0] > 1 && cols.every((c) => c === cols[0]);
+    const pontos = (consistente ? 1000 : 0) + cols[0];
+    if (!melhor || pontos > melhor.pontos) melhor = { sep, pontos, linhas };
+  }
+  return melhor ? { sep: melhor.sep, linhas: melhor.linhas } : { sep: ';', linhas: [] };
+}
+
+/** Chave com mais ocorrências no Map (empate: a que apareceu primeiro); vazio é null. */
+function maisUsada(cont) {
+  let best = null; let n = 0;
+  for (const [k, v] of cont) if (v > n) { best = k; n = v; }
+  return best;
+}
+const HIST_NORMALIZADO = new WeakMap();
+/** Descrição normalizada e primeira palavra de cada item do histórico, guardadas por array (muda o tamanho, recalcula). */
+function normalizarHistorico(historico) {
+  const guardado = HIST_NORMALIZADO.get(historico);
+  if (guardado && guardado.n === historico.length) return guardado.itens;
+  const itens = historico.map((h) => {
+    const d = normDesc(h && h.descricao);
+    return { cat: h && h.categoriaId, d, p: d.split(' ')[0] };
+  });
+  HIST_NORMALIZADO.set(historico, { n: historico.length, itens });
+  return itens;
+}
+/**
+ * Sugere a categoria pelo histórico [{ descricao, categoriaId }]: primeiro a mesma descrição normalizada;
+ * senão a mesma primeira palavra (3 letras ou mais). Sem pista: null.
+ */
+function sugerirCategoria(descricao, historico) {
+  const nd = normDesc(descricao);
+  if (!nd) return null;
+  const itens = normalizarHistorico(historico || []);
+  const contar = (casa) => {
+    const cont = new Map();
+    for (const h of itens) {
+      if (!h.cat || !casa(h)) continue;
+      cont.set(h.cat, (cont.get(h.cat) || 0) + 1);
+    }
+    return maisUsada(cont);
+  };
+  const igual = contar((h) => h.d === nd);
+  if (igual !== null) return igual;
+  const primeira = nd.split(' ')[0];
+  if (primeira.length < 3) return null;
+  return contar((h) => h.p === primeira);
+}
+
+/** Extrato OFX (SGML ou XML). Conta: BANKID/ACCTID; cartão: CCACCTFROM/ACCTID. */
+function lerOFX(texto) {
+  const txt = String(texto ?? '');
+  const campo = (bloco, tag) => {
+    const m = bloco.match(new RegExp('<' + tag + '>([^<\\r\\n]*)', 'i'));
+    return m ? m[1].trim() : '';
+  };
+  const dataOfx = (s) => {
+    const m = String(s).match(/^(\d{4})(\d{2})(\d{2})/);
+    if (!m) return null;
+    const ano = Number(m[1]); const mes = Number(m[2]); const dia = Number(m[3]);
+    return dataValida(ano, mes, dia) ? { ano, mes, dia } : null;
+  };
+  const valorOfx = (s) => {
+    const t = String(s).replace(/−/g, '-').replace(/\s/g, '');
+    if (!/^[-+]?\d+([.,]\d+)?$/.test(t)) return null;
+    return arred(Number(t.replace(',', '.')));
+  };
+  const decodificar = (s) => String(s ?? '')
+    .replace(/&(amp|lt|gt|quot|apos);/g, (_, n) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }[n]))
+    .trim();
+  const cab = txt.split(/<STMTTRN>/i)[0];
+  let conta = '';
+  if (/<BANKACCTFROM>/i.test(cab)) {
+    conta = [campo(cab, 'BANKID'), campo(cab, 'ACCTID')].filter(Boolean).join('/');
+  } else if (/<CCACCTFROM>/i.test(cab)) {
+    const acct = campo(cab, 'ACCTID');
+    conta = acct ? 'CCACCTFROM/' + acct : '';
+  }
+  const itens = txt.split(/<STMTTRN>/i).slice(1).map((bloco) => {
+    const b = bloco.split(/<\/STMTTRN>/i)[0];
+    return {
+      fitid: campo(b, 'FITID') || null,
+      data: dataOfx(campo(b, 'DTPOSTED')),
+      valor: valorOfx(campo(b, 'TRNAMT')),
+      descricao: decodificar(campo(b, 'MEMO') || campo(b, 'NAME')),
+    };
+  });
+  return { conta, itens };
+}
+
+/** Texto "1200x10" → { valor, vezes } (vezes de 2 a 48); qualquer outra coisa, ou fora da faixa, é null. */
+function lerVezes(token) {
+  const m = String(token ?? '').trim().match(/^([-+−]?\d[\d.,]*)[x×](\d{1,3})$/i);
+  if (!m) return null;
+  const valor = paraNumero(m[1]); const vezes = Number(m[2]);
+  if (valor === null || !(vezes >= 2 && vezes <= 48)) return null;
+  return { valor, vezes };
+}
+/** Descrição de parcela: "geladeira (3/10)" ou, sem base, "Parcela 3/10". */
+function montarDescParcela(base, k, n) {
+  const b = String(base ?? '').trim();
+  return b ? `${b} (${k}/${n})` : `Parcela ${k}/${n}`;
+}
+/** Desfaz montarDescParcela: { base, k, n }; descrição que não é de parcela devolve k e n nulos. */
+function baseParcela(desc) {
+  const s = String(desc ?? '').trim();
+  const m = s.match(/^(.*?)\s*\((\d{1,2})\/(\d{1,2})\)$/) || s.match(/^()Parcela (\d{1,2})\/(\d{1,2})$/);
+  return m ? { base: m[1].trim(), k: Number(m[2]), n: Number(m[3]) } : { base: s, k: null, n: null };
+}
+/** Id de lançamento de parcela: "p" + 10 caracteres + "-" + número da parcela com dois dígitos. */
+const ehIdParcela = (id) => /^p[a-z0-9]{10}-\d{2}$/.test(String(id ?? ''));
+/**
+ * Parcelas de uma compra: p = { valor, n, modo: 'total' | 'parcela', ano, mes, dia, descricao }.
+ * ano/mes é o da primeira parcela; o dia é limitado ao último de cada mês (null fica null).
+ * No modo total a sobra do arredondamento vai para a primeira parcela.
+ */
+function planoParcelas(p) {
+  const n = Number(p.n);
+  const cent = centavos(p.valor);
+  const partes = p.modo === 'parcela' ? Array.from({ length: n }, () => cent) : dividirParcelas(cent, n);
+  if (p.modo === 'parcela' && !(n >= 2 && n <= 48)) throw new RangeError('o número de parcelas deve estar entre 2 e 48');
+  return partes.map((c, i) => {
+    const d = deChave(chaveMes(p.ano, p.mes) + i);
+    const dia = ausente(p.dia) ? null : Math.min(Number(p.dia), diasNoMes(d.ano, d.mes));
+    return { k: i + 1, ano: d.ano, mes: d.mes, dia, valor: c / 100, descricao: montarDescParcela(p.descricao, i + 1, n) };
+  });
+}
+/** Dia do mês em que os lançamentos (em ordem de dia, sem dia por último) cobrem alvoCent; null se não cobrem. */
+function diaQuitado(lancs, alvoCent) {
+  const ord = (lancs || []).slice().sort((a, b) => (ausente(a.dia) ? 99 : a.dia) - (ausente(b.dia) ? 99 : b.dia));
+  let soma = 0;
+  for (const l of ord) {
+    soma += centavos(l.valor);
+    if (soma >= alvoCent) return ausente(l.dia) ? null : l.dia;
+  }
+  return null;
+}
+/** Texto de um arquivo de extrato: windows-1252 quando o cabeçalho OFX diz CHARSET:1252 ou ENCODING:USASCII; senão UTF-8 estrito, com windows-1252 de reserva. */
+function decodificarTexto(bytes) {
+  const u8 = new Uint8Array(bytes);
+  const win = () => new TextDecoder('windows-1252').decode(u8);
+  const cab = new TextDecoder('windows-1252').decode(u8.subarray(0, 600));
+  if (/CHARSET\s*:\s*1252/i.test(cab) || /ENCODING\s*:\s*USASCII/i.test(cab)) return win();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (e) { return win(); }
+}
+/**
+ * Chute das colunas de um CSV de extrato: { cabecalho, data, descricao, valor } (índices; -1 quando não achou).
+ * Cabeçalho: a 1ª linha não tem data e a 2ª tem. Os nomes do cabeçalho desempatam; sem nome, valem as primeiras linhas.
+ */
+function adivinharColunasCSV(linhas) {
+  const ls = (linhas || []).slice(0, 12);
+  const temData = (l) => (l || []).some((c) => lerDataBr(c));
+  const cabecalho = ls.length > 1 && !temData(ls[0]) && temData(ls[1]);
+  const corpo = ls.slice(cabecalho ? 1 : 0);
+  const n = Math.max(0, ...ls.map((l) => l.length));
+  const nomes = cabecalho ? ls[0].map((c) => normal(c)) : [];
+  const cont = (j, fn) => corpo.filter((l) => fn(String(l[j] ?? '').trim())).length;
+  const ehData = (t) => lerDataBr(t) !== null;
+  const ehValor = (t) => lerValorBr(t) !== null;
+  const metade = Math.ceil(corpo.length / 2) || 1;
+  const cols = Array.from({ length: n }, (_, j) => j);
+  const porNome = (re, livres) => livres.find((j) => re.test(nomes[j] || ''));
+  const data = cols.filter((j) => cont(j, ehData) >= metade)[0];
+  const livres = cols.filter((j) => j !== data);
+  const numericas = livres.filter((j) => cont(j, ehValor) >= metade && !/saldo|balance/.test(nomes[j] || ''));
+  const valor = porNome(/valor|amount|quantia|montante|value/, numericas) ?? numericas[0];
+  const textuais = livres.filter((j) => j !== valor && corpo.some((l) => /\p{L}/u.test(String(l[j] ?? ''))));
+  const tam = (j) => corpo.reduce((a, l) => a + String(l[j] ?? '').length, 0);
+  const descricao = porNome(/descri|historico|memo|estabelecimento|lancamento|detalhe|title|titulo|nome/, textuais)
+    ?? textuais.sort((a, b) => tam(b) - tam(a))[0];
+  return { cabecalho, data: data ?? -1, descricao: descricao ?? -1, valor: valor ?? -1 };
+}
+/** Linhas de extrato [{ fitid, data, valor, descricao }] de um CSV lido. mapa = { cabecalho, data, descricao, valor }; valor zero vira null. */
+function extratoDeCSV(linhas, mapa) {
+  const cel = (l, j) => (j >= 0 ? String(l[j] ?? '').trim() : '');
+  return (linhas || []).slice(mapa.cabecalho ? 1 : 0).map((l) => {
+    const v = lerValorBr(cel(l, mapa.valor));
+    return { fitid: null, data: lerDataBr(cel(l, mapa.data)), valor: v === 0 ? null : v, descricao: cel(l, mapa.descricao).replace(/\s+/g, ' ') };
+  });
+}
+/** Inverte o sinal dos valores (fatura de cartão: a compra vem positiva e é saída). */
+function inverterSinal(linhas) {
+  return (linhas || []).map((l) => ({ ...l, valor: Number.isFinite(l.valor) ? 0 - l.valor : l.valor }));
+}
+/** Valor a gravar: renda fica como no extrato (crédito positivo); gasto troca o sinal (débito vira gasto positivo). */
+function valorDoExtrato(valor, renda) {
+  return arred(renda ? valor : 0 - valor) || 0;
 }
 /* </dominio> */
 
@@ -211,6 +615,7 @@ const ICONES = {
   nuvemOk: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/><path d="m9.5 13.6 1.9 1.9 3.6-3.6"/>',
   nuvem: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/>',
   nuvemOff: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z"/><path d="M12 10.5v3M12 16h.01"/>',
+  repetir: '<path d="M17 3.5 20.5 7 17 10.5"/><path d="M3.5 11V9.5A2.5 2.5 0 0 1 6 7h14.5"/><path d="M7 20.5 3.5 17 7 13.5"/><path d="M20.5 13v1.5A2.5 2.5 0 0 1 18 17H3.5"/>',
   alerta: '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2h.01"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   apagarDigito: '<path d="M21 5H9.5L3 12l6.5 7H21a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m12.5 9 5 6M17.5 9l-5 6"/>',
@@ -298,6 +703,7 @@ function catGuardar() {
   return cats().find((c) => c.grupo !== 'renda' && normal(c.nome).trim().startsWith('guardar')) || null;
 }
 const ehGuardar = (c) => { const g = catGuardar(); return Boolean(g && c && g.id === c.id); };
+const ehSobra = (c) => Boolean(c && S.dados && S.dados.categoriaSobra && S.dados.categoriaSobra === c.id);
 /** Grava na config o id da categoria de economia (uma vez), para ela não depender do nome. */
 function fixarGuardar() {
   if (!S.dados || S.dados.categoriaGuardar) return;
@@ -314,6 +720,10 @@ function tirarLanc(d, id) {
     const i = b.lancamentos.findIndex((x) => x.id === id);
     if (i >= 0) { b.lancamentos.splice(i, 1); return; }
   }
+}
+function tirarRec(d, id) {
+  d.recorrencias = (d.recorrencias || []).filter((x) => x.id !== id);
+  for (const k of Object.keys(d.marcas || {})) if (k.startsWith('pular:') && k.endsWith(':' + id)) delete d.marcas[k];
 }
 function aplicarOp(d, op) {
   switch (op.t) {
@@ -332,7 +742,20 @@ function aplicarOp(d, op) {
     case 'cat-':
       d.categorias = d.categorias.filter((c) => c.id !== op.id);
       for (const b of Object.values(d.anos)) delete b.orcamento[op.id];
+      for (const r of (d.recorrencias || []).filter((x) => x.categoriaId === op.id)) tirarRec(d, r.id);
       break;
+    case 'rec': {
+      const r = op.r; d.recorrencias = d.recorrencias || [];
+      const n = {
+        id: r.id, categoriaId: r.categoriaId, descricao: r.descricao || '', valor: Number(r.valor),
+        dia: ausente(r.dia) ? null : Number(r.dia), inicio: Number(r.inicio), fim: ausente(r.fim) ? null : Number(r.fim),
+        ativa: true, automatico: Boolean(r.automatico),
+      };
+      const i = d.recorrencias.findIndex((x) => x.id === r.id);
+      if (i >= 0) d.recorrencias[i] = n; else d.recorrencias.push(n);
+      break;
+    }
+    case 'rec-': tirarRec(d, op.id); break;
     case 'orc': {
       const o = blocoAno(d, String(op.ano)).orcamento;
       if (!op.valor) {
@@ -343,7 +766,7 @@ function aplicarOp(d, op) {
       break;
     }
     case 'cfg':
-      if (String(op.k).startsWith('encerrada:')) {
+      if (String(op.k).startsWith('encerrada:') || String(op.k).startsWith('pular:')) {
         d.marcas = d.marcas || {};
         if (op.v) d.marcas[op.k] = '1'; else delete d.marcas[op.k];
       } else if (String(op.k).startsWith('fechado:')) {
@@ -360,6 +783,18 @@ function aplicarOp(d, op) {
    ===================================================================== */
 let tEnvio = 0;
 let tRetentativa = 0;
+/** Várias operações de uma vez: aplica todas, grava a fila e o cache uma só vez. */
+function registrarLote(ops) {
+  if (!ops.length) return;
+  for (const op of ops) aplicarOp(S.dados, op);
+  S.versao++;
+  if (S.exemplo) { agendarRender(); return; }
+  S.fila.push(...ops);
+  persistirFila();
+  salvarCache();
+  agendarEnvio();
+  agendarRender();
+}
 function registrar(op) {
   aplicarOp(S.dados, op);
   S.versao++;
@@ -431,7 +866,7 @@ async function verificarNovidades(forcar = false) {
 let memo = { v: -1 };
 function M() {
   const h = hoje(); const dia = h.ano * 10000 + h.mes * 100 + h.dia;
-  if (memo.v !== S.versao || memo.dia !== dia) memo = { v: S.versao, dia, anos: new Map(), resumos: new Map(), inicio: null, uso: null };
+  if (memo.v !== S.versao || memo.dia !== dia) memo = { v: S.versao, dia, anos: new Map(), resumos: new Map(), rec: new Map(), inicio: null, uso: null };
   return memo;
 }
 function idxAno(ano) {
@@ -440,7 +875,25 @@ function idxAno(ano) {
   return m.anos.get(k);
 }
 const celReal = (cid, ano, mes) => idxAno(ano).cel.get(cid + '|' + mes) || VAZIA;
-function planoExp(cid, ano, mes) { const o = idxAno(ano).orc[cid]; return o ? Number(o[mes]) || 0 : 0; }
+/** Plano gravado (aba orçamento) de uma categoria num mês; 0 quando não há. É o que se grava e se desfaz. */
+function planoGravado(cid, ano, mes) { const o = idxAno(ano).orc[cid]; return o ? Number(o[mes]) || 0 : 0; }
+const temGravado = (cid, ano, mes) => { const o = idxAno(ano).orc[cid]; return Boolean(o) && !ausente(o[mes]); };
+/** Plano em vigor: o gravado, se houver; senão o das recorrências do mês. */
+function planoExp(cid, ano, mes) {
+  if (temGravado(cid, ano, mes)) return planoGravado(cid, ano, mes);
+  const g = recorrentesDoMes(ano, mes).get(cid);
+  return g ? g.cent / 100 : 0;
+}
+const chavePular = (ano, mes, recId) => `pular:${ano}-${dois(mes)}:${recId}`;
+function pulada(ano, mes, recId) { const mk = S.dados && S.dados.marcas; return Boolean(mk && mk[chavePular(ano, mes, recId)]); }
+const novoIdRec = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+/** Recorrências do mês (recorrenciasDoMes), guardadas até a próxima alteração. */
+function recorrentesDoMes(ano, mes) {
+  const m = M(); const k = ano + '-' + mes;
+  if (!m.rec.has(k)) m.rec.set(k, recorrenciasDoMes((S.dados && S.dados.recorrencias) || [], ano, mes, (id) => pulada(ano, mes, id)));
+  return m.rec.get(k);
+}
+const recsDaCategoria = (cid) => ((S.dados && S.dados.recorrencias) || []).filter((r) => r.categoriaId === cid);
 function inicioDados() {
   const m = M();
   if (m.inicio !== null) return m.inicio;
@@ -480,6 +933,7 @@ function pedirConfirmacaoFechado(meses, estado) {
 }
 /** Média do lançado nos 3 meses fechados antes do mês. Só sugestão: nunca entra nas contas sem você gravar como plano. */
 function media3(cid, ano, mes) {
+  if (ehSobra(catPorId(cid))) return 0;
   const h = hoje();
   return mediaRealizada({ somaDe: (a, m) => celReal(cid, a, m).soma, alvo: chaveMes(ano, mes), atual: chaveMes(h.ano, h.mes), inicio: inicioDados() });
 }
@@ -490,6 +944,7 @@ function resumo(ano, mes) {
     m.resumos.set(k, contasDoMes({
       cats: cats(), idx: idxAno(ano), ano, mes, hoje: hoje(), gid: (catGuardar() || {}).id || null,
       encerrada: (cid) => encerrada(ano, mes, cid),
+      recorrentes: recorrentesDoMes(ano, mes), sid: (S.dados && S.dados.categoriaSobra) || null,
     }));
   }
   return m.resumos.get(k);
@@ -570,9 +1025,11 @@ function interpretarLinha(txt, renda) {
 function lancarRapido(txt) {
   const s = String(txt || '').trim();
   if (!s) return false;
+  const partes = s.split(/\s+/); const lv = lerVezes(partes[0]);
+  if (lv && lv.valor > 0) { abrirNovo({ texto: `${String(lv.valor).replace('.', ',')} ${partes.slice(1).join(' ')}`.trim(), vezes: lv.vezes }); return false; }
   const r = interpretarLinha(s, false);
   if (!r.valores.length) {
-    aviso(pareceVezes(s) ? 'Para repetir um valor, use *, por exemplo 36*4. Parcelar em meses ainda não existe.' : 'Não entendi o valor. Use, por exemplo, 32,90 mercado padaria.', { tipo: 'erro' });
+    aviso(pareceVezes(s) ? 'Use de 2 a 48 parcelas, por exemplo 1200x10 geladeira. Para repetir um valor, use *, por exemplo 36*4.' : 'Não entendi o valor. Use, por exemplo, 32,90 mercado padaria.', { tipo: 'erro' });
     return false;
   }
   if (mesFechado(S.ano, S.mes)) { abrirNovo({ texto: s }); return false; }
@@ -619,7 +1076,12 @@ function linhaLanc(l, ano, mapa) {
     + `<span class="ll-txt"><span class="ll-tit">${esc(titulo)}</span>${sub ? `<span class="ll-sub">${esc(sub)}</span>` : ''}</span>`
     + valorLanc(l, c) + '</button>';
 }
-function notaCategoria(c, v, est) {
+function notaCategoria(c, v, est, ano = S.ano, mes = S.mes) {
+  if (v.recorrente && v.fase !== 'futuro' && v.qtd && v.falta <= 0 && est !== 'acima' && !v.encerrada && !ehGuardar(c)) {
+    const itens = [...situacaoRecs(c.id, ano, mes).values()];
+    const ult = itens.length && itens.every((x) => x.s.pago) ? Math.max(...itens.map((x) => x.quitado || 0)) : 0;
+    if (ult) return `${c.grupo === 'renda' ? 'Recebida' : 'Paga'} dia ${ult}`;
+  }
   if (ehGuardar(c)) {
     if (v.plano > 0 && v.real >= v.plano) return 'Guardado';
     if (!v.real && v.plano) return `Previsto ${moeda(v.plano)} · nada guardado`;
@@ -654,7 +1116,7 @@ function linhaCat(c, v, ritmo, ano, mes, extra = false, mostrarMedia = false, ex
   const pct = v.plano > 0 ? (v.real / v.plano) * 100 : mostrado > 0 ? 100 : 0;
   const corBarra = est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok';
   const marca = v.fase === 'atual' && c.grupo === 'variavel' && v.plano > 0 ? ritmo : null;
-  const nota = notaCategoria(c, v, est);
+  const nota = notaCategoria(c, v, est, ano, mes);
   const med = mostrarMedia ? media3(c.id, ano, mes) : 0;
   const dif = med > 0 && v.real > 0 ? (v.real / med - 1) * 100 : null;
   const mediaTxt = med > 0
@@ -890,7 +1352,7 @@ function cartaoHeroi(r) {
   }
   return `<section class="cartao g-heroi heroi" aria-labelledby="h-plano"><h2 id="h-plano" class="rotulo">Plano de ${m} de ${S.ano}</h2>`
     + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p>`
-    + `<p class="sub">${r.renda || r.saidasPrevistas ? `Sobra prevista: renda de ${moeda(r.renda)} e saídas de ${moeda(r.saidasPrevistas)}.` : 'Ainda não há plano para este mês.'}</p>`
+    + `<p class="sub">${r.renda || r.saidasPrevistas ? `Sobra prevista: renda de ${moeda(r.renda)} e saídas de ${moeda(r.saidasPrevistas)}${r.jaSaiu > 0 ? `, das quais ${moeda(r.jaSaiu)} já lançadas (parcelas, por exemplo)` : ''}.` : 'Ainda não há plano para este mês.'}</p>`
     + `<div class="acoes"><button type="button" class="botao" data-acao="planejar">${ic('mes', 18)}Planejar ${m}</button></div></section>`;
 }
 function sugestaoMeta() {
@@ -900,7 +1362,7 @@ function sugestaoMeta() {
     const d = deChave(k);
     const rr = resumo(d.ano, d.mes);
     if (!(rr.qtdGastos > 0 || rr.rendaReal > 0)) continue;
-    soma += rr.rendaReal - rr.gastoConsumoReal; n++;
+    soma += rr.rendaReal - rr.transporte - rr.gastoConsumoReal; n++;
   }
   const media = n ? soma / n : 0;
   let valor = media > 0 ? media * 0.8 : 0;
@@ -912,15 +1374,22 @@ function cartaoPagar(r) {
   const dados = (c) => `data-cat="${esc(c.id)}" data-ano="${S.ano}" data-mes="${S.mes}"`;
   const item = (c, detalhe, botoes) => `<div class="item-vencer">${mono(c, true)}<div class="iv-txt"><strong>${esc(c.nome)}</strong><span>${detalhe}</span></div><div class="iv-acoes">${botoes}</div></div>`;
   const bloco = (titulo, total, itens) => (itens.length ? `<h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3>${itens.join('')}` : '');
-  const doGrupo = (fn) => r.porCat.filter(({ c, v }) => fn(c) && v.falta > 0);
+  const diaDe = (c) => { const x = primeiraAberta(c.id, S.ano, S.mes); return x && !ausente(x.s.dia) ? x.s.dia : Infinity; };
+  const doGrupo = (fn) => r.porCat.filter(({ c, v }) => fn(c) && v.falta > 0).sort((a, b) => diaDe(a.c) - diaDe(b.c));
+  const venc = (c, v) => {
+    const x = primeiraAberta(c.id, S.ano, S.mes);
+    if (!x) return '';
+    const t = textoConta(x.s, c.grupo === 'renda', v.fase);
+    return t.txt ? `<span class="iv-venc ${t.cls}">${t.cls === 'atrasada' ? ic('alerta', 14) : ''}${esc(t.txt)}</span>` : '';
+  };
   const contas = doGrupo((c) => c.grupo === 'fixo' && !ehGuardar(c)).map(({ c, v }) => item(c,
-    v.real ? `faltam ${moeda(v.falta)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`,
+    (v.real ? `faltam ${moeda(v.falta)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`) + venc(c, v),
     `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Confirmar</button>`
     + (v.real ? `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="quit-${esc(c.id)}">Quitar</button>` : '')));
   const guardar = doGrupo((c) => ehGuardar(c)).map(({ c, v }) => item(c, `faltam ${moeda(v.falta)} da meta de ${moeda(v.plano)}`,
     `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Guardar</button>`));
   const receber = doGrupo((c) => c.grupo === 'renda').map(({ c, v }) => item(c,
-    v.real ? `recebido ${moeda(v.real)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`,
+    (v.real ? `recebido ${moeda(v.real)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`) + venc(c, v),
     `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Recebi</button>`
     + `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="nao-vem-${esc(c.id)}">Não vem</button>`));
   const corpo = bloco('Contas', r.contasAPagar, contas) + bloco('Guardar', r.faltaGuardar, guardar) + bloco('A receber', r.aReceber, receber);
@@ -950,13 +1419,13 @@ function cartaoPlanoMes(r) {
     meta = `<div class="plano-meta"><p class="sub">Separe um valor antes de gastar: crie a categoria Guardar${sug.valor > 0 ? `; a sugestão é ${moeda(sug.valor)} por mês` : ''}.</p>`
       + `<div class="acoes"><button type="button" class="botao pequeno" data-acao="criar-guardar" data-valor="${sug.valor || 0}" data-foco="criar-guardar">Criar “Guardar”${sug.valor > 0 ? ` com ${moeda(sug.valor)}` : ''}</button></div></div>`;
   } else {
-    const valorMeta = planoExp(g.id, S.ano, S.mes); const guardado = celReal(g.id, S.ano, S.mes).soma;
+    const valorMeta = planoExp(g.id, S.ano, S.mes); const metaGravada = planoGravado(g.id, S.ano, S.mes); const guardado = celReal(g.id, S.ano, S.mes).soma;
     meta = `<div class="plano-meta"><div class="legenda-barra" style="margin-top:0"><span><strong>Meta de economia</strong> · guardado ${moeda(guardado)}</span><span>${valorMeta ? `meta ${moeda(valorMeta)}` : 'sem meta'}</span></div>`
       + barra({ pct: valorMeta > 0 ? (Math.max(0, guardado) / valorMeta) * 100 : 0, estado: 'ok' })
-      + `<div class="plano-meta-campo"><label class="campo">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${valorMeta ? num(valorMeta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>${marcaSalvo(g.id)}`
+      + `<div class="plano-meta-campo"><label class="campo">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${metaGravada ? num(metaGravada) : ''}" placeholder="${valorMeta && !metaGravada ? num(valorMeta) : sug.valor ? num(sug.valor) : '0,00'}"></label>${marcaSalvo(g.id)}`
       + '<div class="acoes">'
       + (sug.valor > 0 && sug.valor !== valorMeta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
-      + (valorMeta > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
+      + (metaGravada > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
       + '</div></div></div>';
   }
   const lista = vars.length
@@ -1063,7 +1532,7 @@ function cartaoAno() {
     const rr = resumo(S.ano, i + 1);
     const passado = rr.fase === 'passado';
     const semDados = passado && chaveMes(S.ano, i + 1) < ini;
-    const sobra = semDados ? 0 : passado ? rr.sobraRealizada : rr.disponivel;
+    const sobra = semDados ? 0 : passado ? rr.resultado : arred(rr.disponivel - rr.transporte);
     return { mes: i + 1, sobra, fase: rr.fase, real: passado && !semDados, semDados };
   });
   const mp = Math.max(0, ...meses.map((m) => m.sobra)); const mn = Math.max(0, ...meses.map((m) => -m.sobra));
@@ -1124,7 +1593,8 @@ function renderExtrato(tela) {
     tela.dataset.tela = 'extrato';
     tela.innerHTML = '<div class="extrato"><div class="extrato-ferramentas">'
       + `<label class="campo-busca">${ic('busca', 18)}<span class="sr">Buscar no extrato</span><input type="search" id="busca" data-digitar="busca" data-foco="busca" placeholder="Buscar descrição, categoria ou valor" autocomplete="off" value="${esc(S.busca)}"></label>`
-      + '<div class="chips" id="extrato-filtros"></div></div><div id="extrato-resumo"></div><div id="extrato-lista"></div></div>';
+      + '<div class="chips" id="extrato-filtros"></div>'
+      + `<button type="button" class="botao pequeno fantasma ie-abrir" data-acao="importar-extrato" data-foco="importar-extrato">${ic('enviar', 16)}Importar extrato</button></div><div id="extrato-resumo"></div><div id="extrato-lista"></div></div>`;
   }
   const f = (id, txt) => `<button type="button" class="chip" data-acao="filtro" data-filtro="${id}" data-foco="filtro-${id}" aria-pressed="${S.filtro === id}">${txt}</button>`;
   const opcoes = cats().map((c) => `<option value="${esc(c.id)}"${S.filtroCat === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('');
@@ -1194,16 +1664,22 @@ function telaAcompanhar(r) {
 function alvoPlano(tipo) {
   const ant = deChave(chaveMes(S.ano, S.mes) - 1);
   return cats().map((c) => {
-    const antes = planoExp(c.id, S.ano, S.mes);
+    const antes = planoGravado(c.id, S.ano, S.mes); const efet = planoExp(c.id, S.ano, S.mes);
+    const rec = !temGravado(c.id, S.ano, S.mes) && efet > 0;
     let v = 0;
     if (tipo === 'copiar-plano') v = arred(planoExp(c.id, ant.ano, ant.mes));
     else if (tipo === 'copiar-real') v = arred(valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes));
     else if (tipo === 'media') v = media3(c.id, S.ano, S.mes);
-    else if (tipo === 'limpar') return { c, antes, v: null, valor: antes };
-    return { c, antes, v, valor: v };
-  }).filter((x) => (x.v === null ? x.antes > 0 : x.v > 0 && x.v !== x.antes));
+    else if (tipo === 'limpar') return { c, antes, efet, rec, v: null, valor: antes };
+    return { c, antes, efet, rec, v, valor: v };
+  }).filter((x) => (x.v === null ? x.antes > 0 : x.v > 0 && x.v !== x.efet));
 }
 function somaPlano(alvo) { return alvo.reduce((a, x) => a + (x.valor || 0), 0); }
+/** Aviso do que muda quando o valor gravado passa a valer no lugar do que se repete todo mês. */
+function notaRecorrentes(alvo, quando) {
+  const n = alvo.filter((x) => x.rec && x.v !== null).length;
+  return n ? ` ${qtdCats(n)} que se ${n > 1 ? 'repetem' : 'repete'} todo mês ${n > 1 ? 'passam' : 'passa'} a usar o valor copiado ${quando}.` : '';
+}
 function qtdCats(n) { return `${n} categoria${n > 1 ? 's' : ''}`; }
 function planoPreviaAtiva(tipo) {
   const p = S.planoPrevia;
@@ -1230,10 +1706,11 @@ function telaPlanejar() {
     const lista = catsDoGrupo(g);
     if (!lista.length) return '';
     return `<section><h2 class="grupo-titulo"><span>${GRUPOS[g]}</span><span></span></h2><div class="lista">${lista.map((c) => {
-      const e = planoExp(c.id, S.ano, S.mes); const med = media3(c.id, S.ano, S.mes);
-      const resumo = `${e ? 'plano atual: ' + moeda(e) : 'sem plano'}${med ? ' · sugestão: ' + moeda(med) : ''}`;
+      const g = planoGravado(c.id, S.ano, S.mes); const e = planoExp(c.id, S.ano, S.mes); const med = media3(c.id, S.ano, S.mes);
+      const daRec = !temGravado(c.id, S.ano, S.mes) && e > 0;
+      const resumo = `${e ? 'plano atual: ' + moeda(e) : 'sem plano'}${daRec ? ' · ' + ic('repetir', 14) + ' todo mês' : ''}${med ? ' · sugestão: ' + moeda(med) : ''}`;
       return `<div class="linha-plano">${mono(c, true)}<label class="lp-nome" for="pl-${esc(c.id)}">${esc(c.nome)}<span>${resumo}</span></label>`
-        + `<div class="lp-campo"><input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="0,00">` + marcaSalvo(c.id)
+        + `<div class="lp-campo"><input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${g ? num(g) : ''}" placeholder="${daRec ? num(e) : '0,00'}">` + marcaSalvo(c.id)
         + (med > 0 ? `<button type="button" class="link" data-acao="plano-sugestao" data-cat="${esc(c.id)}" data-valor="${med}" data-foco="sug-${esc(c.id)}">Usar sugestão</button>` : '')
         + '</div></div>';
     }).join('')}</div></section>`;
@@ -1254,13 +1731,16 @@ function telaPlanejar() {
       + opc('plano-copiar-real', `Copiar o lançado em ${rotMes}`, 'copiar-real')
       + '<button type="button" class="link" data-acao="plano-copiar-cancelar" data-foco="plano-copiar-cancelar">Cancelar</button></div>';
   }
+  let notaRec = '';
+  if (planoPreviaAtiva('copiar')) notaRec = notaRecorrentes(alvoPlano('copiar-plano').concat(alvoPlano('copiar-real').filter((x) => !alvoPlano('copiar-plano').some((y) => y.c.id === x.c.id))), 'neste mês');
+  if (planoPreviaAtiva('media')) notaRec = notaRecorrentes(alvoPlano('media'), 'neste mês');
   if (planoPreviaAtiva('media')) { const a = alvoPlano('media'); if (a.length) rotMedia = `Preencher ${qtdCats(a.length)} (${moeda(somaPlano(a))})? Toque de novo`; }
   if (planoPreviaAtiva('limpar')) { const a = alvoPlano('limpar'); if (a.length) rotLimpar = `Limpar ${a.length} plano${a.length > 1 ? 's' : ''} (${moeda(somaPlano(a))})? Toque de novo`; }
   return '<details class="planejar-ajuda"><summary>Como os planos entram nos cálculos</summary>'
-    + '<p class="sub">O que falta de cada plano fica reservado no disponível até você lançar tudo ou encerrar a categoria no mês; campo vazio significa sem plano. A sugestão é a média do que foi lançado nos 3 meses fechados anteriores e só entra nas contas quando você a usa. Guardar entra como compromisso: o que falta para a meta fica reservado.</p></details>'
+    + '<p class="sub">O que falta de cada plano fica reservado no disponível até você lançar tudo ou encerrar a categoria no mês; campo vazio significa sem plano. Contas que se repetem todo mês (↻) já valem como plano; digitar um valor aqui vale só para este mês e apagar volta ao valor que se repete. A sugestão é a média do que foi lançado nos 3 meses fechados anteriores e só entra nas contas quando você a usa. Guardar entra como compromisso: o que falta para a meta fica reservado.</p></details>'
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar"${planoPreviaAtiva('copiar') ? ' aria-expanded="true"' : ''}>Copiar de ${rotMes}</button>`
     + `<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">${rotMedia}</button>`
-    + `<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">${rotLimpar}</button></div>` + escolha + blocos;
+    + `<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">${rotLimpar}</button></div>` + escolha + (notaRec ? `<p class="nota" role="status">${esc(notaRec.trim())}</p>` : '') + blocos;
 }
 
 /* ---------- Planilha ---------- */
@@ -1308,8 +1788,8 @@ function telaPlanilha() {
   const res = meses.map((m) => resumo(ano, m));
   const passado = (i) => res[i].fase === 'passado';
   const totG = res.map((rr, i) => (passado(i) ? rr.jaSaiu : rr.saidasPrevistas));
-  const totR = res.map((rr, i) => (passado(i) ? rr.recebida : rr.renda));
-  const sobra = res.map((rr, i) => (passado(i) ? rr.sobraRealizada : rr.disponivel));
+  const totR = res.map((rr, i) => arred((passado(i) ? rr.recebida : rr.renda) - rr.transporte));
+  const sobra = res.map((rr, i) => (passado(i) ? rr.resultado : arred(rr.disponivel - rr.transporte)));
   const rodape = (nome, serie, sinal) => {
     const tot = serie.reduce((a, b) => a + b, 0);
     const cor = (v) => (sinal ? (v < 0 ? ' txt-acima' : ' txt-ok') : '');
@@ -1330,7 +1810,7 @@ function telaPlanilha() {
     + `<div class="planilha-caixa" role="region" tabindex="0" aria-label="Planilha anual de ${ano}, rolável na horizontal" aria-describedby="planilha-dica"><table class="planilha"><caption class="sr">Planilha de ${ano}: categorias por mês. Use as setas para navegar e Enter para abrir.</caption>`
     + `<thead><tr><th scope="col" class="cat">Categoria</th>${cab}<th scope="col" class="total">Ano</th></tr></thead><tbody>${corpo}</tbody>`
     + `<tfoot>${rodape('Total de saídas', totG, false)}${rodape('Renda', totR, false)}${rodape('Sobra', sobra, true)}</tfoot></table></div>`
-    + '<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado. Nos meses fechados, os totais contam só o lançado; no mês atual e nos próximos, contam também o que falta de cada plano.</p>';
+    + `<p class="sub" style="margin-top:10px">Clique numa célula para ver e lançar. Cada célula mostra o lançado; sem lançamento, o plano aparece tracejado. Nos meses fechados, os totais contam só o lançado; no mês atual e nos próximos, contam também o que falta de cada plano.${S.dados.categoriaSobra ? ' A sobra levada de um mês para o outro não entra nos totais do ano.' : ''}</p>`;
 }
 function posPlanilha() {
   if (!S.rolarPlanilha) return;
@@ -1361,7 +1841,7 @@ function telaAjustes() {
         + `<label class="sr" for="cn-${esc(c.id)}">Nome da categoria</label><input class="entrada" id="cn-${esc(c.id)}" data-mudar="cat-nome" data-cat="${esc(c.id)}" data-foco="cn-${esc(c.id)}" value="${esc(c.nome)}" maxlength="60">`
         + `<label class="sr" for="cg-${esc(c.id)}">Grupo</label><select class="entrada" id="cg-${esc(c.id)}" data-mudar="cat-grupo" data-cat="${esc(c.id)}" data-foco="cg-${esc(c.id)}">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === c.grupo ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
         + `<span class="qtd">${n} lanç.</span>`
-        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : ehGuardar(c) ? 'Não dá para apagar: é a categoria de economia' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : ehGuardar(c) ? 'Categoria de economia: não dá para apagar' : 'Apagar'}"${n || ehGuardar(c) ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
+        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : ehGuardar(c) ? 'Não dá para apagar: é a categoria de economia' : ehSobra(c) ? 'Não dá para apagar: leva a sobra de um mês para o outro' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : ehGuardar(c) ? 'Categoria de economia: não dá para apagar' : ehSobra(c) ? 'Leva a sobra de um mês para o outro: não dá para apagar' : 'Apagar'}"${n || ehGuardar(c) || ehSobra(c) ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
     }).join('');
   }).join('');
   return '<div class="ajustes">'
@@ -1375,8 +1855,11 @@ function telaAjustes() {
     + `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que você pode abrir e ler.</p><div class="acoes">`
     + (d.planilha && d.planilha.url ? `<a class="botao" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir a planilha</a>` : '')
     + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
-    + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}Exportar lançamentos (CSV)</button>`
-    + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button></div></section>`
+    + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}CSV dos lançamentos</button>`
+    + `<button type="button" class="botao" data-acao="exportar-csv-ano" data-foco="exp-csv-ano">${ic('baixar', 18)}CSV da tabela de ${S.ano}</button>`
+    + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button>`
+    + `<button type="button" class="botao" data-acao="importar-extrato" data-foco="importar-extrato2">${ic('enviar', 18)}Importar extrato…</button></div>`
+    + `<p class="sub" id="aj-backup" style="margin-top:10px">${esc(textoUltimoBackup())}</p></section>`
     + cartaoAtualizacoes()
     + '</div>';
 }
@@ -1449,7 +1932,9 @@ function abrirNovo(opc = {}) {
     tipo: catIni && catIni.grupo === 'renda' ? 'renda' : 'gasto',
     cents: '', estorno: false, alto: null, texto: opc.texto || '', desc: pre ? pre.descricao : '', descManual: false, cat: catIni ? catIni.id : null,
     data: (S.ano === h.ano && S.mes === h.mes) || opc.hoje ? { modo: 'hoje' } : { modo: 'outra', iso: isoData(opc.ano || S.ano, opc.mes || S.mes, 1), semDia: true },
+    parc: { on: Boolean(opc.vezes), n: opc.vezes ? String(opc.vezes) : '', modo: 'total', primeira: null, manual: false },
   };
+  if (teclado && opc.vezes && pre && pre.valores.length) st.cents = String(Math.round(Math.abs(pre.valores[0]) * 100));
   const garantirCat = () => {
     const lista = categoriasPorUso(st.tipo === 'renda');
     if (!st.cat || !lista.some((c) => c.id === st.cat)) st.cat = lista.length ? lista[0].id : null;
@@ -1473,6 +1958,12 @@ function abrirNovo(opc = {}) {
       const segmento = '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="estorno" title="Devolução de um gasto: entra com sinal negativo">Estorno</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>';
       const categorias = `<fieldset class="nv-cats-area"><legend class="rotulo">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`;
       const descricao = `<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" value="${esc(st.desc)}" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>`;
+      const painelParc = '<div class="parcelas" id="nv-parc" hidden><div class="parc-grade">'
+        + `<label class="campo">Em quantas vezes<input class="entrada" id="nv-n" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="10" value="${esc(st.parc.n)}"></label>`
+        + '<div class="campo"><span class="rotulo" id="nv-modo-rot">O valor é</span><div class="segmentado" role="group" aria-labelledby="nv-modo-rot">'
+        + '<button type="button" data-f="pmodo" data-v="total">total da compra</button><button type="button" data-f="pmodo" data-v="parcela">de cada parcela</button></div></div></div>'
+        + '<label class="campo">Primeira parcela em<select class="entrada" id="nv-p1"></select></label>'
+        + '<p class="parc-previa" id="nv-previa" aria-live="polite"></p></div>';
       el.innerHTML = teclado
         // Celular: valor e categorias sempre à vista, teclado e Salvar sempre embaixo.
         // Só a descrição rola; quando falta altura, as teclas encolhem (ver .nv-toque no CSS).
@@ -1481,14 +1972,14 @@ function abrirNovo(opc = {}) {
           + '<div class="nv-fixo"><div class="nv-valor"><span class="rotulo" id="nv-rot">Valor</span><output class="valor-grande" id="nv-valor" aria-labelledby="nv-rot" aria-live="polite">R$ 0,00</output>'
           + '</div><div class="datas" id="nv-datas"></div></div>'
           + categorias
-          + `<div class="folha-corpo">${descricao}</div>`
+          + `<div class="folha-corpo">${descricao}${painelParc}</div>`
           + '<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div></div>'
           + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e novo</button></footer>'
         : topoFolha('Novo lançamento')
           + '<div class="nv-fixo">' + segmento
           + `<label class="campo">Valor (aceita “32,90 mercado padaria”, “36*4”, “10 20,50” e “-50” para estorno)<input class="entrada" id="nv-texto" data-autofoco autocomplete="off" value="${esc(st.texto)}" placeholder="0,00"></label><p class="entendi" id="nv-entendi" aria-live="polite"></p>`
-          + '</div><div class="folha-corpo">' + categorias + '<div class="datas" id="nv-datas"></div>' + descricao + '</div>'
+          + '</div><div class="folha-corpo">' + categorias + '<div class="datas" id="nv-datas"></div>' + descricao + painelParc + '</div>'
           + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e lançar outro</button></footer>';
       if (teclado) {
@@ -1509,19 +2000,58 @@ function abrirNovo(opc = {}) {
             + (!teclado && todas.length > 8 ? `<button type="button" class="chip todas" data-f="todas" aria-expanded="${Boolean(st.todas)}">${st.todas ? 'Menos' : `Todas (${todas.length})`}</button>` : '')
           : '<p class="sub">Nenhuma categoria. Crie em Ajustes.</p>';
         const datas = [['hoje', 'Hoje'], ['ontem', 'Ontem'], ['outra', 'Outra data']];
+        const podeParcelar = st.tipo === 'gasto' && !st.estorno;
+        if (!podeParcelar) st.parc.on = false;
         $('#nv-datas', el).innerHTML = datas.map(([k, t]) => `<button type="button" class="chip" data-f="data" data-v="${k}" aria-pressed="${st.data.modo === k}">${t}</button>`).join('')
+          + (podeParcelar ? `<button type="button" class="chip" data-f="parcelar" aria-pressed="${st.parc.on}">${ic('repetir', 14)}Parcelar</button>` : '')
           + (st.data.modo === 'outra'
             ? `<label class="sr" for="nv-dt">Data</label><input type="date" id="nv-dt" value="${esc(st.data.iso || isoData(h.ano, h.mes, h.dia))}"><label class="marcar"><input type="checkbox" id="nv-semdia"${st.data.semDia ? ' checked' : ''}>Sem dia definido</label>` : '');
         const dt = $('#nv-dt', el);
-        if (dt) dt.addEventListener('change', () => { st.data.iso = dt.value; atualizarBotao(); });
+        if (dt) dt.addEventListener('change', () => { st.data.iso = dt.value; atualizarValor(); });
         const sd = $('#nv-semdia', el);
-        if (sd) sd.addEventListener('change', () => { st.data.semDia = sd.checked; });
+        if (sd) sd.addEventListener('change', () => { st.data.semDia = sd.checked; atualizarValor(); });
         desenharSugestoes();
         atualizarValor();
       };
       const desenharSugestoes = () => {
         const sug = st.cat ? sugestoes(st.cat) : [];
         $('#nv-sug', el).innerHTML = sug.map((s) => `<button type="button" data-f="sug" data-v="${esc(s)}">${esc(s)}</button>`).join('');
+      };
+      const primeiraPadrao = (d) => aaaammDe(chaveMes(d.ano, d.mes) + 1);
+      const leituraParc = () => {
+        if (!st.parc.on) return null;
+        const vs = valores(); const d = dataEscolhida(); const n = Number(st.parc.n);
+        if (!Number.isInteger(n) || n < 2 || n > 48) return { erro: 'Use de 2 a 48 parcelas.' };
+        if (vs.length !== 1) return { erro: vs.length ? 'Para parcelar, use um valor só.' : 'Digite o valor da compra.' };
+        if (!(vs[0] > 0)) return { erro: 'Parcelar vale para gasto, não para estorno.' };
+        if (!d) return { erro: 'Escolha a data da compra.' };
+        const p1 = st.parc.primeira || primeiraPadrao(d);
+        const plano = planoParcelas({ valor: vs[0], n, modo: st.parc.modo, ano: Math.floor(p1 / 100), mes: p1 % 100, dia: d.dia, descricao: $('#nv-desc', el).value.trim() });
+        const total = plano.reduce((a, x) => a + centavos(x.valor), 0) / 100;
+        return { plano, n, total, maior: plano[0].valor };
+      };
+      const desenharParc = () => {
+        const painel = $('#nv-parc', el);
+        painel.hidden = !st.parc.on;
+        if (!st.parc.on) return;
+        $$('[data-f="pmodo"]', el).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.parc.modo)));
+        const d = dataEscolhida();
+        if (d && !st.parc.manual) st.parc.primeira = primeiraPadrao(d);
+        const sel = $('#nv-p1', el);
+        if (d) {
+          const k0 = chaveMes(d.ano, d.mes); const sig = k0 + '|' + st.parc.primeira;
+          if (sel.dataset.sig !== sig) {
+            let o = '';
+            for (let i = 0; i <= 12; i++) { const n = aaaammDe(k0 + i); o += `<option value="${n}"${n === st.parc.primeira ? ' selected' : ''}>${rotuloAaaamm(n)}</option>`; }
+            sel.innerHTML = o; sel.dataset.sig = sig;
+          }
+        }
+        const lp = leituraParc(); const pv = $('#nv-previa', el);
+        if (!lp) { pv.textContent = ''; return; }
+        if (lp.erro) { pv.textContent = lp.erro; pv.className = 'parc-previa txt-atencao'; return; }
+        const ult = lp.plano[lp.plano.length - 1]; const pri = lp.plano[0]; const seg = lp.plano[1];
+        pv.className = 'parc-previa';
+        pv.textContent = `${lp.n}× de ${moeda(seg.valor)}${pri.valor !== seg.valor ? ` (a primeira de ${moeda(pri.valor)})` : ''}, de ${rotuloAaaamm(pri.ano * 100 + pri.mes)} a ${rotuloAaaamm(ult.ano * 100 + ult.mes)} · total ${moeda(lp.total)}`;
       };
       const atualizarValor = () => {
         if (teclado) {
@@ -1534,7 +2064,7 @@ function abrirNovo(opc = {}) {
           const p = $('#nv-entendi', el);
           if (!st.texto.trim()) { p.textContent = 'Dica: Enter salva, Esc fecha.'; p.className = 'entendi'; }
           else if (!r.valores.length) {
-            p.textContent = pareceVezes(st.texto) ? 'Para repetir um valor, use *, por exemplo 36*4. Parcelar em meses ainda não existe.'
+            p.textContent = pareceVezes(st.texto) ? 'Para parcelar, use o botão Parcelar e digite só o valor; para repetir um valor, use *, por exemplo 36*4.'
               : r.invalido ? 'Não entendi o valor. Use, por exemplo, 32,90 ou 1.500.' : 'Comece pelo valor.';
             p.className = 'entendi erro';
           }
@@ -1545,53 +2075,57 @@ function abrirNovo(opc = {}) {
             p.className = 'entendi';
           }
         }
+        desenharParc();
         atualizarBotao();
       };
       const atualizarBotao = () => {
-        const vs = valores(); const total = vs.reduce((a, b) => a + b, 0);
+        const vs = valores(); const lp = leituraParc();
+        const total = lp && !lp.erro ? lp.maior : vs.reduce((a, b) => a + b, 0);
         const b = $('#nv-salvar', el);
         if (st.alto !== null && st.alto !== total) st.alto = null;
         const d0 = dataEscolhida();
         if (st.fechado && !(d0 && st.fechado === chaveFechado(d0.ano, d0.mes))) st.fechado = null;
         b.textContent = !vs.length ? 'Digite o valor' : st.fechado ? 'Confirmar em mês fechado' : st.alto !== null ? `Confirmar ${moeda(total)}`
-          : vs.length > 1 ? `Salvar ${vs.length} lançamentos · ${moeda(total)}` : 'Salvar ' + moeda(total);
-        b.disabled = !vs.length || !st.cat || !dataEscolhida();
+          : lp ? (lp.erro ? 'Parcelar' : `Salvar ${lp.n}× · ${moeda(lp.total)}`)
+            : vs.length > 1 ? `Salvar ${vs.length} lançamentos · ${moeda(total)}` : 'Salvar ' + moeda(total);
+        b.disabled = !vs.length || !st.cat || !dataEscolhida() || Boolean(lp && lp.erro);
       };
       const salvar = (continuar) => {
         const vs = valores(); const d = dataEscolhida();
         if (!vs.length || !st.cat || !d) { atualizarBotao(); return; }
-        const soma = vs.reduce((a, b) => a + b, 0);
-        const paraFechado = pedirConfirmacaoFechado([{ ano: d.ano, mes: d.mes }], st);
-        if (paraFechado) {
-          atualizarBotao();
-          const pF = $('#nv-entendi', el);
-          if (pF) { pF.textContent = paraFechado; pF.className = 'entendi erro'; } else aviso(paraFechado, { tipo: 'erro' });
-          return;
-        }
+        const lp = leituraParc();
+        const avisoNv = (txt) => { const pF = $('#nv-entendi', el); if (pF) { pF.textContent = txt; pF.className = 'entendi erro'; } else aviso(txt, { tipo: 'erro' }); };
+        if (lp && lp.erro) { atualizarBotao(); avisoNv(lp.erro); return; }
+        const desc = $('#nv-desc', el).value.trim();
+        const grupo = lp ? novoGrupoParcela() : null;
+        const alvos = lp ? lp.plano.map((x) => ({ id: `${grupo}-${dois(x.k)}`, ano: x.ano, mes: x.mes, dia: x.dia, valor: x.valor, descricao: x.descricao }))
+          : vs.map((v) => ({ id: novoId(), ano: d.ano, mes: d.mes, dia: d.dia, valor: v, descricao: desc }));
+        const soma = lp ? lp.maior : vs.reduce((a, b) => a + b, 0);
+        const paraFechado = pedirConfirmacaoFechado(alvos.map((x) => ({ ano: x.ano, mes: x.mes })), st);
+        if (paraFechado) { atualizarBotao(); avisoNv(paraFechado); return; }
         if (foraDoNormal(st.cat, soma) && st.alto !== soma) {
           st.alto = soma; atualizarBotao();
           const c0 = catPorId(st.cat);
-          const alerta = `${moeda(soma)} é bem mais do que o habitual em ${c0 ? c0.nome : 'nesta categoria'}. Confira e toque em Confirmar para salvar.`;
-          const pEntendi = $('#nv-entendi', el);
-          if (pEntendi) { pEntendi.textContent = alerta; pEntendi.className = 'entendi erro'; } else aviso(alerta, { tipo: 'erro' });
+          avisoNv(`${moeda(soma)} é bem mais do que o habitual em ${c0 ? c0.nome : 'nesta categoria'}. Confira e toque em Confirmar para salvar.`);
           return;
         }
         st.alto = null;
-        const eraFechado = mesFechado(d.ano, d.mes);
+        const fechados = alvos.filter((x, i, a) => mesFechado(x.ano, x.mes) && a.findIndex((y) => y.ano === x.ano && y.mes === x.mes) === i);
         st.fechado = null;
-        const desc = $('#nv-desc', el).value.trim();
-        const ids = vs.map((v) => {
-          const id = novoId();
-          registrar({ t: 'lanc', l: { id, ano: d.ano, mes: d.mes, dia: d.dia, categoriaId: st.cat, descricao: desc, valor: v } });
-          return id;
+        const ids = alvos.map((x) => {
+          registrar({ t: 'lanc', l: { id: x.id, ano: x.ano, mes: x.mes, dia: x.dia, categoriaId: st.cat, descricao: x.descricao, valor: x.valor } });
+          return x.id;
         });
-        if (eraFechado) atualizarFechamento(d.ano, d.mes);
-        const c = catPorId(st.cat); const total = vs.reduce((a, b) => a + b, 0);
-        aviso(`Lançado em ${c ? c.nome : ''}: ${moeda(total)}${ids.length > 1 ? ` (${ids.length} lançamentos)` : ''}`, {
-          acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); if (eraFechado) atualizarFechamento(d.ano, d.mes); aviso('Lançamento desfeito.'); },
+        const reajustar = () => fechados.forEach((x) => atualizarFechamento(x.ano, x.mes));
+        reajustar();
+        const c = catPorId(st.cat); const total = lp ? lp.total : vs.reduce((a, b) => a + b, 0);
+        aviso(lp ? `Parcelado em ${c ? c.nome : ''}: ${lp.n}× · ${moeda(total)}` : `Lançado em ${c ? c.nome : ''}: ${moeda(total)}${ids.length > 1 ? ` (${ids.length} lançamentos)` : ''}`, {
+          acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); reajustar(); aviso(lp ? 'Parcelas desfeitas.' : 'Lançamento desfeito.'); },
         });
         if (continuar) {
-          st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false; st.estorno = false; st.alto = null;
+          st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false; st.estorno = false; st.alto = null; st.parc = { on: false, n: '', modo: 'total', primeira: null, manual: false };
+          $('#nv-n', el).value = '';
+          desenhar();
           $('#nv-desc', el).value = '';
           const tx = $('#nv-texto', el); if (tx) { tx.value = ''; tx.focus(); }
           atualizarValor();
@@ -1614,6 +2148,8 @@ function abrirNovo(opc = {}) {
         }
         else if (f === 'todas') { st.todas = !st.todas; desenhar(); }
         else if (f === 'data') { st.data.modo = b.dataset.v; if (b.dataset.v === 'outra' && !st.data.iso) { st.data.iso = isoData(h.ano, h.mes, h.dia); st.data.semDia = false; } desenhar(); }
+        else if (f === 'parcelar') { st.parc.on = !st.parc.on; desenhar(); if (st.parc.on) $('#nv-n', el).focus(); }
+        else if (f === 'pmodo') { st.parc.modo = b.dataset.v; atualizarValor(); }
         else if (f === 'sug') { $('#nv-desc', el).value = b.dataset.v; st.desc = b.dataset.v; st.descManual = true; atualizarValor(); }
         else if (f === 'tecla') {
           if (b.dataset.v === 'apagar') st.cents = st.cents.slice(0, -1);
@@ -1639,6 +2175,8 @@ function abrirNovo(opc = {}) {
       }
       const ds = $('#nv-desc', el);
       ds.addEventListener('input', () => { st.desc = ds.value; st.descManual = true; atualizarValor(); });
+      $('#nv-n', el).addEventListener('input', (e) => { st.parc.n = e.target.value.replace(/\D/g, ''); atualizarValor(); });
+      $('#nv-p1', el).addEventListener('change', (e) => { st.parc.primeira = Number(e.target.value); st.parc.manual = true; atualizarValor(); });
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); salvar(e.shiftKey); return; }
         if (teclado && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
@@ -1652,11 +2190,34 @@ function abrirNovo(opc = {}) {
 }
 
 /* ---------- Editar lançamento ---------- */
+/** Parcelas seguintes de uma compra parcelada (mesmo prefixo de id, número maior), de todos os anos. */
+function proximasParcelas(id) {
+  if (!ehIdParcela(id)) return [];
+  const pre = id.slice(0, id.lastIndexOf('-') + 1); const k = Number(id.slice(-2)); const out = [];
+  for (const [ano, b] of Object.entries(S.dados.anos)) {
+    for (const x of b.lancamentos) if (x.id.startsWith(pre) && x.id !== id && /^\d{2}$/.test(x.id.slice(pre.length)) && Number(x.id.slice(-2)) > k) out.push({ ...x, ano: Number(ano) });
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+/** Copia um lançamento para outra data (Duplicar e Repetir no próximo mês). Devolve false se o mês fechado pedir o segundo toque. */
+function copiarLancamento(orig, destino, estadoFechado, avisarErro) {
+  const par = pedirConfirmacaoFechado([{ ano: destino.ano, mes: destino.mes }], estadoFechado);
+  if (par) { avisarErro(par); return false; }
+  const id = novoId();
+  registrar({ t: 'lanc', l: { id, ano: destino.ano, mes: destino.mes, dia: destino.dia, categoriaId: orig.categoriaId, descricao: orig.descricao, valor: orig.valor } });
+  atualizarFechamento(destino.ano, destino.mes);
+  const c = catPorId(orig.categoriaId);
+  aviso(`${c ? c.nome : 'Lançamento'}: ${moeda(orig.valor)} copiado para ${destino.dia ? destino.dia + ' de ' : ''}${MESES[destino.mes - 1]}${destino.ano !== hoje().ano ? ' de ' + destino.ano : ''}.`, {
+    acao: 'Desfazer', fn: () => { registrar({ t: 'lanc-', id }); atualizarFechamento(destino.ano, destino.mes); },
+  });
+  return true;
+}
 function abrirEditar(id) {
   const achado = acharLanc(id);
   if (!achado) { aviso('Esse lançamento não existe mais.'); return; }
   const { l, ano } = achado;
   const original = { ...l, ano };
+  const ehParcela = ehIdParcela(l.id);
   abrirFolha({
     tipo: 'editar',
     montar(el) {
@@ -1665,51 +2226,119 @@ function abrirEditar(id) {
         const lista = catsDoGrupo(g);
         return lista.length ? `<optgroup label="${GRUPOS[g]}">${lista.map((x) => `<option value="${esc(x.id)}"${x.id === l.categoriaId ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>` : '';
       }).join('');
-      el.innerHTML = topoFolha('Editar lançamento', c ? c.nome : '')
+      const bp = baseParcela(l.descricao);
+      const kAtual = Number(l.id.slice(-2));
+      const totalParc = ehParcela ? (bp.n || kAtual + proximasParcelas(l.id).length) : 0;
+      const rotulo = ehParcela ? `${c ? c.nome + ' · ' : ''}parcela ${kAtual} de ${totalParc}` : (c ? c.nome : '');
+      el.innerHTML = topoFolha('Editar lançamento', rotulo)
         + '<div class="folha-corpo">'
         + `<label class="campo">Valor<input class="entrada valor" id="ed-valor" inputmode="decimal" autocomplete="off" value="${num(l.valor)}" data-autofoco></label>`
         + `<label class="campo">Categoria<select class="entrada" id="ed-cat">${opcoes}</select></label>`
         + `<div class="campo"><label for="ed-data">Data</label><div class="datas"><input type="date" id="ed-data" value="${isoData(ano, l.mes, l.dia || 1)}"><label class="marcar"><input type="checkbox" id="ed-semdia"${l.dia ? '' : ' checked'}>Sem dia definido</label></div></div>`
         + `<label class="campo">Descrição<input class="entrada" id="ed-desc" value="${esc(l.descricao)}" maxlength="300" autocomplete="off"></label>`
-        + '<p class="entendi" id="ed-erro" aria-live="polite"></p></div>'
+        + (ehParcela ? '' : `<div class="acoes ed-extras" role="group" aria-label="Copiar este lançamento"><button type="button" class="botao pequeno" data-f="duplicar">Duplicar</button><button type="button" class="botao pequeno" data-f="prox-mes">Repetir no próximo mês</button><button type="button" class="botao pequeno" data-f="todo-mes">${ic('repetir', 16)}Repetir todo mês</button></div>`)
+        + '<div id="ed-escolha"></div><p class="entendi" id="ed-erro" aria-live="polite"></p></div>'
         + '<footer class="folha-rodape linha"><button type="button" class="botao perigo" data-f="apagar">' + ic('lixeira', 18) + 'Apagar</button><button type="button" class="botao primario" data-f="salvar" style="flex:1;margin-left:8px">Salvar</button></footer>';
       let confirmadoAlto = null;
       const estadoFechado = { fechado: null };
-      const salvar = () => {
+      const erroEd = (t) => { const e = $('#ed-erro', el); e.textContent = t; e.className = 'entendi erro'; };
+      const escolha = (txt, botoes) => {
+        $('#ed-escolha', el).innerHTML = `<div class="escolha-inline" role="group" aria-label="Quais parcelas"><p class="sub">${esc(txt)}</p><div class="acoes">${botoes}</div></div>`;
+        const b = $('#ed-escolha [data-f]', el); if (b) b.focus();
+      };
+      const limparEscolha = () => { $('#ed-escolha', el).innerHTML = ''; };
+      const salvar = (modo) => {
         const v = paraNumero($('#ed-valor', el).value);
-        const erro = $('#ed-erro', el);
-        if (v === null || v === 0) { erro.textContent = 'Valor inválido. Para tirar o lançamento, use Apagar.'; erro.className = 'entendi erro'; return; }
+        if (v === null || v === 0) { erroEd('Valor inválido. Para tirar o lançamento, use Apagar.'); return; }
         const catNova = $('#ed-cat', el).value;
         if (v !== original.valor && foraDoNormal(catNova, v) && confirmadoAlto !== v) {
           confirmadoAlto = v;
-          erro.textContent = `${moeda(v)} é bem mais do que o habitual nesta categoria. Confira e toque em Salvar de novo.`; erro.className = 'entendi erro'; return;
+          erroEd(`${moeda(v)} é bem mais do que o habitual nesta categoria. Confira e toque em Salvar de novo.`); return;
         }
         const p = $('#ed-data', el).value.split('-').map(Number);
-        if (!p[0] || !p[1]) { erro.textContent = 'Escolha uma data.'; erro.className = 'entendi erro'; return; }
-        const novo = { id: l.id, ano: p[0], mes: p[1], dia: $('#ed-semdia', el).checked ? null : p[2], categoriaId: $('#ed-cat', el).value, descricao: $('#ed-desc', el).value.trim(), valor: v };
-        const mudou = ['ano', 'mes', 'dia', 'categoriaId', 'descricao', 'valor'].some((k) => novo[k] !== original[k]);
+        if (!p[0] || !p[1]) { erroEd('Escolha uma data.'); return; }
+        const novo = { id: l.id, ano: p[0], mes: p[1], dia: $('#ed-semdia', el).checked ? null : p[2], categoriaId: catNova, descricao: $('#ed-desc', el).value.trim(), valor: v };
+        const prox = proximasParcelas(l.id);
+        const novaBase = baseParcela(novo.descricao).base;
+        const descMudou = ehParcela && novaBase !== bp.base;
+        const grupoMudou = ehParcela && prox.length > 0 && (novo.categoriaId !== original.categoriaId || novo.valor !== original.valor || descMudou);
+        if (grupoMudou && !modo) {
+          escolha('Esta compra tem parcelas seguintes. Onde vale a mudança de valor, categoria ou descrição? A data muda só nesta.',
+            `<button type="button" class="botao pequeno" data-f="so-esta">Só nesta</button><button type="button" class="botao pequeno primario" data-f="com-proximas">Nesta e nas próximas (${prox.length})</button><button type="button" class="botao pequeno fantasma" data-f="voltar">Voltar</button>`);
+          return;
+        }
+        limparEscolha();
+        const alvos = [novo]; const originais = [original];
+        if (grupoMudou && modo === 'grupo') {
+          if (descMudou) novo.descricao = montarDescParcela(novaBase, kAtual, totalParc);
+          for (const sib of prox) {
+            const bs = baseParcela(sib.descricao); const ks = bs.k || Number(sib.id.slice(-2)); const ns = bs.n || totalParc;
+            originais.push({ ...sib });
+            alvos.push({
+              id: sib.id, ano: sib.ano, mes: sib.mes, dia: sib.dia,
+              categoriaId: novo.categoriaId !== original.categoriaId ? novo.categoriaId : sib.categoriaId,
+              valor: novo.valor !== original.valor ? novo.valor : sib.valor,
+              descricao: descMudou ? montarDescParcela(novaBase, ks, ns) : sib.descricao,
+            });
+          }
+        }
+        const mudou = alvos.some((x, i) => ['ano', 'mes', 'dia', 'categoriaId', 'descricao', 'valor'].some((k) => x[k] !== originais[i][k]));
         if (mudou) {
-          const paraFechado = pedirConfirmacaoFechado([{ ano: original.ano, mes: original.mes }, { ano: novo.ano, mes: novo.mes }], estadoFechado);
-          if (paraFechado) { erro.textContent = paraFechado; erro.className = 'entendi erro'; return; }
-          registrar({ t: 'lanc', l: novo });
-          const reajustar = () => { atualizarFechamento(original.ano, original.mes); if (novo.ano !== original.ano || novo.mes !== original.mes) atualizarFechamento(novo.ano, novo.mes); };
+          const meses = originais.map((x) => ({ ano: x.ano, mes: x.mes })).concat(alvos.map((x) => ({ ano: x.ano, mes: x.mes })));
+          const paraFechado = pedirConfirmacaoFechado(meses, estadoFechado);
+          if (paraFechado) { erroEd(paraFechado); return; }
+          alvos.forEach((x) => registrar({ t: 'lanc', l: x }));
+          const reajustar = () => meses.forEach((x, i, a) => { if (a.findIndex((y) => y.ano === x.ano && y.mes === x.mes) === i) atualizarFechamento(x.ano, x.mes); });
           reajustar();
-          aviso('Lançamento alterado.', { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc', l: original }); reajustar(); } });
+          aviso(alvos.length > 1 ? `${alvos.length} parcelas alteradas.` : 'Lançamento alterado.', { acao: 'Desfazer', fn: () => { originais.forEach((x) => registrar({ t: 'lanc', l: x })); reajustar(); } });
         }
         fecharFolha();
+      };
+      const apagar = (modo) => {
+        const prox = modo === 'grupo' ? proximasParcelas(l.id) : [];
+        const originais = [original, ...prox.map((x) => ({ ...x }))];
+        const meses = originais.map((x) => ({ ano: x.ano, mes: x.mes }));
+        const paraFechado = pedirConfirmacaoFechado(meses, estadoFechado);
+        if (paraFechado) { erroEd(paraFechado); return; }
+        originais.forEach((x) => registrar({ t: 'lanc-', id: x.id }));
+        const reajustar = () => meses.forEach((x, i, a) => { if (a.findIndex((y) => y.ano === x.ano && y.mes === x.mes) === i) atualizarFechamento(x.ano, x.mes); });
+        reajustar();
+        fecharFolha();
+        aviso(originais.length > 1 ? `${originais.length} parcelas apagadas.` : 'Lançamento apagado.', { acao: 'Desfazer', fn: () => { originais.forEach((x) => registrar({ t: 'lanc', l: x })); reajustar(); } });
       };
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-f]');
         if (!b) return;
-        if (b.dataset.f === 'fechar') fecharFolha();
-        else if (b.dataset.f === 'salvar') salvar();
-        else if (b.dataset.f === 'apagar') {
-          const paraFechado = pedirConfirmacaoFechado([{ ano: original.ano, mes: original.mes }], estadoFechado);
-          if (paraFechado) { const er = $('#ed-erro', el); er.textContent = paraFechado; er.className = 'entendi erro'; return; }
-          registrar({ t: 'lanc-', id: l.id });
-          atualizarFechamento(original.ano, original.mes);
-          fecharFolha();
-          aviso('Lançamento apagado.', { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc', l: original }); atualizarFechamento(original.ano, original.mes); } });
+        const f = b.dataset.f; const h = hoje();
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'salvar') salvar();
+        else if (f === 'so-esta') salvar('um');
+        else if (f === 'com-proximas') salvar('grupo');
+        else if (f === 'voltar') limparEscolha();
+        else if (f === 'apagar') {
+          const prox = proximasParcelas(l.id);
+          if (prox.length) {
+            escolha('Esta compra tem parcelas seguintes. Apagar quais?',
+              `<button type="button" class="botao pequeno perigo" data-f="apagar-esta">Só esta</button><button type="button" class="botao pequeno perigo" data-f="apagar-proximas">Esta e as próximas (${prox.length})</button><button type="button" class="botao pequeno fantasma" data-f="voltar">Voltar</button>`);
+          } else apagar('um');
+        }
+        else if (f === 'apagar-esta') apagar('um');
+        else if (f === 'apagar-proximas') apagar('grupo');
+        else if (f === 'duplicar') {
+          const hojeMes = original.ano === h.ano && original.mes === h.mes;
+          if (copiarLancamento(original, hojeMes ? { ano: h.ano, mes: h.mes, dia: h.dia } : { ano: original.ano, mes: original.mes, dia: original.dia }, estadoFechado, erroEd)) fecharFolha();
+        }
+        else if (f === 'prox-mes') {
+          const d = deChave(chaveMes(original.ano, original.mes) + 1);
+          const dia = original.dia === null || original.dia === undefined ? null : Math.min(original.dia, diasNoMes(d.ano, d.mes));
+          if (copiarLancamento(original, { ano: d.ano, mes: d.mes, dia }, estadoFechado, erroEd)) fecharFolha();
+        }
+        else if (f === 'todo-mes') {
+          const iniRec = Math.max(original.ano * 100 + original.mes, h.ano * 100 + h.mes);
+          abrirRecorrencia({
+            cid: original.categoriaId, ano: original.ano, mes: original.mes, aoSalvar: () => fecharFolha(),
+            pre: { descricao: original.descricao, valor: original.valor > 0 ? original.valor : 0, dia: original.dia, inicio: iniRec },
+          });
         }
       });
       el.addEventListener('keydown', (e) => {
@@ -1717,6 +2346,201 @@ function abrirEditar(id) {
       });
     },
   });
+}
+
+/* ---------- Recorrências (3.1.0): o que se repete todo mês ---------- */
+const aaaammDe = (k) => { const d = deChave(k); return d.ano * 100 + d.mes; };
+const chaveDe = (n) => chaveMes(Math.floor(n / 100), n % 100);
+const rotuloAaaamm = (n) => `${MESES_C[(n % 100) - 1]}/${Math.floor(n / 100)}`;
+const tituloRec = (c, edicao) => `${edicao ? 'Editar ' : c.grupo === 'variavel' ? 'Novo ' : 'Nova '}${c.grupo === 'renda' ? 'renda' : c.grupo === 'variavel' ? 'gasto' : 'conta'} que se repete`;
+/** Texto e cor do estado de uma conta do mês (situacaoContas) conforme a fase do mês. */
+function textoConta(s, renda, f) {
+  if (s.pago) return { txt: '', cls: '' };
+  const dia = s.dia; const auto = Boolean(s.r.automatico); const hd = hoje().dia;
+  if (f === 'passado') return { txt: renda ? 'não recebida' : 'não lançada', cls: 'txt-atencao' };
+  if (ausente(dia)) return { txt: 'sem dia definido', cls: '' };
+  if (f === 'atual' && s.atrasada) return { txt: `atrasada desde dia ${dia}`, cls: 'atrasada' };
+  if (f === 'atual' && dia === hd) return { txt: renda ? 'recebe hoje' : auto ? 'sai sozinha hoje' : 'vence hoje', cls: auto || renda ? '' : 'hoje' };
+  if (f === 'atual' && dia < hd) return { txt: renda ? `previsto para dia ${dia}` : `debitada dia ${dia}? Confirme`, cls: '' };
+  return { txt: renda ? `recebe dia ${dia}` : auto ? `sai sozinha dia ${dia}` : `vence dia ${dia}`, cls: '' };
+}
+/** Situação de cada recorrência do mês numa categoria: Map id → { s, quitado }. */
+function situacaoRecs(cid, ano, mes) {
+  const g = recorrentesDoMes(ano, mes).get(cid); const out = new Map();
+  if (!g) return out;
+  const cel = celReal(cid, ano, mes); const f = fase(ano, mes);
+  const sit = situacaoContas(g.itens, cel.cent, f === 'atual' ? hoje().dia : null);
+  let acum = 0;
+  for (const s of sit) { acum += s.cent; out.set(s.r.id, { s, quitado: s.pago ? diaQuitado(cel.itens, acum) : null }); }
+  return out;
+}
+/** As recorrências que a folha da categoria lista: ativas e não terminadas antes do mês. */
+const recsVisiveis = (cid, ano, mes) => recsDaCategoria(cid).filter((r) => r.ativa && (ausente(r.fim) || Number(r.fim) >= ano * 100 + mes)).sort((a, b) => a.inicio - b.inicio || (a.dia ?? 99) - (b.dia ?? 99));
+function htmlRecorrencias(c, ano, mes) {
+  const cid = c.id; const lista = recsVisiveis(cid, ano, mes); const renda = c.grupo === 'renda';
+  const f = fase(ano, mes); const aaaamm = ano * 100 + mes; const sit = situacaoRecs(cid, ano, mes);
+  const itens = lista.map((r) => {
+    const partes = [ausente(r.dia) ? 'sem dia' : `dia ${r.dia}`];
+    if (r.automatico) partes.push('débito automático');
+    if (!ausente(r.fim)) partes.push(`até ${rotuloAaaamm(r.fim)}`);
+    let estado = ''; let cls = ''; let botoes = '';
+    const nome = r.descricao || c.nome;
+    const ini = r.inicio > aaaamm;
+    if (ini) { estado = `começa em ${rotuloAaaamm(r.inicio)}`; }
+    else if (pulada(ano, mes, r.id)) { estado = `não vem em ${Mes(mes)}`; cls = 'txt-atencao'; }
+    else {
+      const x = sit.get(r.id);
+      if (x && x.s.pago) estado = x.quitado ? `${renda ? 'recebida' : 'paga'} dia ${x.quitado}` : renda ? 'recebida' : 'paga';
+      else if (x) { const t = textoConta(x.s, renda, f); estado = t.txt + (x.s.pagoCent > 0 ? ` · faltam ${moeda(x.s.restante / 100)}` : ''); cls = t.cls; }
+    }
+    const rid = `data-rid="${esc(r.id)}"`;
+    botoes = `<button type="button" class="botao pequeno" data-f="rec-editar" ${rid}>Editar</button>`
+      + (ini ? '' : pulada(ano, mes, r.id) ? `<button type="button" class="botao pequeno fantasma" data-f="rec-voltar" ${rid}>Desfazer</button>`
+        : `<button type="button" class="botao pequeno fantasma" data-f="rec-pular" ${rid}>Não vem em ${Mes(mes)}</button>`)
+      + `<button type="button" class="botao pequeno fantasma" data-f="rec-encerrar" ${rid}>Encerrar</button>`;
+    const marca = cls === 'atrasada' ? ic('alerta', 14) : '';
+    return `<div class="rc-item"><div class="rc-txt"><div class="rc-linha"><strong>${esc(nome)}</strong><span class="rc-valor">${moeda(r.valor)}</span></div>`
+      + `<span class="rc-meta">${esc(partes.join(' · '))}</span>${estado ? `<span class="rc-estado ${cls}">${marca}${esc(estado)}</span>` : ''}</div><div class="rc-acoes">${botoes}</div></div>`;
+  }).join('');
+  const rotNova = c.grupo === 'renda' ? 'Nova renda que se repete' : c.grupo === 'variavel' ? 'Novo gasto que se repete' : 'Nova conta que se repete';
+  return `<div class="rotulo" style="margin-bottom:6px">Todo mês</div>${itens ? `<div class="rc-lista">${itens}</div>` : '<p class="sub">Nada se repete nesta categoria. Cadastre o que vem todo mês e o plano de cada mês passa a vir daí.</p>'}`
+    + `<div class="acoes"><button type="button" class="botao" data-f="rec-nova">${ic('repetir', 18)}${rotNova}</button></div>`;
+}
+/** Folha de uma recorrência: nova (rec vazio) ou edição. pre preenche os campos; aoSalvar roda depois de salvar. */
+function abrirRecorrencia(o) {
+  const c = catPorId(o.cid); if (!c) return;
+  const rec = o.rec || null; const pre = o.pre || {}; const base = rec || pre;
+  const h = hoje(); const atual = h.ano * 100 + h.mes;
+  const refMes = Math.max(o.ano * 100 + o.mes, atual);
+  const ehRenda = c.grupo === 'renda';
+  abrirFolha({
+    tipo: 'recorrencia',
+    montar(el) {
+      const iniPadrao = base.inicio || refMes;
+      const mesesIni = [];
+      const k0 = chaveDe(atual);
+      for (let i = 0; i <= 36; i++) mesesIni.push(aaaammDe(k0 + i));
+      if (!mesesIni.includes(iniPadrao)) mesesIni.unshift(iniPadrao);
+      mesesIni.sort((a, b) => a - b);
+      const opcIni = mesesIni.map((n) => `<option value="${n}"${n === iniPadrao ? ' selected' : ''}>${rotuloAaaamm(n)}</option>`).join('');
+      el.innerHTML = topoFolha(tituloRec(c, Boolean(rec)), c.nome)
+        + '<div class="folha-corpo">'
+        + `<label class="campo">Valor<input class="entrada valor" id="rc-valor" inputmode="decimal" autocomplete="off" value="${base.valor ? num(base.valor) : ''}" placeholder="0,00" data-autofoco></label>`
+        + `<label class="campo">Descrição (opcional)<input class="entrada" id="rc-desc" maxlength="300" autocomplete="off" value="${esc(base.descricao || '')}" placeholder="${esc(c.nome)}"></label>`
+        + `<label class="campo">${ehRenda ? 'Dia em que cai' : 'Dia do vencimento'} (opcional)<input class="entrada" id="rc-dia" inputmode="numeric" maxlength="2" autocomplete="off" value="${ausente(base.dia) ? '' : base.dia}" placeholder="1 a 31"></label>`
+        + (ehRenda ? '' : `<label class="marcar"><input type="checkbox" id="rc-auto"${base.automatico ? ' checked' : ''}>Débito automático ou Pix Automático</label>`)
+        + `<label class="campo">A partir de<select class="entrada" id="rc-ini">${opcIni}</select></label>`
+        + '<label class="campo">Até (opcional)<select class="entrada" id="rc-fim"></select></label>'
+        + '<div id="rc-escolha"></div><p class="entendi" id="rc-erro" aria-live="polite"></p></div>'
+        + `<footer class="folha-rodape linha"><button type="button" class="botao primario" data-f="salvar" style="flex:1">${rec ? 'Salvar' : 'Criar'}</button></footer>`;
+      const fimGravado = ausente(base.fim) ? 0 : chaveDe(Number(base.fim));
+      const montarFim = (manter) => {
+        const ini = Number($('#rc-ini', el).value); const k = chaveDe(ini);
+        const alvo = manter === undefined ? ($('#rc-fim', el).value || '') : String(manter ?? '');
+        const ultimo = Math.max(60, fimGravado - k, alvo ? chaveDe(Number(alvo)) - k : 0);
+        let h2 = '<option value="">sem fim</option>';
+        for (let i = 0; i <= ultimo; i++) { const n = aaaammDe(k + i); h2 += `<option value="${n}"${String(n) === alvo ? ' selected' : ''}>${rotuloAaaamm(n)}</option>`; }
+        $('#rc-fim', el).innerHTML = h2;
+      };
+      montarFim(ausente(base.fim) ? '' : base.fim);
+      $('#rc-ini', el).addEventListener('change', () => montarFim());
+      const erro = (t) => { const e = $('#rc-erro', el); e.textContent = t; e.className = t ? 'entendi erro' : 'entendi'; };
+      const ler = () => {
+        const valor = paraNumero($('#rc-valor', el).value);
+        if (valor === null || !(valor > 0) || valor >= 1e9) { erro('Digite um valor maior que zero, como 1.200,00.'); return null; }
+        const diaTxt = $('#rc-dia', el).value.trim();
+        const dia = diaTxt ? Number(diaTxt) : null;
+        if (diaTxt && (!Number.isInteger(dia) || dia < 1 || dia > 31)) { erro('O dia vai de 1 a 31. Deixe vazio se não tem dia certo.'); return null; }
+        const inicio = Number($('#rc-ini', el).value); const fimTxt = $('#rc-fim', el).value; const fim = fimTxt ? Number(fimTxt) : null;
+        if (fim !== null && fim < inicio) { erro('O fim não pode ser antes do começo.'); return null; }
+        const auto = $('#rc-auto', el);
+        return { categoriaId: c.id, descricao: $('#rc-desc', el).value.trim(), valor, dia, inicio, fim, automatico: auto ? auto.checked : false };
+      };
+      const terminar = () => { fecharFolha(); if (o.aoSalvar) o.aoSalvar(); };
+      const criar = () => {
+        const n = ler(); if (!n) return;
+        const id = novoIdRec();
+        registrar({ t: 'rec', r: { id, ...n } });
+        aviso(`${c.grupo === 'renda' ? 'Renda' : c.grupo === 'variavel' ? 'Gasto' : 'Conta'} que se repete: ${moeda(n.valor)} todo mês.`, { acao: 'Desfazer', fn: () => registrar({ t: 'rec-', id }) });
+        terminar();
+      };
+      const guardarEdicao = (n) => {
+        const antes = { ...rec };
+        registrar({ t: 'rec', r: { id: rec.id, ...n } });
+        aviso('Alteração salva: vale para todos os meses dessa recorrência.', { acao: 'Desfazer', fn: () => registrar({ t: 'rec', r: antes }) });
+        terminar();
+      };
+      const mostrarEscolha = (n) => {
+        const nm = Mes(o.mes); const nr = Mes(refMes % 100);
+        const soEste = !temGravado(c.id, o.ano, o.mes);
+        $('#rc-escolha', el).innerHTML = `<div class="escolha-inline" role="group" aria-label="Onde vale a mudança"><p class="sub">O valor mudou de ${moeda(rec.valor)} para ${moeda(n.valor)}. Onde vale?</p><div class="acoes">`
+          + (soEste ? `<button type="button" class="botao pequeno" data-f="so-mes">Só em ${nm}</button>` : '')
+          + `<button type="button" class="botao pequeno primario" data-f="em-diante">De ${nr} em diante</button>`
+          + '<button type="button" class="botao pequeno fantasma" data-f="voltar">Voltar</button></div></div>';
+        const b = $('[data-f="em-diante"]', el); if (b) b.focus();
+      };
+      let pendente = null;
+      const salvar = () => {
+        const n = ler(); if (!n) return;
+        if (!rec) { criar(); return; }
+        const ativoNoMes = rec.inicio < o.ano * 100 + o.mes && (ausente(rec.fim) || Number(rec.fim) >= o.ano * 100 + o.mes);
+        if (ativoNoMes && Math.abs(n.valor - rec.valor) > 0.004) { pendente = n; mostrarEscolha(n); return; }
+        guardarEdicao(n);
+      };
+      const soEsteMes = () => {
+        const n = pendente; const g = recorrentesDoMes(o.ano, o.mes).get(c.id);
+        let cent = 0;
+        for (const it of (g ? g.itens : [])) if (!it.pulada) cent += it.r.id === rec.id ? centavos(n.valor) : it.cent;
+        const antes = planoGravado(c.id, o.ano, o.mes);
+        registrar({ t: 'orc', ano: o.ano, categoriaId: c.id, mes: o.mes, valor: cent / 100 });
+        aviso(`${c.nome}: ${moeda(cent / 100)} só em ${Mes(o.mes)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: o.ano, categoriaId: c.id, mes: o.mes, valor: antes || null }) });
+        terminar();
+      };
+      const emDiante = () => {
+        const n = pendente; const antes = { ...rec }; const id = novoIdRec();
+        const ate = aaaammDe(chaveDe(refMes) - 1);
+        const novoInicio = refMes;
+        const criarNova = n.fim === null || n.fim >= novoInicio;
+        const fimAntigo = ausente(antes.fim) ? ate : Math.min(Number(antes.fim), ate);
+        registrar({ t: 'rec', r: { ...antes, fim: fimAntigo } });
+        if (criarNova) registrar({ t: 'rec', r: { id, ...n, inicio: novoInicio, fim: n.fim } });
+        const txt = criarNova ? `${c.nome}: ${moeda(n.valor)} de ${Mes(refMes % 100)} em diante.` : `${c.nome}: já termina antes de ${Mes(refMes % 100)}; o valor novo não entra.`;
+        aviso(txt, { acao: 'Desfazer', fn: () => { if (criarNova) registrar({ t: 'rec-', id }); registrar({ t: 'rec', r: antes }); } });
+        terminar();
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]'); if (!b) return;
+        const f = b.dataset.f;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'salvar') salvar();
+        else if (f === 'so-mes') soEsteMes();
+        else if (f === 'em-diante') emDiante();
+        else if (f === 'voltar') { pendente = null; $('#rc-escolha', el).innerHTML = ''; }
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); salvar(); }
+      });
+    },
+  });
+}
+/** Encerrar: termina no mês anterior ao de referência; se ainda nem começou, apaga junto com as marcas. */
+function encerrarRec(r, ano, mes) {
+  const c = catPorId(r.categoriaId); const nome = r.descricao || (c ? c.nome : 'Recorrência');
+  const refMes = Math.max(ano * 100 + mes, hoje().ano * 100 + hoje().mes);
+  const antes = { ...r };
+  const marcas = Object.keys(S.dados.marcas || {}).filter((k) => k.startsWith('pular:') && k.endsWith(':' + r.id));
+  if (r.inicio >= refMes) {
+    registrar({ t: 'rec-', id: r.id });
+    aviso(`${nome}: recorrência apagada.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'rec', r: antes }); marcas.forEach((k) => registrar({ t: 'cfg', k, v: '1' })); } });
+    return;
+  }
+  registrar({ t: 'rec', r: { ...r, fim: aaaammDe(chaveDe(refMes) - 1) } });
+  aviso(`${nome}: não vem mais de ${Mes(refMes % 100)} em diante.`, { acao: 'Desfazer', fn: () => registrar({ t: 'rec', r: antes }) });
+}
+function pularRec(r, ano, mes, pular) {
+  const k = chavePular(ano, mes, r.id); const nome = r.descricao || (catPorId(r.categoriaId) || {}).nome || 'Recorrência';
+  registrar({ t: 'cfg', k, v: pular ? '1' : '' });
+  aviso(pular ? `${nome}: não vem em ${Mes(mes)}.` : `${nome}: volta a valer em ${Mes(mes)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'cfg', k, v: pular ? '' : '1' }) });
 }
 
 /* ---------- Categoria num mês (o antigo "clicar na célula") ---------- */
@@ -1735,7 +2559,7 @@ function abrirCategoria(cid, ano, mes) {
         + `<button type="button" class="botao" data-f="adicionar">${ic('mais', 18)}Adicionar</button></div>`
         + '<p class="entendi" id="fc-msg" aria-live="polite">Aceita vários valores: “217,93 176,15” ou “36*4”.</p></div>'
         + `<div class="fc-plano"><label class="campo">Plano de ${MESES[mes - 1]}<input class="entrada valor" id="fc-plano" inputmode="decimal" autocomplete="off"></label>`
-        + `<button type="button" class="botao" data-f="repetir">Repetir até dezembro</button></div><p class="sub" id="fc-plano-dica"></p></div>`
+        + `<button type="button" class="botao" data-f="repetir">Repetir até dezembro</button></div><p class="sub" id="fc-plano-dica"></p><div class="fc-rec" id="fc-rec"></div></div>`
         + '<footer class="folha-rodape linha"><span class="rotulo">Total do mês</span><span class="total-rodape" id="fc-total"></span></footer>';
       const atualizar = () => {
         if (!catPorId(cid)) { fecharFolha(); return; }
@@ -1750,19 +2574,21 @@ function abrirCategoria(cid, ano, mes) {
         const botoes = (podeConfirmar ? `<button type="button" class="botao" data-f="confirmar">${ic('check', 18)}Confirmar ${moeda(falta)} como lançado</button>` : '')
           + (podeEncerrar ? `<button type="button" class="botao fantasma" data-f="${v.encerrada ? 'reabrir' : 'encerrar'}">${v.encerrada ? 'Reabrir no mês' : rotEncerrar}</button>` : '');
         const conf = botoes ? `<div class="acoes">${botoes}</div>` : '';
-        $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) : 'sem plano'}</span></div>`
+        $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) + (v.recorrente ? ' (todo mês)' : '') : 'sem plano'}</span></div>`
           + barra({ pct, ritmo: v.fase === 'atual' && c.grupo === 'variavel' && v.plano ? resumo(ano, mes).ritmo : null, estado: est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok', alta: true })
-          + `<p class="lc-nota ${est === 'acima' ? 'txt-acima' : ''}" style="margin-top:6px">${esc(notaCategoria(c, v, est))}</p>${conf}`;
+          + `<p class="lc-nota ${est === 'acima' ? 'txt-acima' : ''}" style="margin-top:6px">${esc(notaCategoria(c, v, est, ano, mes))}</p>${conf}`;
         const itens = celReal(cid, ano, mes).itens.slice().sort((a, b) => (a.dia ?? 99) - (b.dia ?? 99));
         const mapa = mapaCats();
         $('#fc-lista', el).innerHTML = itens.length ? itens.map((l) => linhaLanc(l, ano, mapa)).join('') : '<p class="sub" style="padding:14px">Nada lançado ainda.</p>';
         $('#fc-total', el).textContent = moeda(v.real);
         const inp = $('#fc-plano', el);
-        if (document.activeElement !== inp) inp.value = planoExp(cid, ano, mes) ? num(planoExp(cid, ano, mes)) : '';
+        const grav = planoGravado(cid, ano, mes);
+        if (document.activeElement !== inp) inp.value = grav ? num(grav) : '';
         const med = media3(cid, ano, mes);
-        inp.placeholder = '0,00';
+        inp.placeholder = v.recorrente ? num(v.plano) : '0,00';
+        $('#fc-rec', el).innerHTML = htmlRecorrencias(c, ano, mes);
         $('#fc-plano-dica', el).innerHTML = (med ? `Sugestão: a média dos 3 meses anteriores é ${moeda(med)}. <button type="button" class="link" data-f="sugestao">Usar sugestão</button> ` : '') + 'Campo vazio significa sem valor previsto nas contas. A sugestão não entra nas contas até você usá-la.'
-          + (v.plano > 0 ? ' <button type="button" class="link" data-f="apagar-plano">Apagar plano</button>' : '');
+          + (grav > 0 ? ' <button type="button" class="link" data-f="apagar-plano">Apagar plano</button>' : '');
       };
       let confirmadoAlto = null;
       let confirmaRepetir = null;
@@ -1803,28 +2629,45 @@ function abrirCategoria(cid, ano, mes) {
         if (f === 'fechar') fecharFolha();
         else if (f === 'adicionar') adicionar();
         else if (f === 'confirmar') confirmarPrevisto(cid, ano, mes);
+        else if (f === 'rec-nova') abrirRecorrencia({ cid, ano, mes });
+        else if (f.startsWith('rec-') && b.dataset.rid) {
+          const r = recsDaCategoria(cid).find((x) => x.id === b.dataset.rid);
+          if (!r) return;
+          if (f === 'rec-editar') abrirRecorrencia({ cid, ano, mes, rec: r });
+          else if (f === 'rec-pular') pularRec(r, ano, mes, true);
+          else if (f === 'rec-voltar') pularRec(r, ano, mes, false);
+          else if (f === 'rec-encerrar') encerrarRec(r, ano, mes);
+          atualizar();
+        }
         else if (f === 'encerrar' || f === 'reabrir') { encerrarCategoria(cid, ano, mes, f === 'encerrar'); atualizar(); }
         else if (f === 'sugestao') {
           const med = media3(cid, ano, mes);
           if (!med) return;
-          const antes = planoExp(cid, ano, mes);
+          const antes = planoGravado(cid, ano, mes);
           registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: med });
           aviso(`Plano de ${c.nome}: ${moeda(med)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes || null }) });
           atualizar();
         }
         else if (f === 'apagar-plano') {
-          const antes = planoExp(cid, ano, mes);
+          const antes = planoGravado(cid, ano, mes);
           if (!antes) return;
           registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: null });
-          aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }) });
+          aviso(planoExp(cid, ano, mes) > 0 ? `Voltou ao valor que se repete todo mês: ${moeda(planoExp(cid, ano, mes))}.` : 'Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }) });
           atualizar();
         }
         else if (f === 'repetir') {
           const v = paraNumero($('#fc-plano', el).value);
           if (!v || v < 0) { aviso('Digite o valor do plano antes de repetir.'); return; }
           const antes = [];
-          for (let m = mes; m <= 12; m++) antes.push({ m, v: planoExp(cid, ano, m) });
+          for (let m = mes; m <= 12; m++) antes.push({ m, v: planoGravado(cid, ano, m), e: planoExp(cid, ano, m) });
           const trocados = antes.filter((x) => x.v && Math.abs(x.v - v) > 0.004);
+          const daRec = antes.filter((x) => !x.v && x.e > 0 && Math.abs(x.e - v) > 0.004);
+          if (daRec.length && !trocados.length && confirmaRepetir !== v) {
+            confirmaRepetir = v;
+            b.textContent = 'Usar o valor mesmo assim? Toque de novo';
+            $('#fc-plano-dica', el).textContent = `Em ${daRec.map((x) => MESES_C[x.m - 1]).join(', ')}, o valor que se repete todo mês dá lugar ao valor copiado nestes meses. Toque de novo para aplicar.`;
+            return;
+          }
           if (trocados.length && confirmaRepetir !== v) {
             confirmaRepetir = v;
             b.textContent = `Substituir ${trocados.length} plano${trocados.length > 1 ? 's' : ''}? Toque de novo`;
@@ -1842,10 +2685,10 @@ function abrirCategoria(cid, ano, mes) {
         const txt = e.target.value.trim();
         const v = txt ? paraNumero(txt) : null;
         if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido.', { tipo: 'erro' }); return; }
-        const antes = planoExp(cid, ano, mes);
+        const antes = planoGravado(cid, ano, mes);
         registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
         if (!v && antes > 0) {
-          aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
+          aviso(planoExp(cid, ano, mes) > 0 ? `Voltou ao valor que se repete todo mês: ${moeda(planoExp(cid, ano, mes))}.` : 'Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
             acao: 'Desfazer',
             fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
           });
@@ -1859,17 +2702,87 @@ function abrirCategoria(cid, ano, mes) {
     },
   });
 }
-function confirmarPrevisto(cid, ano, mes) {
-  const v = celula(cid, ano, mes);
-  const c = catPorId(cid);
-  if (!c || !v.plano) return;
-  const valor = v.qtd ? v.falta : v.plano;
-  if (!(valor > 0)) return;
-  const id = novoId();
-  registrar({ t: 'lanc', l: { id, ano, mes, dia: fase(ano, mes) === 'atual' ? hoje().dia : null, categoriaId: cid, descricao: '', valor } });
-  aviso(ehGuardar(c) ? `${moeda(valor)} guardado.` : `${c.nome}: ${moeda(valor)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
+/** Primeira conta em aberto da categoria no mês (recorrências por ordem de dia), ou null. */
+function primeiraAberta(cid, ano, mes) {
+  for (const x of situacaoRecs(cid, ano, mes).values()) if (!x.s.pago) return x;
+  return null;
 }
-/** Fechamento do mês: resolve cada plano sem lançamento e grava a sobra realizada. */
+/** Todas as contas em aberto da categoria são de débito automático (e vêm só das recorrências)? */
+function soAutomaticas(cid, ano, mes) {
+  if (temGravado(cid, ano, mes)) return false;
+  const abertas = [...situacaoRecs(cid, ano, mes).values()].filter((x) => !x.s.pago);
+  return abertas.length > 0 && abertas.every((x) => x.s.r.automatico);
+}
+/**
+ * Lança o que falta do plano da categoria no mês. Plano das recorrências: um lançamento por conta em
+ * aberto, no dia dela. Plano gravado: um só, com o que falta. Devolve { ids, total } ou null.
+ */
+function lancarPrevisto(cid, ano, mes) {
+  const c = catPorId(cid);
+  if (!c) return null;
+  const v = celula(cid, ano, mes);
+  if (!v.plano) return null;
+  const diaHoje = fase(ano, mes) === 'atual' ? hoje().dia : null;
+  const lancs = [];
+  if (!temGravado(cid, ano, mes) && recorrentesDoMes(ano, mes).get(cid)) {
+    for (const x of situacaoRecs(cid, ano, mes).values()) {
+      if (!x.s.pago) lancs.push({ dia: ausente(x.s.dia) ? diaHoje : x.s.dia, descricao: x.s.r.descricao || '', valor: x.s.restante / 100 });
+    }
+  } else {
+    const valor = v.qtd ? v.falta : v.plano;
+    const x = primeiraAberta(cid, ano, mes);
+    if (valor > 0) lancs.push({ dia: x && !ausente(x.s.dia) ? x.s.dia : diaHoje, descricao: '', valor });
+  }
+  if (!lancs.length) return null;
+  const ids = lancs.map((l) => { const id = novoId(); registrar({ t: 'lanc', l: { id, ano, mes, dia: l.dia, categoriaId: cid, descricao: l.descricao, valor: l.valor } }); return id; });
+  return { ids, total: lancs.reduce((a, l) => a + centavos(l.valor), 0) / 100 };
+}
+function confirmarPrevisto(cid, ano, mes) {
+  const c = catPorId(cid);
+  const r = c ? lancarPrevisto(cid, ano, mes) : null;
+  if (!r) return;
+  const qtd = r.ids.length > 1 ? ` (${r.ids.length} contas)` : '';
+  aviso(ehGuardar(c) ? `${moeda(r.total)} guardado.` : `${c.nome}: ${moeda(r.total)} lançado${qtd}.`, { acao: 'Desfazer', fn: () => r.ids.forEach((id) => registrar({ t: 'lanc-', id })) });
+}
+/** Id fixo do lançamento que leva a sobra de um mês para o seguinte: "s", o ano e o mês de origem. */
+const idSobra = (ano, mes) => `s${ano}${dois(mes)}`;
+/** O que mudaria no mês seguinte ao fechar com esta sobra: null quando nada muda (sem sobra e sem lançamento antigo, ou igual). */
+function planoSobra(ano, mes, sobra) {
+  const prox = deChave(chaveMes(ano, mes) + 1);
+  const id = idSobra(ano, mes);
+  const achado = acharLanc(id);
+  const antes = achado ? { ...achado.l, ano: achado.ano } : null;
+  const valor = sobra > 0 ? arred(sobra) : 0;
+  if (!valor && !antes) return null;
+  if (antes && valor && centavos(antes.valor) === centavos(valor) && antes.ano === prox.ano && antes.mes === prox.mes) return null;
+  return { prox, id, antes, valor };
+}
+/** Grava (ou atualiza, ou tira) a sobra transportada no mês seguinte. Devolve { valor, prox, desfazer } ou null. */
+function levarSobra(ano, mes, sobra) {
+  const ps = planoSobra(ano, mes, sobra);
+  if (!ps) return null;
+  const { prox, id, antes, valor } = ps;
+  let cid = S.dados.categoriaSobra;
+  const existe = Boolean(cid && catPorId(cid) && catPorId(cid).grupo === 'renda');
+  const ops = []; const volta = [];
+  if (valor) {
+    if (!existe) {
+      cid = idUnico('Sobra do mês anterior');
+      const ordem = Math.max(0, ...S.dados.categorias.map((c) => c.ordem)) + 1;
+      ops.push({ t: 'cat', c: { id: cid, nome: 'Sobra do mês anterior', grupo: 'renda', ordem } }, { t: 'cfg', k: 'categoriaSobra', v: cid });
+    }
+    ops.push({ t: 'lanc', l: { id, ano: prox.ano, mes: prox.mes, dia: 1, categoriaId: cid, descricao: `Sobra de ${MESES[mes - 1]}`, valor } });
+    volta.push(antes ? { t: 'lanc', l: antes } : { t: 'lanc-', id });
+    if (!existe) volta.push({ t: 'cfg', k: 'categoriaSobra', v: '' }, { t: 'cat-', id: cid });
+  } else {
+    ops.push({ t: 'lanc-', id });
+    volta.push({ t: 'lanc', l: antes });
+  }
+  registrarLote(ops);
+  atualizarFechamento(prox.ano, prox.mes);
+  return { valor, prox, desfazer: () => { registrarLote(volta); atualizarFechamento(prox.ano, prox.mes); } };
+}
+/** Fechamento do mês: resolve cada plano sem lançamento, grava a sobra realizada e oferece levá-la ao mês seguinte. */
 function abrirFechamento(ano, mes) {
   const nm = MESES[mes - 1];
   const adiadas = new Set();
@@ -1878,7 +2791,9 @@ function abrirFechamento(ano, mes) {
     montar(el) {
       el.innerHTML = topoFolha(`Fechar ${nm} de ${ano}`, 'Fechamento do mês')
         + '<div class="folha-corpo"><p class="sub">Cada pendência é um plano que não foi lançado nem encerrado. Diga o que aconteceu com ele.</p>'
-        + '<div class="fech-lista" id="fech-lista"></div></div>'
+        + '<div class="fech-lista" id="fech-lista"></div>'
+        + '<label class="opcao" id="fech-levar" hidden><input type="checkbox" id="fech-levar-cb" checked><span><strong id="fech-levar-t"></strong>'
+        + '<span id="fech-levar-n">Entra no dia 1 como renda “Sobra do mês anterior”. Não conta como renda nova nos totais do ano.</span></span></label></div>'
         + '<footer class="folha-rodape linha"><span class="fech-sobra" id="fech-sobra"></span>'
         + `<button type="button" class="botao primario" data-f="fechar-mes" id="fech-ok">Fechar ${esc(nm)}</button></footer>`;
       const atualizar = () => {
@@ -1887,15 +2802,24 @@ function abrirFechamento(ano, mes) {
         const visiveis = itens.filter((it) => !adiadas.has(it.c.id));
         const qAdiadas = itens.length - visiveis.length;
         const aviso0 = qAdiadas ? `<p class="sub">${qAdiadas === 1 ? 'Uma pendência ficou para depois' : qAdiadas + ' pendências ficaram para depois'}. <button type="button" class="link" data-f="mostrar">Mostrar de novo</button></p>` : '';
-        $('#fech-lista', el).innerHTML = (visiveis.length ? visiveis.map((it) => {
+        const autos = visiveis.filter((it) => !it.renda && soAutomaticas(it.c.id, ano, mes));
+        const btnAutos = autos.length > 1 ? `<div class="acoes"><button type="button" class="botao pequeno" data-f="todas-auto">${ic('check', 16)}Confirmar todas as automáticas (${autos.length})</button></div>` : '';
+        $('#fech-lista', el).innerHTML = btnAutos + (visiveis.length ? visiveis.map((it) => {
           const dados = `data-cat="${esc(it.c.id)}"`;
-          return `<div class="fech-item">${mono(it.c, true)}<div class="fech-txt"><strong>${esc(it.c.nome)}</strong><span>${it.renda ? 'a receber' : 'previsto'} ${esc(moeda(it.valor))}</span></div>`
+          return `<div class="fech-item">${mono(it.c, true)}<div class="fech-txt"><strong>${esc(it.c.nome)}</strong><span>${it.renda ? 'a receber' : 'previsto'} ${esc(moeda(it.valor))}${soAutomaticas(it.c.id, ano, mes) ? ' · débito automático' : ''}</span></div>`
             + `<div class="fech-botoes"><button type="button" class="botao pequeno" data-f="feito" ${dados}>${it.renda ? 'Foi recebido' : 'Foi pago'}</button>`
             + `<button type="button" class="botao pequeno fantasma" data-f="nao" ${dados}>Não aconteceu</button>`
             + `<button type="button" class="botao pequeno fantasma" data-f="depois" ${dados}>Depois</button></div></div>`;
         }).join('') : itens.length ? '' : '<p class="sub">Nenhuma pendência. Dá para fechar o mês.</p>') + aviso0;
         $('#fech-sobra', el).textContent = `Sobra realizada: ${moeda(r.sobraRealizada)}`;
         $('#fech-ok', el).disabled = itens.length > 0;
+        const ps = planoSobra(ano, mes, r.sobraRealizada);
+        $('#fech-levar', el).hidden = !ps;
+        if (ps) {
+          const pm = Mes(ps.prox.mes);
+          $('#fech-levar-t', el).textContent = !ps.valor ? `Tirar de ${pm} a sobra levada (${moeda(ps.antes.valor)})`
+            : ps.antes ? `Atualizar a sobra levada para ${pm}: ${moeda(ps.valor)}` : `Levar ${moeda(ps.valor)} para ${pm}`;
+        }
       };
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-f]');
@@ -1905,9 +2829,16 @@ function abrirFechamento(ano, mes) {
         else if (f === 'feito') {
           const it = resumo(ano, mes).pendencias.itens.find((x) => x.c.id === cid);
           if (!it) return;
-          const id = novoId();
-          registrar({ t: 'lanc', l: { id, ano, mes, dia: null, categoriaId: cid, descricao: '', valor: it.valor } });
-          aviso(`${it.c.nome}: ${moeda(it.valor)} lançado em ${nm}.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc-', id }); if (el.isConnected) atualizar(); } });
+          const lr = lancarPrevisto(cid, ano, mes);
+          if (!lr) return;
+          aviso(`${it.c.nome}: ${moeda(lr.total)} lançado em ${nm}.`, { acao: 'Desfazer', fn: () => { lr.ids.forEach((id) => registrar({ t: 'lanc-', id })); if (el.isConnected) atualizar(); } });
+          atualizar();
+        } else if (f === 'todas-auto') {
+          const alvo = resumo(ano, mes).pendencias.itens.filter((x) => !x.renda && soAutomaticas(x.c.id, ano, mes));
+          const ids = []; let total = 0;
+          for (const x of alvo) { const lr = lancarPrevisto(x.c.id, ano, mes); if (lr) { ids.push(...lr.ids); total += lr.total; } }
+          if (!ids.length) return;
+          aviso(`${alvo.length} conta${alvo.length > 1 ? 's' : ''} automática${alvo.length > 1 ? 's' : ''} confirmada${alvo.length > 1 ? 's' : ''}: ${moeda(total)} lançado em ${nm}.`, { acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); if (el.isConnected) atualizar(); } });
           atualizar();
         } else if (f === 'nao') { encerrarCategoria(cid, ano, mes, true); atualizar(); }
         else if (f === 'depois') { adiadas.add(cid); atualizar(); }
@@ -1918,8 +2849,11 @@ function abrirFechamento(ano, mes) {
           const antes = fechamentoDe(ano, mes);
           const sobra = resumo(ano, mes).sobraRealizada;
           registrar({ t: 'cfg', k, v: sobra.toFixed(2) });
+          const caixa = $('#fech-levar', el);
+          const lv = !caixa.hidden && $('#fech-levar-cb', el).checked ? levarSobra(ano, mes, sobra) : null;
           fecharFolha();
-          aviso(`${Mes(mes)} fechado: sobra realizada ${moeda(sobra)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'cfg', k, v: antes === null ? '' : antes.toFixed(2) }) });
+          const dito = !lv ? '' : lv.valor ? ` e ${moeda(lv.valor)} levados para ${Mes(lv.prox.mes)}` : ` e a sobra levada saiu de ${Mes(lv.prox.mes)}`;
+          aviso(`${Mes(mes)} fechado: sobra realizada ${moeda(sobra)}${dito}.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'cfg', k, v: antes === null ? '' : antes.toFixed(2) }); if (lv) lv.desfazer(); } });
         }
       });
       atualizar();
@@ -1960,7 +2894,7 @@ function abrirDetalheReserva() {
       const linha = (c, detalhe, valor, classe = '') => `<div class="reserva-linha">${mono(c)}<div class="reserva-txt"><strong>${esc(c.nome)}</strong><span>${esc(detalhe)}</span></div><strong class="reserva-valor${classe ? ' ' + classe : ''}">${valor}</strong></div>`;
       const linhas = [
         `<div><span>Renda do mês${r.aReceber > 0 ? ` (recebida ${moeda(r.recebida)} · a receber ${moeda(r.aReceber)})` : ''}</span><strong>${moeda(r.renda)}</strong></div>`,
-        `<div><span>− Já saiu</span><strong>${moeda(r.jaSaiu)}</strong></div>`,
+        `<div><span>− ${r.fase === 'futuro' ? 'Já lançado' : 'Já saiu'}</span><strong>${moeda(r.jaSaiu)}</strong></div>`,
         r.contasAPagar > 0 ? `<div><span>− Contas a pagar</span><strong>${moeda(r.contasAPagar)}</strong></div>` : '',
         r.faltaGuardar > 0 ? `<div><span>− Falta guardar</span><strong>${moeda(r.faltaGuardar)}</strong></div>` : '',
         r.nosPlanos > 0 ? `<div><span>− Ainda nos planos</span><strong>${moeda(r.nosPlanos)}</strong></div>` : '',
@@ -2050,7 +2984,20 @@ function previaImportacao(d, modo) {
       if (motivo) { lNao++; anotar(`lançamento ${(l && l.id) || ''} (${a}): ${motivo}`); } else lOk++;
     }
   }
-  return { catOk, catNao, lOk, lNao, motivos };
+  const aaaamm = (x) => Number.isInteger(x) && x >= 190001 && x <= 220012 && x % 100 >= 1 && x % 100 <= 12;
+  let rOk = 0; let rNao = 0;
+  for (const r of Array.isArray(d.recorrencias) ? d.recorrencias : []) {
+    const v = Number(r && r.valor); const ini = Number(r && r.inicio);
+    const fim = !r || r.fim === null || r.fim === undefined || r.fim === '' ? null : Number(r.fim);
+    const dia = !r || r.dia === null || r.dia === undefined || r.dia === '' ? null : Number(r.dia);
+    const motivo = !r || !RE.test(String(r.id)) ? 'identificador inválido'
+      : !ids.has(String(r.categoriaId)) ? `categoria inexistente: ${r.categoriaId}`
+        : !Number.isFinite(v) || v <= 0 || v >= 1e9 ? 'valor inválido'
+          : !aaaamm(ini) || (fim !== null && (!aaaamm(fim) || fim < ini)) ? 'período inválido'
+            : dia !== null && !(Number.isInteger(dia) && dia >= 1 && dia <= 31) ? 'dia inválido' : '';
+    if (motivo) { rNao++; anotar(`recorrência ${(r && r.id) || ''}: ${motivo}`); } else rOk++;
+  }
+  return { catOk, catNao, lOk, lNao, rOk, rNao, motivos };
 }
 function abrirImportar() {
   abrirFolha({
@@ -2066,10 +3013,11 @@ function abrirImportar() {
       const atualizarPrevia = () => {
         if (!dados) return;
         const pv = previaImportacao(dados, modo());
-        const ignorados = pv.catNao + pv.lNao;
-        $('#im-aceitos', el).innerHTML = `Vão entrar ${pv.catOk} categoria${pv.catOk === 1 ? '' : 's'} e ${pv.lOk} lançamento${pv.lOk === 1 ? '' : 's'}.`
-          + (ignorados ? ` <strong>${ignorados} ite${ignorados === 1 ? 'm fica' : 'ns ficam'} de fora:</strong> ${esc(pv.motivos.join('; '))}${ignorados > pv.motivos.length ? '…' : ''}` : '');
+        const ignorados = pv.catNao + pv.lNao + pv.rNao;
         const subst = modo() === 'substituir';
+        $('#im-aceitos', el).innerHTML = `Vão entrar ${pv.catOk} categoria${pv.catOk === 1 ? '' : 's'}${Array.isArray(dados.recorrencias) ? ',' : ' e'} ${pv.lOk} lançamento${pv.lOk === 1 ? '' : 's'}${Array.isArray(dados.recorrencias) ? ` e ${pv.rOk} recorrência${pv.rOk === 1 ? '' : 's'}` : ''}.`
+          + (ignorados ? ` <strong>${ignorados} ite${ignorados === 1 ? 'm fica' : 'ns ficam'} de fora:</strong> ${esc(pv.motivos.join('; '))}${ignorados > pv.motivos.length ? '…' : ''}` : '')
+          + (subst ? ' <strong>Substituir:</strong> as recorrências e as marcas "Não vem em" atuais são trocadas pelas do arquivo.' : '');
         $('#im-substituir', el).hidden = !subst;
         const ok = !subst || normal($('#im-confirma', el).value).trim() === 'substituir';
         $('#im-botao', el).disabled = !ok || !(pv.catOk > 0);
@@ -2085,7 +3033,7 @@ function abrirImportar() {
           if (!d || !Array.isArray(d.categorias) || !d.anos) throw new Error('não parece um backup deste app');
           let n = 0; for (const b of Object.values(d.anos)) n += (b.lancamentos || []).length;
           dados = d;
-          prev.innerHTML = `<div class="previa"><div><span class="sub">Categorias</span><strong>${d.categorias.length}</strong></div><div><span class="sub">Lançamentos</span><strong>${n}</strong></div><div><span class="sub">Anos</span><strong>${esc(Object.keys(d.anos).join(', ') || '—')}</strong></div></div>`
+          prev.innerHTML = `<div class="previa"><div><span class="sub">Categorias</span><strong>${d.categorias.length}</strong></div><div><span class="sub">Lançamentos</span><strong>${n}</strong></div>${Array.isArray(d.recorrencias) ? `<div><span class="sub">Recorrências</span><strong>${d.recorrencias.length}</strong></div>` : ''}<div><span class="sub">Anos</span><strong>${esc(Object.keys(d.anos).join(', ') || '—')}</strong></div></div>`
             + '<p class="sub" id="im-aceitos" aria-live="polite" style="margin-top:10px"></p>'
             + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
             + '<label class="opcao"><input type="radio" name="im-modo" value="mesclar" checked><span><strong>Juntar com o que já existe</strong>Itens com o mesmo identificador são atualizados; o resto é acrescentado.</span></label>'
@@ -2119,12 +3067,208 @@ function abrirImportar() {
           fecharFolha();
           if (!S.montado) montarApp(); else render();
           const im = r.importacao;
-          const ign = im ? (im.categorias.ignoradas || 0) + (im.lancamentos.ignorados || 0) + (im.planos.ignorados || 0) : 0;
+          const ign = im ? (im.categorias.ignoradas || 0) + (im.lancamentos.ignorados || 0) + (im.planos.ignorados || 0) + ((im.recorrencias && im.recorrencias.ignoradas) || 0) : 0;
           aviso(`Importação concluída. A planilha tem agora ${n} lançamento${n === 1 ? '' : 's'}.`
             + (ign ? ` ${ign} ite${ign === 1 ? 'm ficou' : 'ns ficaram'} de fora: ${(im.motivos || []).slice(0, 2).join('; ')}.` : ''), { tipo: ign ? 'erro' : 'info', tempo: ign ? 15000 : undefined });
         } catch (err) {
           aviso('Não deu para importar: ' + err.message, { tipo: 'erro' });
           b.disabled = false; b.textContent = m === 'substituir' ? 'Substituir tudo' : 'Importar';
+        }
+      });
+    },
+  });
+}
+
+/* ---------- Importar extrato (CSV e OFX) ---------- */
+const LIMITE_EXTRATO = 2 * 1024 * 1024;
+const MAX_LINHAS_EXTRATO = 2000;
+const SITUACOES_EXTRATO = { 'ja-importada': 'Já importada antes', 'duplicada-arquivo': 'Repetida no arquivo' };
+/** Folha para trazer lançamentos de um extrato do banco: arquivo, colunas (CSV), prévia editável e confirmação. */
+function abrirImportarExtrato() {
+  abrirFolha({
+    tipo: 'importar-extrato',
+    montar(el) {
+      el.innerHTML = topoFolha('Importar extrato', 'CSV ou OFX')
+        + '<div class="folha-corpo"><p class="sub">Extrato em OFX ou QFX (a maioria dos bancos oferece), ou CSV com data, descrição e valor. Nada é gravado antes de você confirmar.</p>'
+        + '<label class="campo">Arquivo (até 2 MB)<input type="file" id="ie-arquivo" accept=".ofx,.qfx,.csv,.txt" data-autofoco></label>'
+        + '<p class="entendi" id="ie-msg" aria-live="polite"></p>'
+        + '<div id="ie-csv" hidden><h3 class="grupo-titulo"><span>Colunas do arquivo</span><span></span></h3><div class="ie-amostra" id="ie-amostra"></div>'
+        + '<label class="opcao"><input type="checkbox" id="ie-cab"><span><strong>A primeira linha é cabeçalho</strong></span></label>'
+        + '<div class="ie-colunas"><label class="campo">Data<select class="entrada" id="ie-col-data"></select></label>'
+        + '<label class="campo">Descrição<select class="entrada" id="ie-col-desc"></select></label>'
+        + '<label class="campo">Valor<select class="entrada" id="ie-col-valor"></select></label></div>'
+        + '<label class="campo">Conta ou cartão (opcional)<input class="entrada" id="ie-conta" maxlength="40" placeholder="Ex.: Nubank" autocomplete="off"></label></div>'
+        + '<div id="ie-config" hidden><label class="opcao"><input type="checkbox" id="ie-fatura"><span><strong>Fatura de cartão (compras com valor positivo)</strong>Inverte o sinal: o que vem positivo vira saída.</span></label>'
+        + '<div class="ie-colunas"><label class="campo">Categoria padrão das saídas<select class="entrada" id="ie-cat-gasto"></select></label>'
+        + '<label class="campo">Categoria padrão das rendas<select class="entrada" id="ie-cat-renda"></select></label></div>'
+        + '<p class="sub">A categoria sugerida vem dos seus lançamentos com a mesma descrição; sem pista, vale a padrão. Dá para trocar linha a linha.</p></div>'
+        + '<div id="ie-previa" hidden><p class="ie-resumo" id="ie-resumo" aria-live="polite"></p>'
+        + '<div class="acoes"><button type="button" class="botao pequeno fantasma" data-f="marcar-todas">Marcar todas</button><button type="button" class="botao pequeno fantasma" data-f="desmarcar-todas">Desmarcar todas</button></div>'
+        + '<div class="ie-lista" id="ie-lista"></div></div></div>'
+        + '<footer class="folha-rodape"><p class="entendi erro" id="ie-fechado" role="alert" hidden></p>'
+        + '<button type="button" class="botao primario grande" data-f="importar" id="ie-botao" disabled>Importar</button>'
+        + `<button type="button" class="botao fantasma" data-f="backup">${ic('baixar', 18)}Baixar backup antes</button></footer>`;
+      const st = { tipo: '', ofx: null, csv: null, mapa: null, linhas: [], truncado: 0 };
+      const estadoFechado = {};
+      const hist = [];
+      const existentes = [];
+      for (const [a, b] of Object.entries(S.dados.anos)) {
+        for (const l of b.lancamentos) {
+          hist.push({ descricao: l.descricao, categoriaId: l.categoriaId });
+          existentes.push({ id: l.id, ano: Number(a), mes: l.mes, dia: l.dia, valor: l.valor, descricao: l.descricao });
+        }
+      }
+      const opcao = (c) => `<option value="${esc(c.id)}">${esc(c.nome)}</option>`;
+      const opcoesGrupos = ORDEM_GRUPOS.map((g) => (catsDoGrupo(g).length ? `<optgroup label="${esc(GRUPOS[g])}">${catsDoGrupo(g).map(opcao).join('')}</optgroup>` : '')).join('');
+      const marcavel = (l) => l.status === 'nova' || l.status === 'possivel-duplicada';
+      const selecionada = (l) => marcavel(l) && l.marcado && Boolean(l.cat);
+      const msg = (t) => { $('#ie-msg', el).textContent = t; };
+      const padrao = (renda) => {
+        const lista = categoriasPorUso(renda).filter((c) => !ehGuardar(c) && !ehSobra(c));
+        return lista.length ? lista[0].id : '';
+      };
+      const preencherPadroes = () => {
+        $('#ie-cat-gasto', el).innerHTML = categoriasPorUso(false).map(opcao).join('');
+        $('#ie-cat-renda', el).innerHTML = categoriasPorUso(true).map(opcao).join('');
+        $('#ie-cat-gasto', el).value = padrao(false);
+        $('#ie-cat-renda', el).value = padrao(true);
+      };
+      const aplicarPadrao = () => {
+        const pg = $('#ie-cat-gasto', el).value; const pr = $('#ie-cat-renda', el).value;
+        for (const l of st.linhas) if (!l.manual) l.cat = l.sug || (l.valor > 0 ? pr : pg) || null;
+      };
+      const linhaHtml = (l, i) => {
+        const ativa = marcavel(l);
+        const data = l.data ? `${dois(l.data.dia)}/${dois(l.data.mes)}/${l.data.ano}` : 'sem data';
+        const sit = l.status === 'invalida' ? `Inválida: ${l.motivo}` : l.status === 'possivel-duplicada' ? 'Parece repetida: já há um lançamento igual neste dia' : SITUACOES_EXTRATO[l.status] || '';
+        const opts = (l.cat ? '' : '<option value="" selected>Escolher…</option>') + (l.cat ? opcoesGrupos.replace(`value="${l.cat}"`, `value="${l.cat}" selected`) : opcoesGrupos);
+        return `<div class="ie-linha ${l.status}">`
+          + (ativa ? `<label class="ie-sel"><input type="checkbox" data-ie="marcar" data-i="${i}"${l.marcado ? ' checked' : ''}><span class="sr">Importar esta linha</span></label>` : '<span class="ie-sel"></span>')
+          + `<div class="ie-desc"><span class="ie-data">${esc(data)}</span><strong>${esc(l.descricao || 'Sem descrição')}</strong></div>`
+          + `<strong class="ie-valor${l.valor > 0 ? ' txt-ok' : ''}">${l.valor === null ? '—' : esc(moeda(l.valor))}</strong>`
+          + (ativa ? `<select class="entrada ie-cat" data-ie="cat" data-i="${i}" aria-label="Categoria de ${esc(l.descricao || 'esta linha')}">${opts}</select>` : '')
+          + (sit ? `<span class="ie-sit${ativa ? ' atencao' : ''}">${esc(sit)}</span>` : '') + '</div>';
+      };
+      const desenharLista = () => {
+        const corpo = $('.folha-corpo', el); const topo = corpo.scrollTop;
+        $('#ie-lista', el).innerHTML = st.linhas.map(linhaHtml).join('');
+        corpo.scrollTop = topo;
+      };
+      const atualizarResumo = () => {
+        const L = st.linhas; const sel = L.filter(selecionada);
+        const n = (fn) => L.filter(fn).length;
+        const partes = [
+          [n((l) => l.status === 'ja-importada'), 'já importadas antes'], [n((l) => l.status === 'duplicada-arquivo'), 'repetidas no arquivo'],
+          [n((l) => l.status === 'invalida'), 'inválidas (sem data ou valor)'], [n((l) => marcavel(l) && !l.marcado), 'desmarcadas'],
+          [n((l) => marcavel(l) && l.marcado && !l.cat), 'sem categoria'],
+        ].filter((x) => x[0]).map((x) => `${x[0]} ${x[1]}`);
+        let saidas = 0; let rendas = 0;
+        for (const l of sel) { const c = catPorId(l.cat); const v = valorDoExtrato(l.valor, c.grupo === 'renda'); if (c.grupo === 'renda') rendas += v; else saidas += v; }
+        const ign = L.length - sel.length;
+        $('#ie-resumo', el).innerHTML = `<strong>${sel.length} para importar · ${ign} ignorada${ign === 1 ? '' : 's'}</strong>`
+          + (partes.length ? `<span class="sub"> (${esc(partes.join('; '))})</span>` : '')
+          + (sel.length ? `<span class="sub"> Saídas ${esc(moeda(saidas))} · rendas ${esc(moeda(rendas))}.</span>` : '')
+          + (st.truncado ? `<span class="sub"> O arquivo tem mais de ${MAX_LINHAS_EXTRATO.toLocaleString('pt-BR')} linhas: só as primeiras foram lidas.</span>` : '');
+        const b = $('#ie-botao', el);
+        b.disabled = !sel.length;
+        b.textContent = sel.length ? `Importar ${sel.length} lançamento${sel.length === 1 ? '' : 's'}` : 'Importar';
+        $('#ie-fechado', el).hidden = true;
+      };
+      const montarLinhas = () => {
+        let base = st.tipo === 'ofx' ? st.ofx.itens.map((i) => ({ ...i, valor: i.valor === 0 ? null : i.valor })) : extratoDeCSV(st.csv.linhas, st.mapa);
+        if ($('#ie-fatura', el).checked) base = inverterSinal(base);
+        st.truncado = base.length > MAX_LINHAS_EXTRATO ? base.length - MAX_LINHAS_EXTRATO : 0;
+        const conta = st.tipo === 'ofx' ? st.ofx.conta : normDesc($('#ie-conta', el).value);
+        const memo = new Map();
+        st.linhas = classificarExtrato(base.slice(0, MAX_LINHAS_EXTRATO), existentes, conta).map((l) => {
+          const k = normDesc(l.descricao);
+          if (!memo.has(k)) { const sg = sugerirCategoria(l.descricao, hist); memo.set(k, sg && catPorId(sg) ? sg : null); }
+          return { ...l, sug: memo.get(k), cat: null, manual: false, marcado: l.status === 'nova' };
+        });
+        aplicarPadrao(); desenharLista(); atualizarResumo();
+        $('#ie-previa', el).hidden = false;
+      };
+      const preencherColunas = () => {
+        const nomes = st.mapa.cabecalho ? st.csv.linhas[0] : [];
+        const n = Math.max(...st.csv.linhas.map((l) => l.length));
+        const cols = Array.from({ length: n }, (_, j) => `<option value="${j}">Coluna ${j + 1}${nomes[j] ? ' · ' + esc(String(nomes[j]).slice(0, 24)) : ''}</option>`).join('');
+        $('#ie-col-data', el).innerHTML = cols;
+        $('#ie-col-valor', el).innerHTML = cols;
+        $('#ie-col-desc', el).innerHTML = '<option value="-1">Nenhuma</option>' + cols;
+        $('#ie-col-data', el).value = String(st.mapa.data);
+        $('#ie-col-desc', el).value = String(st.mapa.descricao);
+        $('#ie-col-valor', el).value = String(st.mapa.valor);
+        $('#ie-cab', el).checked = st.mapa.cabecalho;
+        $('#ie-amostra', el).innerHTML = st.csv.linhas.slice(0, 5).map((l, i) => `<div class="ie-amostra-l${st.mapa.cabecalho && i === 0 ? ' cab' : ''}">${esc(l.join(' · '))}</div>`).join('');
+      };
+      const ler = async (arq) => {
+        msg('');
+        st.linhas = []; st.tipo = '';
+        for (const id of ['#ie-csv', '#ie-config', '#ie-previa']) $(id, el).hidden = true;
+        $('#ie-botao', el).disabled = true;
+        if (!arq) return;
+        if (arq.size > LIMITE_EXTRATO) { msg('Esse arquivo passa de 2 MB. Exporte um período menor no banco.'); return; }
+        let texto;
+        try { texto = decodificarTexto(await arq.arrayBuffer()); } catch (e) { msg('Não consegui ler esse arquivo.'); return; }
+        const ehOfx = /<STMTTRN>/i.test(texto) || /^\s*OFXHEADER/i.test(texto) || /\.(ofx|qfx)$/i.test(arq.name);
+        if (ehOfx) {
+          st.ofx = lerOFX(texto);
+          if (!st.ofx.itens.length) { msg('Não encontrei lançamentos nesse arquivo OFX.'); return; }
+          st.tipo = 'ofx';
+        } else {
+          st.csv = lerCSV(texto);
+          if (!st.csv.linhas.length || Math.max(...st.csv.linhas.map((l) => l.length)) < 2) { msg('Não consegui separar as colunas desse arquivo. Ele é um CSV com data, descrição e valor?'); return; }
+          st.tipo = 'csv';
+          st.mapa = adivinharColunasCSV(st.csv.linhas);
+          preencherColunas();
+          $('#ie-csv', el).hidden = false;
+        }
+        preencherPadroes();
+        $('#ie-config', el).hidden = false;
+        montarLinhas();
+      };
+      $('#ie-arquivo', el).addEventListener('change', (e) => ler(e.target.files[0]));
+      const recomecar = () => { if (st.tipo) montarLinhas(); };
+      $('#ie-cab', el).addEventListener('change', (e) => { st.mapa.cabecalho = e.target.checked; preencherColunas(); recomecar(); });
+      for (const [id, chave] of [['#ie-col-data', 'data'], ['#ie-col-desc', 'descricao'], ['#ie-col-valor', 'valor']]) {
+        $(id, el).addEventListener('change', (e) => { st.mapa[chave] = Number(e.target.value); recomecar(); });
+      }
+      $('#ie-conta', el).addEventListener('change', recomecar);
+      $('#ie-fatura', el).addEventListener('change', recomecar);
+      for (const id of ['#ie-cat-gasto', '#ie-cat-renda']) $(id, el).addEventListener('change', () => { aplicarPadrao(); desenharLista(); atualizarResumo(); });
+      $('#ie-lista', el).addEventListener('change', (e) => {
+        const alvo = e.target.closest('[data-ie]');
+        if (!alvo) return;
+        const l = st.linhas[Number(alvo.dataset.i)];
+        if (!l) return;
+        if (alvo.dataset.ie === 'marcar') l.marcado = alvo.checked;
+        else { l.cat = alvo.value || null; l.manual = true; }
+        atualizarResumo();
+      });
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'backup') { if (S.dados) exportarJSON(); }
+        else if (f === 'marcar-todas' || f === 'desmarcar-todas') {
+          for (const l of st.linhas) if (marcavel(l)) l.marcado = f === 'marcar-todas';
+          desenharLista(); atualizarResumo();
+        } else if (f === 'importar') {
+          const sel = st.linhas.filter(selecionada);
+          if (!sel.length) return;
+          const meses = sel.map((l) => ({ ano: l.data.ano, mes: l.data.mes }));
+          const pedido = pedirConfirmacaoFechado(meses, estadoFechado);
+          if (pedido) { const av = $('#ie-fechado', el); av.textContent = pedido; av.hidden = false; return; }
+          const ops = sel.map((l) => ({
+            t: 'lanc',
+            l: { id: l.id, ano: l.data.ano, mes: l.data.mes, dia: l.data.dia, categoriaId: l.cat, descricao: String(l.descricao || '').slice(0, 300), valor: valorDoExtrato(l.valor, catPorId(l.cat).grupo === 'renda') },
+          }));
+          const reajustar = () => meses.forEach((x, i, a) => { if (a.findIndex((y) => y.ano === x.ano && y.mes === x.mes) === i) atualizarFechamento(x.ano, x.mes); });
+          registrarLote(ops);
+          reajustar();
+          fecharFolha();
+          aviso(`${ops.length} lançamento${ops.length === 1 ? '' : 's'} importado${ops.length === 1 ? '' : 's'}.`, { acao: 'Desfazer', fn: () => { registrarLote(ops.map((o) => ({ t: 'lanc-', id: o.l.id }))); reajustar(); } });
         }
       });
     },
@@ -2447,11 +3591,51 @@ function baixar(nome, conteudo, tipo) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 const hojeIso = () => { const h = hoje(); return isoData(h.ano, h.mes, h.dia); };
-function exportarJSON() {
-  const d = { versao: 3, app: 'bsdesenv-financas', nome: S.dados.nome, exportadoEm: new Date().toISOString(), config: { tema: S.dados.tema || 'auto', marcas: S.dados.marcas || {}, fechados: S.dados.fechados || {}, categoriaGuardar: S.dados.categoriaGuardar || '' }, categorias: S.dados.categorias, anos: S.dados.anos };
-  baixar(`financas-backup-${hojeIso()}.json`, JSON.stringify(d, null, 1), 'application/json');
+/** Texto de "Último backup" em Ajustes: a data fica só neste aparelho. */
+function textoUltimoBackup() {
+  const v = LS.ler('ultimo-backup');
+  const d = v ? new Date(v) : null;
+  if (!d || Number.isNaN(d.getTime())) return 'Último backup: nenhum neste aparelho.';
+  return `Último backup: ${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()} às ${dois(d.getHours())}:${dois(d.getMinutes())}.`;
 }
-function exportarCSV() {
+function exportarJSON() {
+  const dd = S.dados;
+  const d = {
+    versao: 3, app: 'bsdesenv-financas', nome: dd.nome, exportadoEm: new Date().toISOString(),
+    config: { tema: dd.tema || 'auto', marcas: dd.marcas || {}, fechados: dd.fechados || {}, categoriaGuardar: dd.categoriaGuardar || '', categoriaSobra: dd.categoriaSobra || '' },
+    categorias: dd.categorias, anos: dd.anos, recorrencias: dd.recorrencias || [],
+  };
+  baixar(`financas-backup-${hojeIso()}.json`, JSON.stringify(d, null, 1), 'application/json');
+  LS.gravar('ultimo-backup', d.exportadoEm);
+  const rotulo = $('#aj-backup');
+  if (rotulo) rotulo.textContent = textoUltimoBackup();
+}
+/** Texto CSV (separador ponto e vírgula, BOM, texto que parece fórmula protegido) a partir de uma lista de linhas. */
+function textoCSV(linhas) {
+  return '\ufeff' + linhas.map((l) => l.map((x) => {
+    let s = String(x);
+    if (/^[=+\-@]/.test(s) && !/^-?\d/.test(s)) s = "'" + s;
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(';')).join('\r\n');
+}
+const reaisCSV = (v) => arred(v).toFixed(2).replace('.', ',');
+/** Tabela do ano: uma linha por categoria, o lançado de cada mês e o total; no fim, saídas, renda e sobra (sem a sobra transportada). */
+function linhasTabelaAno(ano) {
+  const meses = Array.from({ length: 12 }, (_, i) => i + 1);
+  const linhas = [['Grupo', 'Categoria', ...meses.map(Mes), 'Total']];
+  for (const g of ORDEM_GRUPOS) {
+    for (const c of catsDoGrupo(g)) {
+      const reais = meses.map((m) => celReal(c.id, ano, m));
+      linhas.push([GRUPOS[g], c.nome, ...reais.map((r) => (r.qtd ? reaisCSV(r.soma) : '')), reaisCSV(reais.reduce((a, r) => a + r.soma, 0))]);
+    }
+  }
+  const res = meses.map((m) => resumo(ano, m));
+  const rodape = (nome, f) => { const v = res.map(f); return ['', nome, ...v.map(reaisCSV), reaisCSV(v.reduce((a, x) => a + x, 0))]; };
+  linhas.push(rodape('Total de saídas', (r) => r.jaSaiu), rodape('Renda', (r) => r.recebida - r.transporte), rodape('Sobra', (r) => r.resultado));
+  return linhas;
+}
+function exportarCSV(escopo = 'lancamentos') {
+  if (escopo === 'ano') { baixar(`financas-tabela-${S.ano}.csv`, textoCSV(linhasTabelaAno(S.ano)), 'text/csv;charset=utf-8'); return; }
   const mapa = mapaCats();
   const linhas = [['Ano', 'Mês', 'Dia', 'Grupo', 'Categoria', 'Descrição', 'Valor']];
   for (const ano of Object.keys(S.dados.anos).sort()) {
@@ -2460,12 +3644,7 @@ function exportarCSV() {
       linhas.push([ano, Mes(l.mes), l.dia ?? '', c ? GRUPOS[c.grupo] : '', c ? c.nome : l.categoriaId, l.descricao || '', String(l.valor).replace('.', ',')]);
     }
   }
-  const csv = '﻿' + linhas.map((l) => l.map((x) => {
-    let s = String(x);
-    if (/^[=+\-@]/.test(s) && !/^-?\d/.test(s)) s = "'" + s;
-    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  }).join(';')).join('\r\n');
-  baixar(`financas-lancamentos-${hojeIso()}.csv`, csv, 'text/csv;charset=utf-8');
+  baixar(`financas-lancamentos-${hojeIso()}.csv`, textoCSV(linhas), 'text/csv;charset=utf-8');
 }
 
 /* =====================================================================
@@ -2719,7 +3898,7 @@ async function moverCategoria(cid, dir) {
 function definirGuardar(valor) {
   const ano = S.ano; const mes = S.mes;
   const existente = catGuardar();
-  const antes = existente ? planoExp(existente.id, ano, mes) : 0;
+  const antes = existente ? planoGravado(existente.id, ano, mes) : 0;
   const gid = existente ? existente.id : (catPorId('guardar') ? idUnico('Guardar') : 'guardar');
   const criada = !existente;
   if (criada) {
@@ -2783,7 +3962,7 @@ const ACOES = {
   },
   'meta-limpar': () => {
     const c = catGuardar(); if (!c) return;
-    const antes = planoExp(c.id, S.ano, S.mes); if (!antes) return;
+    const antes = planoGravado(c.id, S.ano, S.mes); if (!antes) return;
     registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null });
     aviso('Meta de economia removida.', { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes }) });
   },
@@ -2801,8 +3980,19 @@ const ACOES = {
     const c = catPorId(el.dataset.cat); if (!c) return;
     const planos = [];
     for (const [ano, b] of Object.entries(S.dados.anos)) for (const [m, v] of Object.entries(b.orcamento[c.id] || {})) planos.push({ ano: Number(ano), mes: Number(m), valor: v });
-    registrar({ t: 'cat-', id: c.id });
-    aviso(`Categoria “${c.nome}” apagada.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'cat', c }); planos.forEach((p) => registrar({ t: 'orc', ano: p.ano, categoriaId: c.id, mes: p.mes, valor: p.valor })); } });
+    const recs = recsDaCategoria(c.id).map((r) => ({ ...r }));
+    const marcas = Object.keys(S.dados.marcas || {}).filter((k) => k.startsWith('pular:') && recs.some((r) => k.endsWith(':' + r.id)));
+    const apagar = () => {
+      registrar({ t: 'cat-', id: c.id });
+      aviso(`Categoria “${c.nome}” apagada${recs.length ? ` (e ${recs.length} recorrência${recs.length > 1 ? 's' : ''})` : ''}.`, { acao: 'Desfazer', fn: () => {
+        registrar({ t: 'cat', c });
+        planos.forEach((p) => registrar({ t: 'orc', ano: p.ano, categoriaId: c.id, mes: p.mes, valor: p.valor }));
+        recs.forEach((r) => registrar({ t: 'rec', r }));
+        marcas.forEach((k) => registrar({ t: 'cfg', k, v: '1' }));
+      } });
+    };
+    if (recs.length) { aviso(`“${c.nome}” tem ${recs.length} recorrência${recs.length > 1 ? 's' : ''} (o que se repete todo mês), que ${recs.length > 1 ? 'vão' : 'vai'} junto.`, { acao: 'Apagar mesmo', fn: apagar, tempo: 12000 }); return; }
+    apagar();
   },
   'cat-nova': () => {
     const nome = $('#nova-cat-nome').value.trim();
@@ -2815,10 +4005,12 @@ const ACOES = {
   'exportar-json': () => exportarJSON(),
   'exportar-csv': () => exportarCSV(),
   importar: () => abrirImportar(),
+  'importar-extrato': () => abrirImportarExtrato(),
+  'exportar-csv-ano': () => exportarCSV('ano'),
   'plano-sugestao': (el) => {
     const c = catPorId(el.dataset.cat); const v = Number(el.dataset.valor);
     if (!c || !(v > 0)) return;
-    const antes = planoExp(c.id, S.ano, S.mes);
+    const antes = planoGravado(c.id, S.ano, S.mes);
     registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v });
     aviso(`Plano de ${c.nome}: ${moeda(v)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null }) });
   },
@@ -2861,12 +4053,13 @@ const MUDAR = {
   plano: (el) => {
     const txt = el.value.trim(); const v = txt ? paraNumero(txt) : null;
     const ano = S.ano; const mes = S.mes; const cid = el.dataset.cat;
-    const antes = planoExp(cid, ano, mes);
+    const antes = planoGravado(cid, ano, mes);
     if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido. Use, por exemplo, 1.360,00.', { tipo: 'erro' }); el.value = antes ? num(antes) : ''; return; }
     S.planoPrevia = null;
     registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
     if (!v && antes > 0) {
-      aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
+      const volta = planoExp(cid, ano, mes) > 0;
+      aviso(volta ? `Voltou ao valor que se repete todo mês: ${moeda(planoExp(cid, ano, mes))}.` : 'Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
         acao: 'Desfazer',
         fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
       });
@@ -2884,6 +4077,7 @@ const MUDAR = {
     const novo = el.value; const antigo = c.grupo;
     const cruzaRenda = (novo === 'renda') !== (antigo === 'renda');
     const n = contagemPorCategoria()[c.id] || 0;
+    if (ehSobra(c) && novo !== 'renda') { el.value = antigo; aviso(`“${c.nome}” leva a sobra de um mês para o outro e precisa continuar sendo renda.`, { tipo: 'erro' }); return; }
     if (ehGuardar(c) && novo === 'renda') { el.value = antigo; aviso(`“${c.nome}” é a categoria de economia e não pode virar renda.`, { tipo: 'erro' }); return; }
     if (cruzaRenda && n) {
       el.value = antigo;

@@ -1,25 +1,15 @@
 /** @OnlyCurrentDoc */
 /**
- * bsdesenv-financas — servidor (Google Apps Script)
+ * bsdesenv-financas — servidor (Google Apps Script).
  *
- * A planilha é a fonte da verdade, em abas comuns que dá para abrir e ler:
- *   lancamentos  id | ano | mes | dia | categoriaId | descricao | valor
- *   categorias   id | nome | grupo | ordem
- *   orcamento    ano | categoriaId | mes | valor      (o "plano" de cada mês)
- *   config       chave | valor
+ * A planilha é a fonte da verdade. O app envia operações (salvar, apagar), não a
+ * base inteira; o servidor as aplica dentro de uma trava, sobre o que a planilha
+ * tem naquele momento.
  *
- * O formato das abas é o mesmo da versão 1: atualizar o código não mexe nos dados.
- *
- * Sincronização: o app nunca envia a base inteira. Ele envia operações (salvar ou
- * apagar um lançamento, uma categoria, um valor de plano...) e o servidor as aplica
- * sobre o que está na planilha naquele momento, dentro de uma trava. Assim o
- * celular e o computador não apagam o trabalho um do outro.
- *
- * A anotação @OnlyCurrentDoc acima restringe a permissão pedida ao Google a
- * "somente esta planilha".
+ * Detalhes: docs/ARQUITETURA.md (Dados, Sincronização, Segurança).
  */
 
-var VERSAO_APP = '3.0.0';
+var VERSAO_APP = '3.1.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -27,6 +17,7 @@ var CABECALHOS = {
   categorias: ['id', 'nome', 'grupo', 'ordem'],
   orcamento: ['ano', 'categoriaId', 'mes', 'valor'],
   config: ['chave', 'valor'],
+  recorrencias: ['id', 'categoriaId', 'descricao', 'valor', 'dia', 'inicio', 'fim', 'ativa', 'automatico'],
 };
 var GRUPOS = ['fixo', 'variavel', 'renda'];
 var TEMAS = ['auto', 'claro', 'escuro'];
@@ -153,7 +144,16 @@ function aba_(nome) {
 
 /** Linhas de dados (sem o cabeçalho). */
 function linhas_(nome) {
-  var aba = aba_(nome);
+  return dadosAba_(aba_(nome), nome);
+}
+
+/** Como linhas_, mas para aba opcional: se ela não existe, devolve [] sem criá-la. */
+function linhasOpcionais_(nome) {
+  var aba = planilha_().getSheetByName(nome);
+  return aba ? dadosAba_(aba, nome) : [];
+}
+
+function dadosAba_(aba, nome) {
   var ultima = aba.getLastRow();
   if (ultima < 2) return [];
   return aba.getRange(2, 1, ultima - 1, CABECALHOS[nome].length).getValues();
@@ -216,7 +216,29 @@ function lerModelo_() {
       return { ano: String(Number(l[0]) || l[0]), categoriaId: String(l[1]), mes: Number(l[2]), valor: arred_(num_(l[3])) };
     });
 
-  return { cfg: lerConfig_(), cats: cats, lanc: lanc, orc: orc, sujo: {} };
+  var rec = linhasOpcionais_('recorrencias')
+    .filter(function (l) { return l[0] !== '' && l[0] !== null; })
+    .map(function (l) {
+      return {
+        id: String(l[0]),
+        categoriaId: String(l[1]),
+        descricao: texto_(l[2]),
+        valor: arred_(num_(l[3])),
+        dia: (l[4] === '' || l[4] === null) ? null : Number(l[4]),
+        inicio: Number(l[5]),
+        fim: (l[6] === '' || l[6] === null) ? null : Number(l[6]),
+        ativa: flagLida_(l[7], 1),
+        automatico: flagLida_(l[8], 0),
+      };
+    });
+
+  return { cfg: lerConfig_(), cats: cats, lanc: lanc, orc: orc, rec: rec, sujo: {} };
+}
+
+/** Sim/não da planilha: vazio vale o padrão; checkbox (true) e 1 valem 1. */
+function flagLida_(v, padrao) {
+  if (v === '' || v === null || v === undefined) return padrao;
+  return (v === true || Number(v) === 1) ? 1 : 0;
 }
 
 function gravarModelo_(m) {
@@ -233,6 +255,12 @@ function gravarModelo_(m) {
   if (m.sujo.orcamento) {
     escrever_('orcamento', m.orc.map(function (o) {
       return [Number(o.ano), o.categoriaId, o.mes, o.valor];
+    }));
+  }
+  if (m.sujo.recorrencias) {
+    escrever_('recorrencias', m.rec.map(function (r) {
+      return [r.id, r.categoriaId, celulaTexto_(r.descricao), r.valor, r.dia === null ? '' : r.dia,
+        r.inicio, r.fim === null ? '' : r.fim, r.ativa, r.automatico];
     }));
   }
   if (m.sujo.config) escreverConfig_(m.cfg);
@@ -275,11 +303,18 @@ function paraCliente_(m) {
     revisao: Number(m.cfg.revisao) || 0,
     nome: m.cfg.nome || m.cfg.titular || '',
     tema: TEMAS.indexOf(m.cfg.tema) >= 0 ? m.cfg.tema : 'auto',
-    marcas: marcas_(m.cfg),
+    marcas: marcas_(m.cfg, m.rec),
     fechados: fechados_(m.cfg),
     categoriaGuardar: m.cfg.categoriaGuardar || '',
+    categoriaSobra: m.cfg.categoriaSobra || '',
     atualizadoEm: m.cfg.atualizadoEm || '',
     categorias: m.cats.slice().sort(function (a, b) { return a.ordem - b.ordem; }),
+    recorrencias: m.rec.map(function (r) {
+      return {
+        id: r.id, categoriaId: r.categoriaId, descricao: r.descricao, valor: r.valor, dia: r.dia,
+        inicio: r.inicio, fim: r.fim, ativa: r.ativa === 1, automatico: r.automatico === 1,
+      };
+    }),
     anos: anos,
   };
 }
@@ -296,6 +331,8 @@ function aplicarOp_(m, op) {
     case 'cat': return salvarCat_(m, op.c);
     case 'cat-': return apagarCat_(m, op.id);
     case 'orc': return salvarOrc_(m, op);
+    case 'rec': return salvarRec_(m, op.r);
+    case 'rec-': return apagarRec_(m, op.id);
     case 'cfg': return salvarCfg_(m, op.k, op.v);
     case 'importar': return importar_(m, op);
     default: throw new Error('operação desconhecida: ' + op.t);
@@ -341,6 +378,64 @@ function apagarLanc_(m, id) {
   }
 }
 
+/** Ano e mês no formato aaaamm (ex.: 202611), como número. */
+function aaaamm_(v, nome) {
+  var n = Number(v);
+  if (v === null || v === undefined || v === '' || !isFinite(n) || Math.floor(n) !== n) throw new Error(nome + ' inválido: ' + v);
+  var ano = Math.floor(n / 100);
+  var mes = n % 100;
+  if (ano < 1900 || ano > 2200 || mes < 1 || mes > 12) throw new Error(nome + ' inválido: ' + v);
+  return n;
+}
+
+/** Sim/não vindo do app: vazio vale o padrão; 1, 0, true ou false. */
+function flag_(v, padrao, nome) {
+  if (v === null || v === undefined || v === '') return padrao;
+  if (v === 1 || v === '1' || v === true) return 1;
+  if (v === 0 || v === '0' || v === false) return 0;
+  throw new Error(nome + ' inválido: ' + v);
+}
+
+/** Valida uma recorrência (cobrança mensal fixa) e devolve o registro pronto para a aba. */
+function validarRec_(r, idsCategoria) {
+  if (!r || typeof r !== 'object') throw new Error('recorrência vazia');
+  var id = String(r.id);
+  if (!RE_ID.test(id)) throw new Error('id de recorrência inválido');
+  var descricao = texto_(r.descricao).trim().slice(0, 300);
+  var valor = arred_(Number(r.valor));
+  if (!isFinite(valor) || valor <= 0 || valor >= 1e9) throw new Error('valor inválido');
+  var dia = (r.dia === null || r.dia === undefined || r.dia === '') ? null : inteiro_(r.dia, 1, 31, 'dia');
+  var inicio = aaaamm_(r.inicio, 'início');
+  var fim = (r.fim === null || r.fim === undefined || r.fim === '') ? null : aaaamm_(r.fim, 'fim');
+  if (fim !== null && fim < inicio) throw new Error('fim anterior ao início');
+  var ativa = flag_(r.ativa, 1, 'ativa');
+  var automatico = flag_(r.automatico, 0, 'automático');
+  var cid = String(r.categoriaId);
+  if (!idsCategoria[cid]) throw new Error('categoria inexistente: ' + cid);
+  return {
+    id: id, categoriaId: cid, descricao: descricao, valor: valor, dia: dia,
+    inicio: inicio, fim: fim, ativa: ativa, automatico: automatico,
+  };
+}
+
+function salvarRec_(m, r) {
+  var novo = validarRec_(r, mapaIds_(m.cats));
+  var i = indice_(m.rec, 'id', novo.id);
+  if (i >= 0) m.rec[i] = novo; else m.rec.push(novo);
+  m.sujo.recorrencias = true;
+}
+
+/** Apaga a recorrência e as marcas "pular" dela. Id que não existe não é erro. */
+function apagarRec_(m, id) {
+  id = String(id);
+  var i = indice_(m.rec, 'id', id);
+  if (i >= 0) {
+    m.rec.splice(i, 1);
+    m.sujo.recorrencias = true;
+  }
+  apagarPulares_(m, [id]);
+}
+
 function validarCat_(c, ordemPadrao) {
   if (!c || typeof c !== 'object') throw new Error('categoria vazia');
   var id = String(c.id);
@@ -362,6 +457,9 @@ function salvarCat_(m, c) {
     if (nova.grupo === 'renda' && m.cfg.categoriaGuardar === nova.id) {
       throw new Error('a categoria de economia não pode virar renda');
     }
+    if (nova.grupo !== 'renda' && m.cfg.categoriaSobra === nova.id) {
+      throw new Error('a categoria da sobra transportada precisa ser de renda');
+    }
     if ((antes === 'renda') !== (nova.grupo === 'renda')) {
       var usada = m.lanc.some(function (l) { return l.categoriaId === nova.id; });
       if (usada) throw new Error('a categoria tem lançamentos e não pode mudar entre renda e gasto');
@@ -375,7 +473,14 @@ function apagarCat_(m, id) {
   id = String(id);
   var usada = m.lanc.some(function (l) { return l.categoriaId === id; });
   if (m.cfg.categoriaGuardar && m.cfg.categoriaGuardar === id) throw new Error('a categoria de economia não pode ser apagada');
+  if (m.cfg.categoriaSobra && m.cfg.categoriaSobra === id) throw new Error('a categoria da sobra transportada não pode ser apagada');
   if (usada) throw new Error('a categoria tem lançamentos e não pode ser apagada');
+  var recsCat = m.rec.filter(function (r) { return r.categoriaId === id; });
+  if (recsCat.length) {
+    m.rec = m.rec.filter(function (r) { return r.categoriaId !== id; });
+    m.sujo.recorrencias = true;
+    apagarPulares_(m, recsCat.map(function (r) { return r.id; }));
+  }
   var i = indice_(m.cats, 'id', id);
   if (i < 0) return;
   m.cats.splice(i, 1);
@@ -426,13 +531,46 @@ function lerMarca_(chave) {
   return { ano: ano, mes: Number(r[2]), categoriaId: r[3] };
 }
 
-/** Todas as marcas presentes na configuração: { chave: '1' }. */
-function marcas_(cfg) {
+/** Marca "pular": esta recorrência não vem só neste mês (chave na aba config). */
+var RE_PULAR = /^pular:(\d{4})-(0[1-9]|1[0-2]):([A-Za-z0-9][A-Za-z0-9_-]{0,59})$/;
+
+/** A chave parece uma marca "pular" (mesmo que o formato esteja errado)? */
+function ehPular_(chave) {
+  return typeof chave === 'string' && chave.indexOf('pular:') === 0;
+}
+
+/** Interpreta uma chave "pular": { ano, mes, recId } ou null se não for válida. */
+function lerPular_(chave) {
+  var r = RE_PULAR.exec(String(chave));
+  if (!r) return null;
+  var ano = Number(r[1]);
+  if (ano < 1900 || ano > 2200) return null;
+  return { ano: ano, mes: Number(r[2]), recId: r[3] };
+}
+
+/** Todas as marcas presentes na configuração: { chave: '1' }. As "pular" só valem com a recorrência existente. */
+function marcas_(cfg, recs) {
   var out = {};
+  var idsRec = (recs || []).map(function (r) { return r.id; });
   Object.keys(cfg).forEach(function (k) {
-    if (ehMarca_(k) && lerMarca_(k) && cfg[k] === '1') out[k] = '1';
+    if (cfg[k] !== '1') return;
+    if (ehMarca_(k) && lerMarca_(k)) out[k] = '1';
+    else if (ehPular_(k) && lerPular_(k) && idsRec.indexOf(lerPular_(k).recId) >= 0) out[k] = '1';
   });
   return out;
+}
+
+/** Apaga as marcas "pular" das recorrências dadas (ids). */
+function apagarPulares_(m, ids) {
+  var apagou = false;
+  Object.keys(m.cfg).forEach(function (k) {
+    var p = ehPular_(k) ? lerPular_(k) : null;
+    if (p && ids.indexOf(p.recId) >= 0) {
+      delete m.cfg[k];
+      apagou = true;
+    }
+  });
+  if (apagou) m.sujo.config = true;
 }
 
 /** Fechamento do mês: chave "fechado:AAAA-MM", valor = sobra realizada (texto numérico). */
@@ -490,6 +628,18 @@ function salvarCfg_(m, chave, valor) {
     } else {
       throw new Error('valor de marca inválido');
     }
+  } else if (ehPular_(chave)) {
+    var pular = lerPular_(chave);
+    if (!pular) throw new Error('marca inválida: ' + chave);
+    var vazioPular = valor === '' || valor === null || valor === undefined || valor === false || valor === 0;
+    if (vazioPular) {
+      delete m.cfg[chave];
+    } else if (valor === '1' || valor === true || valor === 1) {
+      if (indice_(m.rec, 'id', pular.recId) < 0) throw new Error('recorrência inexistente: ' + pular.recId);
+      m.cfg[chave] = '1';
+    } else {
+      throw new Error('valor de marca inválido');
+    }
   } else if (chave === 'nome') {
     m.cfg.nome = texto_(valor).trim().slice(0, 60);
   } else if (chave === 'categoriaGuardar') {
@@ -500,6 +650,14 @@ function salvarCfg_(m, chave, valor) {
       var ic = indice_(m.cats, 'id', v);
       if (ic < 0 || m.cats[ic].grupo === 'renda') throw new Error('categoria de economia inválida: ' + v);
       m.cfg.categoriaGuardar = v;
+    }
+  } else if (chave === 'categoriaSobra') {
+    var vs = texto_(valor).trim();
+    if (!vs) {
+      delete m.cfg.categoriaSobra;
+    } else {
+      if (!ehRenda_(m, vs)) throw new Error('categoria da sobra inválida: ' + vs);
+      m.cfg.categoriaSobra = vs;
     }
   } else if (chave === 'tema') {
     if (TEMAS.indexOf(valor) < 0) throw new Error('tema inválido');
@@ -527,6 +685,7 @@ function importar_(m, op) {
     categorias: { aceitas: 0, ignoradas: 0 },
     lancamentos: { aceitos: 0, ignorados: 0 },
     planos: { aceitos: 0, ignorados: 0 },
+    recorrencias: { aceitas: 0, ignoradas: 0 },
     motivos: [],
   };
   function motivo_(texto) { if (resumo.motivos.length < 5) resumo.motivos.push(texto); }
@@ -579,6 +738,19 @@ function importar_(m, op) {
     });
   });
 
+  var recs = [];
+  (Array.isArray(d.recorrencias) ? d.recorrencias : []).forEach(function (r, i) {
+    try {
+      var rec = validarRec_(r, ids);
+      var j = indice_(recs, 'id', rec.id);
+      if (j >= 0) recs[j] = rec; else recs.push(rec);
+      resumo.recorrencias.aceitas++;
+    } catch (e) {
+      resumo.recorrencias.ignoradas++;
+      motivo_('recorrência ' + ((r && typeof r === 'object' && r.id !== undefined) ? r.id : '#' + (i + 1)) + ': ' + msg_(e));
+    }
+  });
+
   if (mesclar) {
     cats.forEach(function (c) {
       var i = indice_(m.cats, 'id', c.id);
@@ -589,11 +761,16 @@ function importar_(m, op) {
       if (i >= 0) m.lanc[i] = l; else m.lanc.push(l);
     });
     orc.forEach(function (o) { salvarOrc_(m, { ano: o.ano, categoriaId: o.categoriaId, mes: o.mes, valor: o.valor }); });
+    recs.forEach(function (r) {
+      var i = indice_(m.rec, 'id', r.id);
+      if (i >= 0) m.rec[i] = r; else m.rec.push(r);
+    });
   } else {
     m.cats = cats;
     m.lanc = lanc;
     m.orc = orc;
-    Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k) || ehFechado_(k)) delete m.cfg[k]; });
+    m.rec = recs;
+    Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k) || ehFechado_(k) || ehPular_(k)) delete m.cfg[k]; });
   }
   var fechados = d.config && d.config.fechados;
   if (fechados && typeof fechados === 'object') {
@@ -608,9 +785,13 @@ function importar_(m, op) {
   var marcas = d.config && d.config.marcas;
   if (marcas && typeof marcas === 'object') {
     var idsFinais = mapaIds_(m.cats);
+    var idsRecFinais = m.rec.map(function (r) { return r.id; });
     Object.keys(marcas).forEach(function (k) {
+      if (String(marcas[k]) !== '1') return;
       var mc = lerMarca_(k);
-      if (mc && String(marcas[k]) === '1' && idsFinais[mc.categoriaId]) m.cfg[k] = '1';
+      var mp = lerPular_(k);
+      if (mc && idsFinais[mc.categoriaId]) m.cfg[k] = '1';
+      else if (mp && idsRecFinais.indexOf(mp.recId) >= 0) m.cfg[k] = '1';
     });
   }
   var guardar = d.config && texto_(d.config.categoriaGuardar).trim();
@@ -623,12 +804,18 @@ function importar_(m, op) {
   } else if (m.cfg.categoriaGuardar && indice_(m.cats, 'id', m.cfg.categoriaGuardar) < 0) {
     delete m.cfg.categoriaGuardar;
   }
+  var sobra = d.config && texto_(d.config.categoriaSobra).trim();
+  if (sobra && ehRenda_(m, sobra) && (!mesclar || !m.cfg.categoriaSobra)) {
+    m.cfg.categoriaSobra = sobra;
+  } else if (m.cfg.categoriaSobra && !ehRenda_(m, m.cfg.categoriaSobra)) {
+    delete m.cfg.categoriaSobra;
+  }
   var nome = texto_(d.nome || d.titular).trim();
   var nomeAtual = m.cfg.nome || m.cfg.titular;
   if (nome && (!mesclar || !nomeAtual)) m.cfg.nome = nome.slice(0, 60);
   var tema = d.config && d.config.tema;
   if (!mesclar && TEMAS.indexOf(tema) >= 0) m.cfg.tema = tema;
-  m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.config = true;
+  m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.recorrencias = m.sujo.config = true;
   return resumo;
 }
 
@@ -639,6 +826,12 @@ function importar_(m, op) {
 function indice_(lista, campo, valor) {
   for (var i = 0; i < lista.length; i++) if (lista[i][campo] === valor) return i;
   return -1;
+}
+
+/** A categoria existe e é de renda? */
+function ehRenda_(m, id) {
+  var i = indice_(m.cats, 'id', id);
+  return i >= 0 && m.cats[i].grupo === 'renda';
 }
 
 function diasNoMes_(ano, mes) {

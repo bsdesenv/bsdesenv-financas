@@ -346,6 +346,9 @@ function aplicarOp(d, op) {
       if (String(op.k).startsWith('encerrada:')) {
         d.marcas = d.marcas || {};
         if (op.v) d.marcas[op.k] = '1'; else delete d.marcas[op.k];
+      } else if (String(op.k).startsWith('fechado:')) {
+        d.fechados = d.fechados || {};
+        if (op.v) d.fechados[String(op.k).slice(8)] = String(op.v); else delete d.fechados[String(op.k).slice(8)];
       } else d[op.k] = op.v;
       break;
     default: break;
@@ -450,6 +453,30 @@ function valorFechado(cid, ano, mes) { const c = celReal(cid, ano, mes); return 
 /** Marca "encerrada" de uma categoria num mês (aba config): o que falta do plano deixa de ser reservado. */
 const chaveEncerrada = (ano, mes, cid) => `encerrada:${ano}-${dois(mes)}:${cid}`;
 function encerrada(ano, mes, cid) { const mk = S.dados && S.dados.marcas; return Boolean(mk && mk[chaveEncerrada(ano, mes, cid)]); }
+/** Fechamento do mês (aba config, chave fechado:AAAA-MM): a sobra realizada guardada ao fechar, ou null. */
+const chaveFechado = (ano, mes) => `${ano}-${dois(mes)}`;
+function fechamentoDe(ano, mes) {
+  const f = S.dados && S.dados.fechados; const v = f ? f[chaveFechado(ano, mes)] : undefined;
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+function mesFechado(ano, mes) { return fechamentoDe(ano, mes) !== null; }
+/** Depois de uma mudança confirmada num mês fechado: regrava a marca com a sobra realizada nova. */
+function atualizarFechamento(ano, mes) {
+  if (!mesFechado(ano, mes)) return;
+  const nova = resumo(ano, mes).sobraRealizada.toFixed(2);
+  if (Number(nova) !== fechamentoDe(ano, mes)) registrar({ t: 'cfg', k: 'fechado:' + chaveFechado(ano, mes), v: nova });
+}
+/** Primeiro toque num mês fechado: avisa e pede o segundo. Devolve true quando deve parar. */
+function pedirConfirmacaoFechado(meses, estado) {
+  const alvo = meses.filter((x, i, a) => mesFechado(x.ano, x.mes) && a.findIndex((y) => y.ano === x.ano && y.mes === x.mes) === i);
+  if (!alvo.length) { estado.fechado = null; return null; }
+  const chave = alvo.map((x) => chaveFechado(x.ano, x.mes)).join(',');
+  if (estado.fechado === chave) return null;
+  estado.fechado = chave;
+  return `${alvo.map((x) => Mes(x.mes)).join(' e ')} ${alvo.length > 1 ? 'estão fechados' : 'está fechado'}. Toque de novo para alterar; a sobra registrada será atualizada.`;
+}
 /** Média do lançado nos 3 meses fechados antes do mês. Só sugestão: nunca entra nas contas sem você gravar como plano. */
 function media3(cid, ano, mes) {
   const h = hoje();
@@ -547,6 +574,7 @@ function lancarRapido(txt) {
     aviso(pareceVezes(s) ? 'Para repetir um valor, use *, por exemplo 36*4. Parcelar em meses ainda não existe.' : 'Não entendi o valor. Use, por exemplo, 32,90 mercado padaria.', { tipo: 'erro' });
     return false;
   }
+  if (mesFechado(S.ano, S.mes)) { abrirNovo({ texto: s }); return false; }
   const c = r.categoriaId ? catPorId(r.categoriaId) : null;
   if (!c) { abrirNovo({ texto: s }); return false; }
   const total = r.valores.reduce((a, b) => a + b, 0);
@@ -769,6 +797,16 @@ function avisoMudanca(r) {
     + (igual ? 'Neste mês, o disponível não mudou. ' : `Pela regra antiga, o disponível de ${MESES[S.mes - 1]} seria ${moeda(r.legado.disponivel)}; pela nova, é ${moeda(r.disponivel)}. `)
     + '<button type="button" class="link" data-acao="aviso-mudanca-ok" data-foco="aviso-mudanca-ok">Entendi</button></p></div>';
 }
+/** No mês atual: lembra de fechar o mês anterior quando ele tem pendências. */
+function notaFechamentoAnterior() {
+  const a = deChave(chaveMes(S.ano, S.mes) - 1);
+  if (mesFechado(a.ano, a.mes) || !S.dados.anos[a.ano]) return '';
+  const ra = resumo(a.ano, a.mes);
+  if (!ra.qtd || !ra.pendencias.qtd) return '';
+  const nm = MESES[a.mes - 1]; const n = ra.pendencias.qtd;
+  return `<div class="nota nota-info"><p>${Mes(a.mes)} tem ${n} ${n === 1 ? 'pendência' : 'pendências'}. `
+    + `<button type="button" class="link" data-acao="fechar-mes" data-ano="${a.ano}" data-mes="${a.mes}" data-foco="fechar-anterior">Fechar ${nm}</button></p></div>`;
+}
 function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
   if (r.fase === 'atual') {
@@ -814,6 +852,7 @@ function cartaoHeroi(r) {
       + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
       + ponte + legenda + composicao + barraComposicao
       + '<p class="heroi-nota"><span class="so-desktop">O que falta de cada plano fica reservado até você lançar tudo ou encerrar a categoria no mês.</span><span class="so-celular">O que falta dos planos e das contas fica reservado.</span> <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + notaFechamentoAnterior()
       + avisoMudanca(r)
       + `</div>${anel}</div></section>`;
   }
@@ -828,10 +867,18 @@ function cartaoHeroi(r) {
     const pctTxt = pct === null ? '' : pct >= 0 ? ` · sobra de ${pct}% do que entrou` : ` · saídas ${Math.abs(pct)}% acima do que entrou`;
     const p = r.pendencias;
     const partes = [p.saidas ? `${moeda(p.saidas)} em saídas` : '', p.renda ? `${moeda(p.renda)} de renda` : ''].filter(Boolean).join(' e ');
-    const pendTxt = p.qtd
-      ? `<p class="sub">Não entram ${p.qtd === 1 ? 'um plano' : p.qtd + ' planos'} sem lançamento (${partes}). <button type="button" class="link" data-acao="tela" data-tela="mes" data-foco="ver-pendencias">Ver no mês</button></p>`
+    const guardada = fechamentoDe(S.ano, S.mes);
+    const dadosFechar = `data-acao="fechar-mes" data-ano="${S.ano}" data-mes="${S.mes}"`;
+    const botaoFechar = `<button type="button" class="botao pequeno" ${dadosFechar} data-foco="fechar-mes">Fechar ${m}</button>`;
+    let pendTxt = p.qtd
+      ? `<p class="sub">Não entram ${p.qtd === 1 ? 'um plano' : p.qtd + ' planos'} sem lançamento (${partes}).${guardada === null ? ` ${botaoFechar}` : ''}</p>`
       : '';
-    return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${sobra < 0 ? 'no vermelho' : 'com sobra'}</h2>`
+    if (guardada === null && !p.qtd) pendTxt = `<div class="acoes">${botaoFechar}</div>`;
+    if (guardada !== null && Math.abs(guardada - sobra) >= 0.005) {
+      pendTxt += `<p class="sub">Alterado depois do fechamento: a sobra era ${moeda(guardada)}. <button type="button" class="link" ${dadosFechar} data-foco="fechar-mes">Fechar de novo</button></p>`;
+    }
+    const chipFechado = guardada !== null ? ' <span class="chip-fechado">Mês fechado</span>' : '';
+    return `<section class="cartao g-heroi heroi" aria-labelledby="h-fecho"><h2 id="h-fecho" class="rotulo">${Mes(S.mes)} de ${S.ano} fechou ${sobra < 0 ? 'no vermelho' : 'com sobra'}${chipFechado}</h2>`
       + `<p class="numero-heroi${sobra < 0 ? ' negativo' : ''}">${moeda(sobra)}</p>`
       + `<p class="sub">Sobra realizada: entrou ${moeda(r.recebida)} e saiu ${moeda(r.jaSaiu)}${pctTxt}.</p>${pendTxt}</section>`;
   }
@@ -1444,7 +1491,9 @@ function abrirNovo(opc = {}) {
         const vs = valores(); const total = vs.reduce((a, b) => a + b, 0);
         const b = $('#nv-salvar', el);
         if (st.alto !== null && st.alto !== total) st.alto = null;
-        b.textContent = !vs.length ? 'Digite o valor' : st.alto !== null ? `Confirmar ${moeda(total)}`
+        const d0 = dataEscolhida();
+        if (st.fechado && !(d0 && st.fechado === chaveFechado(d0.ano, d0.mes))) st.fechado = null;
+        b.textContent = !vs.length ? 'Digite o valor' : st.fechado ? 'Confirmar em mês fechado' : st.alto !== null ? `Confirmar ${moeda(total)}`
           : vs.length > 1 ? `Salvar ${vs.length} lançamentos · ${moeda(total)}` : 'Salvar ' + moeda(total);
         b.disabled = !vs.length || !st.cat || !dataEscolhida();
       };
@@ -1452,6 +1501,13 @@ function abrirNovo(opc = {}) {
         const vs = valores(); const d = dataEscolhida();
         if (!vs.length || !st.cat || !d) { atualizarBotao(); return; }
         const soma = vs.reduce((a, b) => a + b, 0);
+        const paraFechado = pedirConfirmacaoFechado([{ ano: d.ano, mes: d.mes }], st);
+        if (paraFechado) {
+          atualizarBotao();
+          const pF = $('#nv-entendi', el);
+          if (pF) { pF.textContent = paraFechado; pF.className = 'entendi erro'; } else aviso(paraFechado, { tipo: 'erro' });
+          return;
+        }
         if (foraDoNormal(st.cat, soma) && st.alto !== soma) {
           st.alto = soma; atualizarBotao();
           const c0 = catPorId(st.cat);
@@ -1461,15 +1517,18 @@ function abrirNovo(opc = {}) {
           return;
         }
         st.alto = null;
+        const eraFechado = mesFechado(d.ano, d.mes);
+        st.fechado = null;
         const desc = $('#nv-desc', el).value.trim();
         const ids = vs.map((v) => {
           const id = novoId();
           registrar({ t: 'lanc', l: { id, ano: d.ano, mes: d.mes, dia: d.dia, categoriaId: st.cat, descricao: desc, valor: v } });
           return id;
         });
+        if (eraFechado) atualizarFechamento(d.ano, d.mes);
         const c = catPorId(st.cat); const total = vs.reduce((a, b) => a + b, 0);
         aviso(`Lançado em ${c ? c.nome : ''}: ${moeda(total)}${ids.length > 1 ? ` (${ids.length} lançamentos)` : ''}`, {
-          acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); aviso('Lançamento desfeito.'); },
+          acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); if (eraFechado) atualizarFechamento(d.ano, d.mes); aviso('Lançamento desfeito.'); },
         });
         if (continuar) {
           st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false; st.estorno = false; st.alto = null;
@@ -1555,6 +1614,7 @@ function abrirEditar(id) {
         + '<p class="entendi" id="ed-erro" aria-live="polite"></p></div>'
         + '<footer class="folha-rodape linha"><button type="button" class="botao perigo" data-f="apagar">' + ic('lixeira', 18) + 'Apagar</button><button type="button" class="botao primario" data-f="salvar" style="flex:1;margin-left:8px">Salvar</button></footer>';
       let confirmadoAlto = null;
+      const estadoFechado = { fechado: null };
       const salvar = () => {
         const v = paraNumero($('#ed-valor', el).value);
         const erro = $('#ed-erro', el);
@@ -1569,8 +1629,12 @@ function abrirEditar(id) {
         const novo = { id: l.id, ano: p[0], mes: p[1], dia: $('#ed-semdia', el).checked ? null : p[2], categoriaId: $('#ed-cat', el).value, descricao: $('#ed-desc', el).value.trim(), valor: v };
         const mudou = ['ano', 'mes', 'dia', 'categoriaId', 'descricao', 'valor'].some((k) => novo[k] !== original[k]);
         if (mudou) {
+          const paraFechado = pedirConfirmacaoFechado([{ ano: original.ano, mes: original.mes }, { ano: novo.ano, mes: novo.mes }], estadoFechado);
+          if (paraFechado) { erro.textContent = paraFechado; erro.className = 'entendi erro'; return; }
           registrar({ t: 'lanc', l: novo });
-          aviso('Lançamento alterado.', { acao: 'Desfazer', fn: () => registrar({ t: 'lanc', l: original }) });
+          const reajustar = () => { atualizarFechamento(original.ano, original.mes); if (novo.ano !== original.ano || novo.mes !== original.mes) atualizarFechamento(novo.ano, novo.mes); };
+          reajustar();
+          aviso('Lançamento alterado.', { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc', l: original }); reajustar(); } });
         }
         fecharFolha();
       };
@@ -1580,9 +1644,12 @@ function abrirEditar(id) {
         if (b.dataset.f === 'fechar') fecharFolha();
         else if (b.dataset.f === 'salvar') salvar();
         else if (b.dataset.f === 'apagar') {
+          const paraFechado = pedirConfirmacaoFechado([{ ano: original.ano, mes: original.mes }], estadoFechado);
+          if (paraFechado) { const er = $('#ed-erro', el); er.textContent = paraFechado; er.className = 'entendi erro'; return; }
           registrar({ t: 'lanc-', id: l.id });
+          atualizarFechamento(original.ano, original.mes);
           fecharFolha();
-          aviso('Lançamento apagado.', { acao: 'Desfazer', fn: () => registrar({ t: 'lanc', l: original }) });
+          aviso('Lançamento apagado.', { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc', l: original }); atualizarFechamento(original.ano, original.mes); } });
         }
       });
       el.addEventListener('keydown', (e) => {
@@ -1639,6 +1706,7 @@ function abrirCategoria(cid, ano, mes) {
       };
       let confirmadoAlto = null;
       let confirmaRepetir = null;
+      const estadoFechado = { fechado: null };
       const adicionar = () => {
         const msg = $('#fc-msg', el);
         const txtValor = $('#fc-valor', el).value;
@@ -1653,15 +1721,19 @@ function abrirCategoria(cid, ano, mes) {
           msg.textContent = `${moeda(soma)} é bem mais do que o habitual em ${c.nome}. Confira e toque em Adicionar de novo para lançar.`;
           msg.className = 'entendi erro'; return;
         }
+        const paraFechado = pedirConfirmacaoFechado([{ ano, mes }], estadoFechado);
+        if (paraFechado) { msg.textContent = paraFechado; msg.className = 'entendi erro'; return; }
         confirmadoAlto = null;
         const diaTxt = $('#fc-dia', el).value.trim();
         const dia = diaTxt ? Number(diaTxt) : (fase(ano, mes) === 'atual' ? hoje().dia : null);
         if (diaTxt && (!Number.isInteger(dia) || dia < 1 || dia > diasNoMes(ano, mes))) { msg.textContent = 'Dia inválido para este mês.'; msg.className = 'entendi erro'; return; }
         const desc = $('#fc-desc', el).value.trim();
         const ids = vs.map((v) => { const id = novoId(); registrar({ t: 'lanc', l: { id, ano, mes, dia, categoriaId: cid, descricao: desc, valor: v } }); return id; });
+        estadoFechado.fechado = null;
+        atualizarFechamento(ano, mes);
         $('#fc-valor', el).value = ''; $('#fc-desc', el).value = '';
         msg.textContent = `${ids.length > 1 ? ids.length + ' lançamentos adicionados' : 'Adicionado'}: ${moeda(vs.reduce((a, b) => a + b, 0))}.`; msg.className = 'entendi';
-        aviso(`Lançado em ${c.nome}: ${moeda(vs.reduce((a, b) => a + b, 0))}`, { acao: 'Desfazer', fn: () => ids.forEach((id) => registrar({ t: 'lanc-', id })) });
+        aviso(`Lançado em ${c.nome}: ${moeda(vs.reduce((a, b) => a + b, 0))}`, { acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); atualizarFechamento(ano, mes); } });
         $('#fc-valor', el).focus();
       };
       el.addEventListener('click', (e) => {
@@ -1736,6 +1808,63 @@ function confirmarPrevisto(cid, ano, mes) {
   const id = novoId();
   registrar({ t: 'lanc', l: { id, ano, mes, dia: fase(ano, mes) === 'atual' ? hoje().dia : null, categoriaId: cid, descricao: '', valor } });
   aviso(ehGuardar(c) ? `${moeda(valor)} guardado.` : `${c.nome}: ${moeda(valor)} lançado.`, { acao: 'Desfazer', fn: () => registrar({ t: 'lanc-', id }) });
+}
+/** Fechamento do mês: resolve cada plano sem lançamento e grava a sobra realizada. */
+function abrirFechamento(ano, mes) {
+  const nm = MESES[mes - 1];
+  const adiadas = new Set();
+  abrirFolha({
+    tipo: 'fechamento',
+    montar(el) {
+      el.innerHTML = topoFolha(`Fechar ${nm} de ${ano}`, 'Fechamento do mês')
+        + '<div class="folha-corpo"><p class="sub">Cada pendência é um plano que não foi lançado nem encerrado. Diga o que aconteceu com ele.</p>'
+        + '<div class="fech-lista" id="fech-lista"></div></div>'
+        + '<footer class="folha-rodape linha"><span class="fech-sobra" id="fech-sobra"></span>'
+        + `<button type="button" class="botao primario" data-f="fechar-mes" id="fech-ok">Fechar ${esc(nm)}</button></footer>`;
+      const atualizar = () => {
+        const r = resumo(ano, mes);
+        const itens = r.pendencias.itens;
+        const visiveis = itens.filter((it) => !adiadas.has(it.c.id));
+        const qAdiadas = itens.length - visiveis.length;
+        const aviso0 = qAdiadas ? `<p class="sub">${qAdiadas === 1 ? 'Uma pendência ficou para depois' : qAdiadas + ' pendências ficaram para depois'}. <button type="button" class="link" data-f="mostrar">Mostrar de novo</button></p>` : '';
+        $('#fech-lista', el).innerHTML = (visiveis.length ? visiveis.map((it) => {
+          const dados = `data-cat="${esc(it.c.id)}"`;
+          return `<div class="fech-item">${mono(it.c, true)}<div class="fech-txt"><strong>${esc(it.c.nome)}</strong><span>${it.renda ? 'a receber' : 'previsto'} ${esc(moeda(it.valor))}</span></div>`
+            + `<div class="fech-botoes"><button type="button" class="botao pequeno" data-f="feito" ${dados}>${it.renda ? 'Foi recebido' : 'Foi pago'}</button>`
+            + `<button type="button" class="botao pequeno fantasma" data-f="nao" ${dados}>Não aconteceu</button>`
+            + `<button type="button" class="botao pequeno fantasma" data-f="depois" ${dados}>Depois</button></div></div>`;
+        }).join('') : itens.length ? '' : '<p class="sub">Nenhuma pendência. Dá para fechar o mês.</p>') + aviso0;
+        $('#fech-sobra', el).textContent = `Sobra realizada: ${moeda(r.sobraRealizada)}`;
+        $('#fech-ok', el).disabled = itens.length > 0;
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f; const cid = b.dataset.cat;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'feito') {
+          const it = resumo(ano, mes).pendencias.itens.find((x) => x.c.id === cid);
+          if (!it) return;
+          const id = novoId();
+          registrar({ t: 'lanc', l: { id, ano, mes, dia: null, categoriaId: cid, descricao: '', valor: it.valor } });
+          aviso(`${it.c.nome}: ${moeda(it.valor)} lançado em ${nm}.`, { acao: 'Desfazer', fn: () => { registrar({ t: 'lanc-', id }); if (el.isConnected) atualizar(); } });
+          atualizar();
+        } else if (f === 'nao') { encerrarCategoria(cid, ano, mes, true); atualizar(); }
+        else if (f === 'depois') { adiadas.add(cid); atualizar(); }
+        else if (f === 'mostrar') { adiadas.clear(); atualizar(); }
+        else if (f === 'fechar-mes') {
+          if (resumo(ano, mes).pendencias.qtd) return;
+          const k = 'fechado:' + chaveFechado(ano, mes);
+          const antes = fechamentoDe(ano, mes);
+          const sobra = resumo(ano, mes).sobraRealizada;
+          registrar({ t: 'cfg', k, v: sobra.toFixed(2) });
+          fecharFolha();
+          aviso(`${Mes(mes)} fechado: sobra realizada ${moeda(sobra)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'cfg', k, v: antes === null ? '' : antes.toFixed(2) }) });
+        }
+      });
+      atualizar();
+    },
+  });
 }
 /** Encerra (ou reabre) uma categoria no mês: o que falta do plano deixa de ser reservado. O plano fica gravado. */
 function encerrarCategoria(cid, ano, mes, fechar = true) {
@@ -2436,6 +2565,7 @@ const ACOES = {
   'ir-mes': (el) => { S.mes = Number(el.dataset.mes); if (S.tela === 'planilha') irPara('inicio'); else render(); },
   encerrar: (el) => encerrarCategoria(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes), true),
   reabrir: (el) => encerrarCategoria(el.dataset.cat, Number(el.dataset.ano), Number(el.dataset.mes), false),
+  'fechar-mes': (el) => abrirFechamento(Number(el.dataset.ano), Number(el.dataset.mes)),
   'aviso-mudanca-ok': () => { LS.gravar('aviso-2.8.0', true); render(); },
   sincronizar: () => { if (S.fila.length) { S.offline = false; enviar(); } else verificarNovidades(true); },
   editar: (el) => abrirEditar(el.dataset.id),

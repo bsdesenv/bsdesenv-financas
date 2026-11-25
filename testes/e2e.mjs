@@ -1128,6 +1128,252 @@ await caso('atualização: celular (390 px) sem transbordo no cartão e na folha
   assert.ok(r.pagina <= 0 && r.escopo <= 0 && !r.fora.length, 'folha após copiar: ' + JSON.stringify(r));
 });
 
+/* ---------- 2.8.0: quitar, encerrar, estorno, lançamento rápido, valores ---------- */
+const catsBase = () => [
+  { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 },
+  { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 2 },
+  { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 3 },
+];
+const configDe = (a, chave) => a.servidor.planilha.ler('config').find((l) => l[0] === chave);
+const textoAviso = (p) => p.$eval('.aviso .aviso-txt', (e) => e.textContent);
+
+await caso('2.8.0 quitar: conta fixa paga em parte libera o que faltava, grava a marca e o Desfazer devolve', async () => {
+  const dados = {
+    nome: 'Quitar', categorias: catsBase(),
+    anos: { 2026: { lancamentos: [
+      { id: 'q1', mes: 11, dia: 5, categoriaId: 'aluguel', descricao: '', valor: 209.36 },
+      { id: 'q2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: { aluguel: { 11: 350 }, salario: { 11: 5000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'quitar-conta'));
+  await pronto(p);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(5000 - 209.36 - 140.64), 'antes: 140,64 ainda reservados');
+  const cartao = await p.$eval('#h-vencer', (e) => e.closest('section').innerText);
+  assert.ok(cartao.includes('Aluguel') && cartao.includes('Quitar'), 'a conta aparece com Quitar');
+  await p.click('[data-acao="encerrar"][data-cat="aluguel"]');
+  await esperarHeroi(p, moeda(5000 - 209.36)); await sincronizado(p);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(4790.64), 'o herói sobe 140,64');
+  const marca = configDe(a, 'encerrada:2026-11:aluguel');
+  assert.ok(marca && String(marca[1]) === '1', 'marca gravada na aba config: ' + JSON.stringify(a.servidor.planilha.ler('config')));
+  await p.click('.aviso-acao');
+  await esperarHeroi(p, moeda(4650)); await sincronizado(p);
+  assert.equal(configDe(a, 'encerrada:2026-11:aluguel'), undefined, 'o Desfazer apaga a linha');
+  await p.close();
+});
+
+await caso('2.8.0 encerrar e reabrir uma categoria variável pelo painel', async () => {
+  const dados = {
+    nome: 'Encerrar', categorias: catsBase(),
+    anos: { 2026: { lancamentos: [
+      { id: 'e1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 100 },
+      { id: 'e2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+    ], orcamento: { mercado: { 11: 300 }, salario: { 11: 1000 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'encerrar-reabrir'));
+  await pronto(p);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(700));
+  await p.evaluate(() => abrirCategoria('mercado', 2026, 11)); await folhaAberta(p);
+  assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Encerrar no mês (libera ${moeda(200)})`);
+  await p.click('.folha [data-f="encerrar"]');
+  await p.waitForSelector('.folha [data-f="reabrir"]'); await sincronizado(p);
+  assert.equal(await p.$eval('.folha [data-f="reabrir"]', (e) => e.textContent.trim()), 'Reabrir no mês');
+  assert.equal(String(configDe(a, 'encerrada:2026-11:mercado')[1]), '1', 'marca gravada');
+  await esperarHeroi(p, moeda(900));
+  await p.click('.folha [data-f="reabrir"]');
+  await p.waitForSelector('.folha [data-f="encerrar"]'); await sincronizado(p);
+  assert.equal(configDe(a, 'encerrada:2026-11:mercado'), undefined, 'a marca saiu da planilha');
+  await esperarHeroi(p, moeda(700));
+  await p.close();
+});
+
+await caso('2.8.0 renda: receber o vale não muda o herói; “Não vem mais” tira o que faltava receber', async () => {
+  const dados = {
+    nome: 'Não vem mais', categorias: catsBase(),
+    anos: { 2026: { lancamentos: [
+      { id: 'n1', mes: 11, dia: 5, categoriaId: 'salario', descricao: 'Adiantamento', valor: 1000 },
+    ], orcamento: { salario: { 11: 7900 } } } },
+  };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'nao-vem-mais'));
+  await pronto(p);
+  const antes = await p.$eval('.numero-heroi', (e) => e.textContent);
+  assert.equal(antes, moeda(7900));
+  await p.evaluate(() => registrar({ t: 'lanc', l: { id: novoId(), ano: S.ano, mes: S.mes, dia: hoje().dia, categoriaId: 'salario', descricao: 'Vale', valor: 2160 } }));
+  await sincronizado(p);
+  await p.waitForFunction(() => (document.querySelector('.kpi .sub')?.textContent || '').includes('recebida'), {}, 0);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), antes, 'lançar o vale não muda o herói');
+  assert.ok((await kpiDe(p, 'Renda do mês')).sub.includes('a receber ' + moeda(4740)), 'faltam 4.740 a receber');
+  await p.evaluate(() => abrirCategoria('salario', 2026, 11)); await folhaAberta(p);
+  assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Não vem mais (tira ${moeda(4740)})`);
+  await p.click('.folha [data-f="encerrar"]'); await sincronizado(p);
+  await esperarHeroi(p, moeda(7900 - 4740));
+  assert.equal(String(configDe(a, 'encerrada:2026-11:salario')[1]), '1');
+  await p.close();
+});
+
+await caso('2.8.0 estorno: o seletor de tipo grava −50, no computador e no celular (teclado)', async () => {
+  const dados = { nome: 'Estorno', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'x1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: { salario: { 11: 1000 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const estornos = () => a.linhas().filter((l) => l[6] === -50);
+  const pc2 = await abrir(a, PC, montarPagina(a, 'estorno'));
+  await pronto(pc2);
+  await pc2.click('[data-foco="novo-topo"]'); await folhaAberta(pc2);
+  await pc2.click('[data-f="tipo"][data-v="estorno"]');
+  await pc2.type('#nv-texto', '50');
+  await pc2.click('[data-f="cat"][data-v="mercado"]');
+  assert.equal(await pc2.$eval('#nv-salvar', (e) => e.textContent), 'Salvar ' + moeda(-50));
+  await pc2.click('#nv-salvar'); await semFolha(pc2); await sincronizado(pc2);
+  assert.equal(estornos().length, 1, 'estorno do computador gravado');
+  assert.equal(estornos()[0][4], 'mercado');
+  await pc2.close();
+  const c2 = await abrir(a, CEL, montarPagina(a, 'estorno-cel'));
+  await pronto(c2);
+  await c2.tap('.inf-mais'); await folhaAberta(c2);
+  await c2.tap('[data-f="tipo"][data-v="estorno"]'); await sleep(80);
+  await digitarTeclado(c2, ['5', '0', '00']);
+  assert.equal(await c2.$eval('#nv-valor', (e) => e.textContent), moeda(-50));
+  await c2.tap('[data-f="cat"][data-v="mercado"]'); await sleep(80);
+  await c2.tap('#nv-salvar'); await semFolha(c2); await sincronizado(c2);
+  assert.equal(estornos().length, 2, 'estorno do celular gravado: ' + JSON.stringify(a.linhas()));
+  await c2.close();
+});
+
+await caso('2.8.0 lançamento rápido em outro mês: grava no mês da tela, sem dia, e avisa', async () => {
+  const dados = { nome: 'Rápido outro mês', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'o1', mes: 9, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+    { id: 'o2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'rapido-outro-mes'));
+  await pronto(p);
+  assert.equal(await p.$eval('#quick-mes', (e) => e.textContent), 'hoje');
+  await p.click('[data-acao="mes-ant"]'); await p.click('[data-acao="mes-ant"]');
+  await p.waitForFunction(() => document.querySelector('#quick-mes')?.textContent === 'em Set 2026');
+  await p.click('#quick');
+  await p.type('#quick', '1,11 mercado teste');
+  await p.keyboard.press('Enter'); await sincronizado(p);
+  const linha = a.linhas().find((l) => l[6] === 1.11);
+  assert.ok(linha, 'gravado');
+  assert.deepEqual([linha[1], linha[2], linha[4], linha[5]], [2026, 9, 'mercado', 'teste']);
+  assert.ok(linha[3] === '' || linha[3] === null || linha[3] === undefined, 'sem dia: ' + JSON.stringify(linha[3]));
+  await p.waitForSelector('.aviso .aviso-txt');
+  assert.ok((await textoAviso(p)).includes('setembro de 2026, sem dia'), await textoAviso(p));
+  await p.close();
+});
+
+await caso('2.8.0 lançamento rápido: “1200x10” não vira dez lançamentos e o aviso ensina o *', async () => {
+  const dados = { nome: 'Vezes', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'v1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'rapido-vezes'));
+  await pronto(p);
+  const antes = a.linhas().length;
+  await p.click('#quick');
+  await p.type('#quick', '1200x10 compras geladeira');
+  await p.keyboard.press('Enter');
+  await p.waitForSelector('.aviso .aviso-txt'); await sleep(300); await sincronizado(p);
+  assert.ok((await textoAviso(p)).includes('use *'), await textoAviso(p));
+  assert.equal(a.linhas().length, antes, 'nada gravado');
+  assert.equal(await p.evaluate(() => S.fila.length), 0);
+  await p.close();
+});
+
+await caso('2.8.0 valor fora do normal: pede confirmação antes de gravar', async () => {
+  const dados = { nome: 'Fora do normal', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'h8', mes: 8, dia: 5, categoriaId: 'mercado', descricao: '', valor: 100 },
+    { id: 'h9', mes: 9, dia: 5, categoriaId: 'mercado', descricao: '', valor: 95 },
+    { id: 'h10', mes: 10, dia: 5, categoriaId: 'mercado', descricao: '', valor: 105 },
+    { id: 'h11', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'fora-do-normal'));
+  await pronto(p);
+  await p.click('[data-foco="novo-topo"]'); await folhaAberta(p);
+  await p.type('#nv-texto', '9000');
+  await p.click('[data-f="cat"][data-v="mercado"]');
+  await p.click('#nv-salvar'); await sleep(250); await sincronizado(p);
+  assert.ok(!a.linhas().some((l) => l[6] === 9000), 'o primeiro clique não grava');
+  assert.equal(await p.$eval('#nv-salvar', (e) => e.textContent), 'Confirmar ' + moeda(9000));
+  // O aviso de “confirme” fica por cima do rodapé; o clique vai direto no botão, como o toque de quem fecha o aviso antes.
+  await p.$eval('#nv-salvar', (e) => e.click()); await semFolha(p); await sincronizado(p);
+  assert.ok(a.linhas().some((l) => l[6] === 9000 && l[4] === 'mercado'), 'o segundo clique grava');
+  await p.close();
+});
+
+await caso('2.8.0 editar um estorno sem mexer: o campo mostra −50,00 e salvar mantém −50', async () => {
+  const dados = { nome: 'Editar estorno', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'es1', mes: 11, dia: 6, categoriaId: 'mercado', descricao: 'Devolução', valor: -50 },
+    { id: 'es2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'editar-estorno'));
+  await pronto(p);
+  await p.evaluate(() => abrirEditar('es1')); await folhaAberta(p);
+  assert.equal(await p.$eval('#ed-valor', (e) => e.value), '−50,00');
+  await p.click('.folha [data-f="salvar"]'); await sleep(200);
+  assert.equal(await p.$('#ed-erro:not(:empty)'), null, 'sem mensagem de erro');
+  await semFolha(p); await sincronizado(p);
+  const linhas = a.linhas().filter((l) => l[0] === 'es1');
+  assert.equal(linhas.length, 1);
+  assert.equal(linhas[0][6], -50, 'continua −50');
+  await p.close();
+});
+
+await caso('2.8.0 vários valores no painel da categoria: “217,93 176,15” vira dois lançamentos', async () => {
+  const dados = { nome: 'Vários valores', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'vv1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: { mercado: { 11: 1000 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'varios-valores'));
+  await pronto(p);
+  await p.evaluate(() => abrirCategoria('mercado', 2026, 11)); await folhaAberta(p);
+  await p.type('#fc-valor', '217,93 176,15');
+  await p.keyboard.press('Enter'); await sleep(200); await sincronizado(p);
+  const valores = a.linhas().filter((l) => l[4] === 'mercado').map((l) => l[6]).sort((x, y) => x - y);
+  assert.deepEqual(valores, [176.15, 217.93]);
+  assert.ok(!a.linhas().some((l) => l[6] > 1e6), 'nunca 21.793.176,15');
+  await p.keyboard.press('Escape'); await semFolha(p);
+  await p.close();
+});
+
+await caso('2.8.0 aviso único da mudança: aparece com meses anteriores, some no Entendi e não volta', async () => {
+  const dados = { nome: 'Aviso mudança', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'am1', mes: 10, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+    { id: 'am2', mes: 10, dia: 2, categoriaId: 'mercado', descricao: '', valor: 100 },
+    { id: 'am3', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: { mercado: { 11: 300 }, salario: { 11: 1000 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const arq = montarPagina(a, 'aviso-mudanca');
+  const ctx = await browser.createBrowserContext();
+  const p = await abrir(a, PC, arq, { contexto: ctx });
+  await pronto(p);
+  await p.waitForSelector('.aviso-mudanca');
+  assert.ok((await p.$eval('.aviso-mudanca', (e) => e.textContent)).includes('As contas do mês mudaram na versão 2.8.0'));
+  await p.click('[data-acao="aviso-mudanca-ok"]');
+  await p.waitForFunction(() => !document.querySelector('.aviso-mudanca'));
+  await p.reload({ waitUntil: 'domcontentloaded' }); await pronto(p);
+  assert.equal(await p.$('.aviso-mudanca'), null, 'recarregar não mostra de novo');
+  const q = await abrir(a, PC, arq, { contexto: ctx });
+  await pronto(q);
+  assert.equal(await q.$('.aviso-mudanca'), null, 'nova página no mesmo navegador não mostra de novo');
+  await q.close(); await p.close();
+
+  const novo = {
+    nome: 'Sem passado', categorias: catsBase(),
+    anos: { 2026: { lancamentos: [{ id: 'sp1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 }], orcamento: { salario: { 11: 1000 } } } },
+  };
+  const b = criarAmbiente(abasDoBackup(novo));
+  const r = await abrir(b, PC, montarPagina(b, 'aviso-mudanca-novo'));
+  await pronto(r);
+  assert.equal(await r.$('.aviso-mudanca'), null, 'sem meses anteriores, sem aviso');
+  await r.close();
+});
+
 await caso('nenhum erro de JavaScript em nenhuma página', async () => {
   const erros = paginas.flatMap((p) => p.erros);
   assert.deepEqual(erros, []);

@@ -281,11 +281,19 @@ function mapaCats() { const m = {}; for (const c of S.dados.categorias) m[c.id] 
 const catPorId = (id) => S.dados.categorias.find((c) => c.id === id);
 function catGuardar() {
   if (!S.dados) return null;
+  const fixa = S.dados.categoriaGuardar && S.dados.categorias.find((c) => c.id === S.dados.categoriaGuardar && c.grupo !== 'renda');
+  if (fixa) return fixa;
   const porId = S.dados.categorias.find((c) => c.id === 'guardar' && c.grupo !== 'renda');
   if (porId) return porId;
   return cats().find((c) => c.grupo !== 'renda' && normal(c.nome).trim().startsWith('guardar')) || null;
 }
 const ehGuardar = (c) => { const g = catGuardar(); return Boolean(g && c && g.id === c.id); };
+/** Grava na config o id da categoria de economia (uma vez), para ela não depender do nome. */
+function fixarGuardar() {
+  if (!S.dados || S.dados.categoriaGuardar) return;
+  const g = catGuardar();
+  if (g) registrar({ t: 'cfg', k: 'categoriaGuardar', v: g.id });
+}
 
 /* =====================================================================
    4. Operações — espelho do que o servidor faz, para a tela responder na hora
@@ -700,6 +708,14 @@ function renderInferior() {
     + `<button type="button" class="inf-mais" data-acao="novo" data-foco="inf-novo" aria-label="Novo lançamento">${ic('mais', 26)}</button>`
     + item('mes') + item('ajustes');
 }
+/** Leitores de tela ouvem só os problemas de sincronização e a volta ao normal, não cada "Salvando…". */
+let sincAnunciado = '';
+function anunciarSinc(problema) {
+  let el = $('#sinc-anuncio');
+  if (!el) { el = document.createElement('div'); el.id = 'sinc-anuncio'; el.className = 'sr'; el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  if (problema) { if (problema !== sincAnunciado) { sincAnunciado = problema; el.textContent = problema; } return; }
+  if (sincAnunciado && !S.fila.length && !S.enviando) { sincAnunciado = ''; el.textContent = 'Conexão de volta: tudo gravado na planilha.'; }
+}
 function renderSinc() {
   const pend = S.fila.length;
   let cls; let txt; let titulo; let icone;
@@ -720,6 +736,7 @@ function renderSinc() {
     el.title = titulo;
     el.setAttribute('aria-label', `${txt}. ${titulo}`);
   }
+  anunciarSinc(S.offline ? (pend ? `Sem conexão com a planilha: ${pend} ${pend === 1 ? 'alteração guardada' : 'alterações guardadas'} neste aparelho.` : 'Sem conexão com a planilha.') : '');
 }
 
 /* ---------- Início ---------- */
@@ -1325,12 +1342,12 @@ function telaAjustes() {
         + `<label class="sr" for="cn-${esc(c.id)}">Nome da categoria</label><input class="entrada" id="cn-${esc(c.id)}" data-mudar="cat-nome" data-cat="${esc(c.id)}" data-foco="cn-${esc(c.id)}" value="${esc(c.nome)}" maxlength="60">`
         + `<label class="sr" for="cg-${esc(c.id)}">Grupo</label><select class="entrada" id="cg-${esc(c.id)}" data-mudar="cat-grupo" data-cat="${esc(c.id)}" data-foco="cg-${esc(c.id)}">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === c.grupo ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
         + `<span class="qtd">${n} lanç.</span>`
-        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : 'Apagar'}"${n ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
+        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : ehGuardar(c) ? 'Não dá para apagar: é a categoria de economia' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : ehGuardar(c) ? 'Categoria de economia: não dá para apagar' : 'Apagar'}"${n || ehGuardar(c) ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
     }).join('');
   }).join('');
   return '<div class="ajustes">'
     + '<section class="cartao"><h2>Geral</h2>'
-    + `<label class="campo">Nome do controle<input data-mudar="nome" data-foco="aj-nome" value="${esc(d.nome)}" maxlength="60" placeholder="Ex.: Casa, Pessoal"></label>`
+    + `<label class="campo">Nome do controle<input id="aj-nome" name="nome" data-mudar="nome" data-foco="aj-nome" value="${esc(d.nome)}" maxlength="60" placeholder="Ex.: Casa, Pessoal"></label>`
     + `<div class="campo"><span>Aparência</span><div class="segmentado" role="group" aria-label="Tema">${Object.entries(temas).map(([k, v]) => `<button type="button" data-acao="tema" data-tema="${k}" data-foco="tema-${k}" aria-pressed="${(d.tema || 'auto') === k}">${v}</button>`).join('')}</div></div></section>`
     + '<section class="cartao"><h2>Categorias</h2><p class="sub">A ordem definida aqui vale para as listas e para a planilha.</p>' + linhas
     + '<div class="nova-cat"><label class="sr" for="nova-cat-nome">Nome da nova categoria</label><input class="entrada" id="nova-cat-nome" data-foco="nova-cat-nome" placeholder="Nova categoria" maxlength="60">'
@@ -1369,6 +1386,8 @@ function abrirFolha(f) {
   f.el = el;
   f.origem = document.activeElement;
   pilha.push(f);
+  document.documentElement.classList.add('com-folha');
+  if ($('#app')) $('#app').inert = true;
   $('#camada').appendChild(el);
   f.montar(el);
   const t = el.querySelector('h2');
@@ -1387,6 +1406,10 @@ function fecharFolha(porHistorico = false) {
   f.el.classList.remove('aberta');
   setTimeout(() => f.el.remove(), 260);
   atualizarVeu();
+  if (!pilha.length) {
+    document.documentElement.classList.remove('com-folha');
+    if ($('#app')) $('#app').inert = false;
+  }
   if (f.aoFechar) f.aoFechar();
   if (f.origem && document.contains(f.origem) && f.origem.focus) f.origem.focus({ preventScroll: true });
   if (!porHistorico) agendarRender();
@@ -1520,7 +1543,9 @@ function abrirNovo(opc = {}) {
         if (foraDoNormal(st.cat, soma) && st.alto !== soma) {
           st.alto = soma; atualizarBotao();
           const c0 = catPorId(st.cat);
-          aviso(`${moeda(soma)} é bem mais do que o habitual em ${c0 ? c0.nome : 'nesta categoria'}. Confira e toque em Confirmar para salvar.`, { tipo: 'erro' });
+          const alerta = `${moeda(soma)} é bem mais do que o habitual em ${c0 ? c0.nome : 'nesta categoria'}. Confira e toque em Confirmar para salvar.`;
+          const pEntendi = $('#nv-entendi', el);
+          if (pEntendi) { pEntendi.textContent = alerta; pEntendi.className = 'entendi erro'; } else aviso(alerta, { tipo: 'erro' });
           return;
         }
         st.alto = null;
@@ -1701,6 +1726,7 @@ function abrirCategoria(cid, ano, mes) {
           + (v.plano > 0 ? ' <button type="button" class="link" data-f="apagar-plano">Apagar plano</button>' : '');
       };
       let confirmadoAlto = null;
+      let confirmaRepetir = null;
       const adicionar = () => {
         const msg = $('#fc-msg', el);
         const txtValor = $('#fc-valor', el).value;
@@ -1751,9 +1777,21 @@ function abrirCategoria(cid, ano, mes) {
         }
         else if (f === 'repetir') {
           const v = paraNumero($('#fc-plano', el).value);
-          if (!v) { aviso('Digite o valor do plano antes de repetir.'); return; }
-          for (let m = mes; m <= 12; m++) registrar({ t: 'orc', ano, categoriaId: cid, mes: m, valor: v });
-          aviso(`Plano de ${moeda(v)} aplicado de ${MESES[mes - 1]} a dezembro.`);
+          if (!v || v < 0) { aviso('Digite o valor do plano antes de repetir.'); return; }
+          const antes = [];
+          for (let m = mes; m <= 12; m++) antes.push({ m, v: planoExp(cid, ano, m) });
+          const trocados = antes.filter((x) => x.v && Math.abs(x.v - v) > 0.004);
+          if (trocados.length && confirmaRepetir !== v) {
+            confirmaRepetir = v;
+            b.textContent = `Substituir ${trocados.length} plano${trocados.length > 1 ? 's' : ''}? Toque de novo`;
+            $('#fc-plano-dica', el).textContent = `Já há plano diferente em ${trocados.map((x) => MESES_C[x.m - 1]).join(', ')}. Toque de novo para substituir.`;
+            return;
+          }
+          confirmaRepetir = null; b.textContent = 'Repetir até dezembro';
+          antes.forEach((x) => registrar({ t: 'orc', ano, categoriaId: cid, mes: x.m, valor: v }));
+          aviso(`Plano de ${moeda(v)} aplicado de ${MESES[mes - 1]} a dezembro${trocados.length ? ` (${trocados.length} substituído${trocados.length > 1 ? 's' : ''})` : ''}.`, {
+            acao: 'Desfazer', fn: () => antes.forEach((x) => registrar({ t: 'orc', ano, categoriaId: cid, mes: x.m, valor: x.v || null })),
+          });
         }
       });
       $('#fc-plano', el).addEventListener('change', (e) => {
@@ -1885,15 +1923,57 @@ function abrirComoFunciona() {
 }
 
 /* ---------- Importar backup ---------- */
+/** O que a importação vai aceitar e ignorar, pelas mesmas regras do servidor, para mostrar antes de importar. */
+function previaImportacao(d, modo) {
+  const RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
+  const motivos = [];
+  const anotar = (t) => { if (motivos.length < 5) motivos.push(t); };
+  const ids = new Set(modo === 'mesclar' && S.dados ? S.dados.categorias.map((c) => c.id) : []);
+  let catOk = 0; let catNao = 0;
+  for (const c of d.categorias) {
+    const nome = String((c && c.nome) ?? '').trim();
+    if (c && RE.test(String(c.id)) && nome && ORDEM_GRUPOS.includes(String(c.grupo))) { catOk++; ids.add(String(c.id)); }
+    else { catNao++; anotar(`categoria ${String((c && (c.nome || c.id)) ?? '?')}: sem nome, identificador ou grupo válido`); }
+  }
+  let lOk = 0; let lNao = 0;
+  for (const [a, b] of Object.entries(d.anos || {})) {
+    for (const l of (b && b.lancamentos) || []) {
+      const ano = Number(a); const mes = Number(l && l.mes);
+      const dia = !l || l.dia === null || l.dia === undefined || l.dia === '' ? null : Number(l.dia);
+      const v = Number(l && l.valor);
+      const motivo = !(Number.isInteger(ano) && ano >= 1900 && ano <= 2200) ? 'ano inválido'
+        : !(Number.isInteger(mes) && mes >= 1 && mes <= 12) ? 'mês inválido'
+          : dia !== null && !(Number.isInteger(dia) && dia >= 1 && dia <= diasNoMes(ano, mes)) ? `dia inválido para o mês: ${dia}`
+            : !ids.has(String(l && l.categoriaId)) ? `categoria inexistente: ${l && l.categoriaId}`
+              : !Number.isFinite(v) || v === 0 || Math.abs(v) >= 1e9 ? 'valor inválido' : '';
+      if (motivo) { lNao++; anotar(`lançamento ${(l && l.id) || ''} (${a}): ${motivo}`); } else lOk++;
+    }
+  }
+  return { catOk, catNao, lOk, lNao, motivos };
+}
 function abrirImportar() {
   abrirFolha({
     tipo: 'importar',
     montar(el) {
       el.innerHTML = topoFolha('Importar backup')
-        + '<div class="folha-corpo"><p class="sub">Arquivo JSON baixado em Ajustes › Baixar backup (desta versão ou da anterior).</p>'
+        + '<div class="folha-corpo"><p class="sub">Arquivo JSON baixado em Ajustes › Baixar backup (formatos 1, 2 e 3).</p>'
         + '<label class="campo">Arquivo<input type="file" id="im-arquivo" accept=".json,application/json" data-autofoco></label><div id="im-previa"></div></div>'
         + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="importar" id="im-botao" disabled>Importar</button></footer>';
       let dados = null;
+      const modo = () => ($('input[name="im-modo"]:checked', el) || {}).value || 'mesclar';
+      // Mostra o que entra e o que fica de fora; "Substituir" só libera depois de digitar a palavra.
+      const atualizarPrevia = () => {
+        if (!dados) return;
+        const pv = previaImportacao(dados, modo());
+        const ignorados = pv.catNao + pv.lNao;
+        $('#im-aceitos', el).innerHTML = `Vão entrar ${pv.catOk} categoria${pv.catOk === 1 ? '' : 's'} e ${pv.lOk} lançamento${pv.lOk === 1 ? '' : 's'}.`
+          + (ignorados ? ` <strong>${ignorados} ite${ignorados === 1 ? 'm fica' : 'ns ficam'} de fora:</strong> ${esc(pv.motivos.join('; '))}${ignorados > pv.motivos.length ? '…' : ''}` : '');
+        const subst = modo() === 'substituir';
+        $('#im-substituir', el).hidden = !subst;
+        const ok = !subst || normal($('#im-confirma', el).value).trim() === 'substituir';
+        $('#im-botao', el).disabled = !ok || !(pv.catOk > 0);
+        $('#im-botao', el).textContent = subst ? 'Substituir tudo' : 'Importar';
+      };
       $('#im-arquivo', el).addEventListener('change', async (e) => {
         const arq = e.target.files[0];
         const prev = $('#im-previa', el);
@@ -1905,10 +1985,16 @@ function abrirImportar() {
           let n = 0; for (const b of Object.values(d.anos)) n += (b.lancamentos || []).length;
           dados = d;
           prev.innerHTML = `<div class="previa"><div><span class="sub">Categorias</span><strong>${d.categorias.length}</strong></div><div><span class="sub">Lançamentos</span><strong>${n}</strong></div><div><span class="sub">Anos</span><strong>${esc(Object.keys(d.anos).join(', ') || '—')}</strong></div></div>`
+            + '<p class="sub" id="im-aceitos" aria-live="polite" style="margin-top:10px"></p>'
             + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
             + '<label class="opcao"><input type="radio" name="im-modo" value="mesclar" checked><span><strong>Juntar com o que já existe</strong>Itens com o mesmo identificador são atualizados; o resto é acrescentado.</span></label>'
-            + '<label class="opcao"><input type="radio" name="im-modo" value="substituir"><span><strong>Substituir tudo</strong>Apaga o que está na planilha e coloca o conteúdo do arquivo. O Google guarda versões antigas em Arquivo › Histórico de versões.</span></label></div>';
-          $('#im-botao', el).disabled = false;
+            + '<label class="opcao"><input type="radio" name="im-modo" value="substituir"><span><strong>Substituir tudo</strong>Apaga o que está na planilha e coloca o conteúdo do arquivo. O Google guarda versões antigas em Arquivo › Histórico de versões.</span></label></div>'
+            + '<div id="im-substituir" hidden style="margin-top:12px">'
+            + `<div class="acoes"><button type="button" class="botao" data-f="backup">${ic('baixar', 18)}Baixar backup agora</button></div>`
+            + '<label class="campo" style="margin-top:10px">Para substituir tudo, digite SUBSTITUIR<input class="entrada" id="im-confirma" autocomplete="off" spellcheck="false"></label></div>';
+          $$('input[name="im-modo"]', el).forEach((r) => r.addEventListener('change', atualizarPrevia));
+          $('#im-confirma', el).addEventListener('input', atualizarPrevia);
+          atualizarPrevia();
         } catch (err) {
           prev.innerHTML = `<p class="entendi erro">Não consegui ler esse arquivo: ${esc(err.message)}.</p>`;
         }
@@ -1917,22 +2003,26 @@ function abrirImportar() {
         const b = e.target.closest('[data-f]');
         if (!b) return;
         if (b.dataset.f === 'fechar') { fecharFolha(); return; }
-        if (b.dataset.f !== 'importar' || !dados) return;
-        const modo = ($('input[name="im-modo"]:checked', el) || {}).value || 'mesclar';
+        if (b.dataset.f === 'backup') { if (S.dados) exportarJSON(); return; }
+        if (b.dataset.f !== 'importar' || !dados || b.disabled) return;
+        const m = modo();
         b.disabled = true; b.textContent = 'Importando…';
         try {
           await esvaziarFila();
-          const r = JSON.parse(await chamar('sincronizar', S.dados.revisao, JSON.stringify([{ t: 'importar', dados, modo, confirmado: true }])));
+          const r = JSON.parse(await chamar('sincronizar', S.dados.revisao, JSON.stringify([{ t: 'importar', dados, modo: m, confirmado: true }])));
           if (r.rejeitadas && r.rejeitadas.length) throw new Error(r.rejeitadas[0].motivo);
           S.dados = JSON.parse(r.dados); S.versao++;
           salvarCache(); persistirFila();
           let n = 0; for (const x of Object.values(S.dados.anos)) n += x.lancamentos.length;
           fecharFolha();
           if (!S.montado) montarApp(); else render();
-          aviso(`Importação concluída. A planilha tem agora ${n} lançamento${n === 1 ? '' : 's'}.`);
+          const im = r.importacao;
+          const ign = im ? (im.categorias.ignoradas || 0) + (im.lancamentos.ignorados || 0) + (im.planos.ignorados || 0) : 0;
+          aviso(`Importação concluída. A planilha tem agora ${n} lançamento${n === 1 ? '' : 's'}.`
+            + (ign ? ` ${ign} ite${ign === 1 ? 'm ficou' : 'ns ficaram'} de fora: ${(im.motivos || []).slice(0, 2).join('; ')}.` : ''), { tipo: ign ? 'erro' : 'info', tempo: ign ? 15000 : undefined });
         } catch (err) {
           aviso('Não deu para importar: ' + err.message, { tipo: 'erro' });
-          b.disabled = false; b.textContent = 'Importar';
+          b.disabled = false; b.textContent = m === 'substituir' ? 'Substituir tudo' : 'Importar';
         }
       });
     },
@@ -2085,7 +2175,7 @@ function cartaoAtualizacoes() {
     + `<div class="acoes" id="atu-acoes">${acoesAtualizacaoHtml()}</div>`
     + `<label class="marcar interruptor"><input type="checkbox" role="switch" data-mudar="atualizacao-auto" data-foco="atu-auto"${atualizacaoAuto() ? ' checked' : ''}>Procurar novas versões automaticamente</label>`
     + '<p class="sub">Uma vez por dia o app consulta o GitHub para saber se há versão nova. Nenhum dado seu é enviado.</p>'
-    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados não passam por nenhum servidor além do Google. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
+    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados financeiros ficam só na sua planilha, no Google Drive. O navegador também busca a fonte no Google Fonts, o ícone no GitHub e, se o aviso de versão estiver ligado, uma vez por dia o arquivo de versões no GitHub ou no jsDelivr: esses serviços veem o seu endereço IP, nenhum dado da planilha. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
 }
 /** Atualiza só o cartão (a área viva continua a mesma, para o leitor de tela anunciar) e, se preciso, o resto da tela. */
 function pintarAtualizacao(redesenhar) {
@@ -2201,20 +2291,49 @@ function abrirAtualizar() {
 }
 
 /* ---------- Avisos rápidos (com Desfazer) ---------- */
-function aviso(msg, { acao, fn, tipo = 'info', tempo = 6500 } = {}) {
+/* Pilha de Desfazer da sessão: um aviso novo não apaga o Desfazer do anterior; Ctrl+Z desfaz o mais recente. */
+const desfazeres = [];
+function aviso(msg, { acao, fn, tipo = 'info', tempo } = {}) {
   const box = $('#avisos');
   const el = document.createElement('div');
   el.className = 'aviso ' + tipo;
   el.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
   el.innerHTML = `<span class="aviso-txt">${esc(msg)}</span>${acao ? `<button type="button" class="aviso-acao">${esc(acao)}</button>` : ''}`
     + `<button type="button" class="aviso-fechar" aria-label="Fechar aviso">${ic('fechar', 16)}</button>`;
-  let fechado = false;
-  const fechar = () => { if (fechado) return; fechado = true; el.classList.add('saindo'); setTimeout(() => el.remove(), 200); };
+  const duracao = tempo || (acao ? 10000 : 6500);
+  let fechado = false; let timer = 0;
+  const fechar = () => { if (fechado) return; fechado = true; clearTimeout(timer); el.classList.add('saindo'); setTimeout(() => el.remove(), 200); };
+  const armar = () => { clearTimeout(timer); timer = setTimeout(fechar, duracao); };
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+  el.addEventListener('mouseleave', armar);
+  el.addEventListener('focusin', () => clearTimeout(timer));
+  el.addEventListener('focusout', (e) => { if (!el.contains(e.relatedTarget)) armar(); });
   el.querySelector('.aviso-fechar').addEventListener('click', fechar);
-  if (acao) el.querySelector('.aviso-acao').addEventListener('click', () => { fechar(); if (fn) fn(); });
-  // Um aviso por vez: o "Desfazer" visível é sempre o da última ação.
+  const item = acao === 'Desfazer' && fn ? { msg, fn, feito: false } : null;
+  if (item) { desfazeres.push(item); if (desfazeres.length > 10) desfazeres.shift(); }
+  if (acao) {
+    el.querySelector('.aviso-acao').addEventListener('click', () => {
+      if (item) { if (item.feito) return; item.feito = true; }
+      fechar(); if (fn) fn();
+    });
+  }
+  // Um aviso visível por vez; os Desfazer anteriores continuam na pilha (Ctrl+Z).
   box.replaceChildren(el);
-  setTimeout(fechar, tempo);
+  armar();
+}
+/** Desfaz a ação mais recente que ainda não foi desfeita (Ctrl+Z no computador). */
+function desfazerUltimo() {
+  for (let i = desfazeres.length - 1; i >= 0; i--) {
+    const it = desfazeres[i];
+    desfazeres.splice(i, 1);
+    if (it.feito) continue;
+    it.feito = true;
+    it.fn();
+    aviso('Desfeito: ' + it.msg);
+    return true;
+  }
+  aviso('Nada para desfazer.');
+  return false;
 }
 
 /* ---------- Exportar ---------- */
@@ -2305,6 +2424,7 @@ function mostrarBoasVindas() {
       st.modelo = ($('input[name="bv-modelo"]:checked') || {}).value || 'essencial';
       if (st.nome) registrar({ t: 'cfg', k: 'nome', v: st.nome });
       MODELOS[st.modelo].cats.forEach(([nome, grupo], i) => registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo, ordem: i + 1 } }));
+      fixarGuardar();
       box.hidden = true;
       montarApp();
       aviso('Tudo pronto. Toque em + para lançar o primeiro gasto.');
@@ -2506,7 +2626,21 @@ const MUDAR = {
     if (!c || !nome || nome === c.nome) { if (c && !nome) el.value = c.nome; return; }
     registrar({ t: 'cat', c: { ...c, nome } });
   },
-  'cat-grupo': (el) => { const c = catPorId(el.dataset.cat); if (c) registrar({ t: 'cat', c: { ...c, grupo: el.value } }); },
+  'cat-grupo': (el) => {
+    const c = catPorId(el.dataset.cat);
+    if (!c || el.value === c.grupo) return;
+    const novo = el.value; const antigo = c.grupo;
+    const cruzaRenda = (novo === 'renda') !== (antigo === 'renda');
+    const n = contagemPorCategoria()[c.id] || 0;
+    if (ehGuardar(c) && novo === 'renda') { el.value = antigo; aviso(`“${c.nome}” é a categoria de economia e não pode virar renda.`, { tipo: 'erro' }); return; }
+    if (cruzaRenda && n) {
+      el.value = antigo;
+      aviso(`“${c.nome}” tem ${n} lançamento${n > 1 ? 's' : ''}: mudar entre renda e gasto inverteria o sinal do histórico. Crie outra categoria.`, { tipo: 'erro' });
+      return;
+    }
+    registrar({ t: 'cat', c: { ...c, grupo: novo } });
+    aviso(`“${c.nome}” agora está em ${GRUPOS[novo]}.${cruzaRenda ? '' : ' O que já foi lançado não muda.'}`, { acao: 'Desfazer', fn: () => registrar({ t: 'cat', c: { ...c, grupo: antigo } }) });
+  },
 };
 let tBusca = 0;
 const DIGITAR = {
@@ -2560,6 +2694,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Tab' && pilha.length) { prenderFoco(e); return; }
   if (!S.montado || pilha.length) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrirNovo(); return; }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z' && !digitando) { e.preventDefault(); desfazerUltimo(); return; }
   if (digitando || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'n' || e.key === 'N') {
     e.preventDefault();
@@ -2612,6 +2747,7 @@ async function carregarDoServidor({ inicial = false, filaSalva = null, filaAntig
     salvarCache(); persistirFila();
     if (!d.categorias.length) { mostrarBoasVindas(); return; }
     if (!S.montado) montarApp(); else render();
+    fixarGuardar();
     if (recuperadas) aviso(`${recuperadas === 1 ? 'Uma alteração feita' : recuperadas + ' alterações feitas'} sem conexão ${recuperadas === 1 ? 'foi recuperada' : 'foram recuperadas'} e já está${recuperadas === 1 ? '' : 'ão'} sendo gravada${recuperadas === 1 ? '' : 's'}.`);
     if (S.fila.length) enviar();
   } catch (e) {

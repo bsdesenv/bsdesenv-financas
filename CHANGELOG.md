@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.8.1 — 2026-11-25
+
+### Corrigido
+- **Avisos não cobrem mais a folha aberta.** Com uma folha aberta, os avisos aparecem no topo (celular) ou à esquerda do painel (computador), em vez de cobrir o botão Salvar ou o teclado numérico.
+- **"Repetir até dezembro" avisa antes de substituir.** Se algum mês já tem um plano diferente, o botão pede um segundo toque e diz quais meses mudam; depois, há Desfazer.
+- **Renda e gasto não se trocam por engano.** Uma categoria com lançamentos não muda entre renda e gasto, porque isso inverteria o sinal do histórico. Entre Fixos e Variáveis a troca continua livre, agora com Desfazer.
+- **A categoria de economia fica protegida.** O app guarda o identificador dela na configuração: renomear não a perde, e ela não pode ser apagada nem virar renda.
+- **A importação mostra o que fica de fora.** Antes de importar, o app diz quantas categorias e lançamentos vão entrar e o que será ignorado, com o motivo. "Substituir tudo" pede para digitar SUBSTITUIR e oferece baixar um backup antes. No fim, o aviso repete o que ficou de fora.
+
+### Mudou
+- **Desfazer dura mais e não se perde.** O aviso com Desfazer fica 10 segundos e pausa com o ponteiro ou o foco em cima. Um aviso novo não apaga o Desfazer anterior, e Ctrl+Z, no computador, desfaz a última ação.
+
+### Acessibilidade
+- Com uma folha aberta, o resto da tela fica inerte para leitores de tela e teclado.
+- Problemas de sincronização (sem conexão, alterações guardadas no aparelho) e a volta ao normal são anunciados; o "Salvando…" de cada alteração, não.
+- "Usar sugestão" e as barras do gráfico do ano em telas estreitas têm alvos de pelo menos 24 px, e o foco não fica escondido atrás da barra inferior do celular.
+- O campo "Nome do controle" tem identificador e nome.
+- O texto de Ajustes diz quais serviços o navegador consulta além do Google: a fonte, o ícone e o aviso de versão.
+
 ## 2.8.0 — 2026-11-25
 
 ### Mudou

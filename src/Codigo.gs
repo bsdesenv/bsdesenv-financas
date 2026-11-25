@@ -19,7 +19,7 @@
  * "somente esta planilha".
  */
 
-var VERSAO_APP = '2.8.0';
+var VERSAO_APP = '2.8.1';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -85,12 +85,13 @@ function sincronizar(revisaoCliente, opsTexto) {
     var rejeitadas = [];
     var aplicadas = 0;
     var importou = false;
+    var importacao = null;
 
     ops.forEach(function (op, i) {
       try {
-        aplicarOp_(m, op);
+        var ret = aplicarOp_(m, op);
         aplicadas++;
-        if (op && op.t === 'importar') importou = true;
+        if (op && op.t === 'importar') { importou = true; importacao = ret || null; }
       } catch (e) {
         rejeitadas.push({ i: i, motivo: String((e && e.message) || e) });
       }
@@ -104,6 +105,7 @@ function sincronizar(revisaoCliente, opsTexto) {
     }
 
     var resposta = { revisao: Number(m.cfg.revisao) || 0, aplicadas: aplicadas, rejeitadas: rejeitadas };
+    if (importacao) resposta.importacao = importacao;
     if (Number(revisaoCliente) !== revAntes || rejeitadas.length || importou) {
       resposta.dados = JSON.stringify(paraCliente_(m));
     }
@@ -274,6 +276,7 @@ function paraCliente_(m) {
     nome: m.cfg.nome || m.cfg.titular || '',
     tema: TEMAS.indexOf(m.cfg.tema) >= 0 ? m.cfg.tema : 'auto',
     marcas: marcas_(m.cfg),
+    categoriaGuardar: m.cfg.categoriaGuardar || '',
     atualizadoEm: m.cfg.atualizadoEm || '',
     categorias: m.cats.slice().sort(function (a, b) { return a.ordem - b.ordem; }),
     anos: anos,
@@ -353,6 +356,16 @@ function salvarCat_(m, c) {
   var maior = m.cats.reduce(function (mx, x) { return Math.max(mx, x.ordem); }, 0);
   var nova = validarCat_(c, maior + 1);
   var i = indice_(m.cats, 'id', nova.id);
+  if (i >= 0 && m.cats[i].grupo !== nova.grupo) {
+    var antes = m.cats[i].grupo;
+    if (nova.grupo === 'renda' && m.cfg.categoriaGuardar === nova.id) {
+      throw new Error('a categoria de economia não pode virar renda');
+    }
+    if ((antes === 'renda') !== (nova.grupo === 'renda')) {
+      var usada = m.lanc.some(function (l) { return l.categoriaId === nova.id; });
+      if (usada) throw new Error('a categoria tem lançamentos e não pode mudar entre renda e gasto');
+    }
+  }
   if (i >= 0) m.cats[i] = nova; else m.cats.push(nova);
   m.sujo.categorias = true;
 }
@@ -360,6 +373,7 @@ function salvarCat_(m, c) {
 function apagarCat_(m, id) {
   id = String(id);
   var usada = m.lanc.some(function (l) { return l.categoriaId === id; });
+  if (m.cfg.categoriaGuardar && m.cfg.categoriaGuardar === id) throw new Error('a categoria de economia não pode ser apagada');
   if (usada) throw new Error('a categoria tem lançamentos e não pode ser apagada');
   var i = indice_(m.cats, 'id', id);
   if (i < 0) return;
@@ -435,6 +449,15 @@ function salvarCfg_(m, chave, valor) {
     }
   } else if (chave === 'nome') {
     m.cfg.nome = texto_(valor).trim().slice(0, 60);
+  } else if (chave === 'categoriaGuardar') {
+    var v = texto_(valor).trim();
+    if (!v) {
+      delete m.cfg.categoriaGuardar;
+    } else {
+      var ic = indice_(m.cats, 'id', v);
+      if (ic < 0 || m.cats[ic].grupo === 'renda') throw new Error('categoria de economia inválida: ' + v);
+      m.cfg.categoriaGuardar = v;
+    }
   } else if (chave === 'tema') {
     if (TEMAS.indexOf(valor) < 0) throw new Error('tema inválido');
     m.cfg.tema = valor;
@@ -447,6 +470,7 @@ function salvarCfg_(m, chave, valor) {
 /**
  * Importa um backup JSON (formato da versão 1 ou 2).
  * modo "substituir" troca tudo; "mesclar" acrescenta e atualiza pelo id.
+ * Devolve um resumo do que foi aceito e do que foi ignorado (com motivos).
  */
 function importar_(m, op) {
   if (op.confirmado !== true) throw new Error('a importação precisa ser confirmada');
@@ -456,9 +480,24 @@ function importar_(m, op) {
   }
   var mesclar = op.modo === 'mesclar';
 
+  var resumo = {
+    categorias: { aceitas: 0, ignoradas: 0 },
+    lancamentos: { aceitos: 0, ignorados: 0 },
+    planos: { aceitos: 0, ignorados: 0 },
+    motivos: [],
+  };
+  function motivo_(texto) { if (resumo.motivos.length < 5) resumo.motivos.push(texto); }
+  function msg_(e) { return String((e && e.message) || e); }
+
   var cats = [];
   d.categorias.forEach(function (c, i) {
-    try { cats.push(validarCat_(c, i + 1)); } catch (e) { /* categoria torta é ignorada */ }
+    try {
+      cats.push(validarCat_(c, i + 1));
+      resumo.categorias.aceitas++;
+    } catch (e) {
+      resumo.categorias.ignoradas++;
+      motivo_('categoria ' + ((c && typeof c === 'object' && c.id !== undefined) ? c.id : '#' + (i + 1)) + ': ' + msg_(e));
+    }
   });
   if (!cats.length) throw new Error('o arquivo não tem categorias válidas');
 
@@ -472,15 +511,27 @@ function importar_(m, op) {
         var item = Object.assign({}, l);
         if (!RE_ID.test(String(item.id))) item.id = 'i' + Utilities.getUuid().replace(/-/g, '').slice(0, 16);
         lanc.push(validarLanc_(item, a, ids));
-      } catch (e) { /* lançamento torto é ignorado */ }
+        resumo.lancamentos.aceitos++;
+      } catch (e) {
+        resumo.lancamentos.ignorados++;
+        motivo_('lançamento ' + ((l && typeof l === 'object') ? l.id : '?') + ' (' + a + '): ' + msg_(e));
+      }
     });
     var o = bloco.orcamento || {};
     Object.keys(o).forEach(function (cid) {
-      if (!ids[cid] || !o[cid]) return;
+      if (!o[cid] || typeof o[cid] !== 'object') return;
       Object.keys(o[cid]).forEach(function (mes) {
-        var v = arred_(Number(o[cid][mes]));
+        var rotulo = 'plano ' + cid + ' ' + a + '/' + mes;
+        function ignora_(porque) { resumo.planos.ignorados++; motivo_(rotulo + ': ' + porque); }
+        var bruto = o[cid][mes];
+        if (bruto === null || bruto === undefined || bruto === '' || Number(bruto) === 0) return;
+        var v = arred_(Number(bruto));
         var nMes = Number(mes);
-        if (isFinite(v) && v > 0 && nMes >= 1 && nMes <= 12) orc.push({ ano: String(Number(a)), categoriaId: cid, mes: nMes, valor: v });
+        if (!ids[cid]) return ignora_('categoria inexistente');
+        if (!(nMes >= 1 && nMes <= 12) || Math.floor(nMes) !== nMes) return ignora_('mês inválido');
+        if (!isFinite(v) || v < 0 || v >= 1e9) return ignora_('valor inválido');
+        orc.push({ ano: String(Number(a)), categoriaId: cid, mes: nMes, valor: v });
+        resumo.planos.aceitos++;
       });
     });
   });
@@ -509,12 +560,23 @@ function importar_(m, op) {
       if (mc && String(marcas[k]) === '1' && idsFinais[mc.categoriaId]) m.cfg[k] = '1';
     });
   }
+  var guardar = d.config && texto_(d.config.categoriaGuardar).trim();
+  var cGuardar = guardar ? m.cats[indice_(m.cats, 'id', guardar)] : null;
+  var guardarOk = !!cGuardar && cGuardar.grupo !== 'renda';
+  if (mesclar) {
+    if (!m.cfg.categoriaGuardar && guardarOk) m.cfg.categoriaGuardar = guardar;
+  } else if (guardarOk) {
+    m.cfg.categoriaGuardar = guardar;
+  } else if (m.cfg.categoriaGuardar && indice_(m.cats, 'id', m.cfg.categoriaGuardar) < 0) {
+    delete m.cfg.categoriaGuardar;
+  }
   var nome = texto_(d.nome || d.titular).trim();
   var nomeAtual = m.cfg.nome || m.cfg.titular;
   if (nome && (!mesclar || !nomeAtual)) m.cfg.nome = nome.slice(0, 60);
   var tema = d.config && d.config.tema;
   if (!mesclar && TEMAS.indexOf(tema) >= 0) m.cfg.tema = tema;
   m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.config = true;
+  return resumo;
 }
 
 /* ================================================================

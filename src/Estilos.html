@@ -82,6 +82,7 @@
    ===================================================================== */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 body {
   background: var(--fundo); color: var(--tinta);
   font: 400 15px/1.5 var(--fonte);
@@ -474,7 +475,7 @@ kbd { font: 500 12px var(--fonte); padding: 2px 7px; border-radius: 6px; backgro
 .lp-nome span { font-size: 12px; font-weight: 400; color: var(--tinta-3); }
 .linha-plano .entrada { width: 124px; flex: none; }
 .lp-campo { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: 0 0 124px; }
-.lp-campo .link { font-size: 11px; min-height: 0; padding: 0; }
+.lp-campo .link { font-size: 12px; min-height: 32px; padding: 0 4px; }
 
 /* =====================================================================
    Planilha
@@ -678,6 +679,8 @@ button.versao-nova:hover { filter: brightness(.97); }
   animation: entrar .22s cubic-bezier(.2, .8, .2, 1);
 }
 .aviso.erro { background: var(--perigo); color: #FFFFFF; }
+/* Com uma folha aberta, os avisos saem de cima dela: no celular vão para o topo; no computador, para a esquerda do painel. */
+html.com-folha .avisos { top: calc(12px + env(safe-area-inset-top)); bottom: auto; }
 .aviso-txt { flex: 1; padding: 8px 0; }
 .aviso-acao { min-height: 44px; padding: 0 12px; border-radius: 10px; color: var(--toast-acao); font-weight: 650; }
 .aviso.erro .aviso-acao { color: #FFFFFF; text-decoration: underline; }
@@ -727,6 +730,8 @@ button.versao-nova:hover { filter: brightness(.97); }
   .folha::before { display: none; }
   .folha-topo { padding-top: 14px; }
   .avisos { left: auto; right: 24px; bottom: 24px; align-items: flex-end; width: 420px; }
+  html.com-folha .avisos { top: auto; bottom: 24px; right: calc(460px + 24px); }
+  html { scroll-padding-bottom: 0; }
   .busca-rapida {
     min-height: 44px; padding: 0 8px 0 14px; border-radius: 12px; border: 1px solid var(--linha); background: var(--cartao);
     color: var(--tinta); display: inline-flex; align-items: center; gap: 10px; min-width: 300px;
@@ -843,5 +848,10 @@ button.versao-nova:hover { filter: brightness(.97); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+/* Até 379 px, o gráfico do ano rola de lado e cada mês tem pelo menos 28 px. */
+@media (max-width: 379.98px) {
+  .grafico-ano { overflow-x: auto; }
+  .ga-barras { min-width: 336px; }
 }
 </style>

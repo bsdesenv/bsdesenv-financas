@@ -384,3 +384,106 @@ test('marcas: o servidor da 2.7.1 preserva a marca ao gravar outra configuraçã
   assert.equal(chaves['encerrada:2026-11:mercado'], 1, 'a marca continua na planilha');
   assert.equal(chaves.nome, 'Casa');
 });
+
+const cat = (id, grupo, extra = {}) => ({ t: 'cat', c: { id, nome: id, grupo, ordem: 9, ...extra } });
+const cfgDe = (planilha) => Object.fromEntries(planilha.ler('config').map((l) => [l[0], l[1]]));
+
+test('grupo da categoria: renda e gasto só trocam sem lançamentos; fixo e variável sempre', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    cat('moradia', 'renda'), // tem lançamento
+    cat('salario', 'fixo'), // tem lançamento
+    cat('moradia', 'variavel'), // fixo -> variável com lançamentos: aceita
+    cat('mercado', 'fixo'),
+    { t: 'cat', c: { id: 'vazia', nome: 'Vazia', grupo: 'fixo', ordem: 8 } },
+    cat('vazia', 'renda'), // sem lançamentos: aceita
+    cat('vazia', 'variavel'),
+  ]);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1]);
+  assert.match(r.rejeitadas[0].motivo, /não pode mudar entre renda e gasto/);
+  const grupos = Object.fromEntries(JSON.parse(ctx.carregar()).categorias.map((c) => [c.id, c.grupo]));
+  assert.equal(grupos.moradia, 'variavel');
+  assert.equal(grupos.mercado, 'fixo');
+  assert.equal(grupos.salario, 'renda');
+  assert.equal(grupos.vazia, 'variavel');
+});
+
+test('categoriaGuardar: valida, remove, aparece no carregar e protege a categoria', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  assert.equal(JSON.parse(ctx.carregar()).categoriaGuardar, '');
+  let r = sinc(ctx, 0, [
+    { t: 'cfg', k: 'categoriaGuardar', v: 'salario' },
+    { t: 'cfg', k: 'categoriaGuardar', v: 'fantasma' },
+    { t: 'cfg', k: 'categoriaGuardar', v: 'mercado' },
+  ]);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1]);
+  assert.match(r.rejeitadas[0].motivo, /categoria de economia inválida: salario/);
+  assert.equal(JSON.parse(ctx.carregar()).categoriaGuardar, 'mercado');
+  assert.equal(cfgDe(planilha).categoriaGuardar, 'mercado');
+
+  r = sinc(ctx, r.revisao, [{ t: 'cat-', id: 'mercado' }, { t: 'cat', c: { id: 'mercado', nome: 'Mercado', grupo: 'renda', ordem: 2 } }]);
+  assert.equal(r.rejeitadas.length, 2);
+  assert.match(r.rejeitadas[0].motivo, /economia não pode ser apagada/);
+  assert.match(r.rejeitadas[1].motivo, /economia não pode virar renda/);
+
+  r = sinc(ctx, r.revisao, [{ t: 'cfg', k: 'categoriaGuardar', v: '' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.equal(JSON.parse(ctx.carregar()).categoriaGuardar, '');
+  assert.equal(cfgDe(planilha).categoriaGuardar, undefined);
+});
+
+test('categoriaGuardar: importar substitui, mescla e limpa o que não existe mais', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const base = {
+    versao: 3,
+    categorias: [{ id: 'pets', nome: 'Pets', grupo: 'variavel', ordem: 1 }, { id: 'pago', nome: 'Pago', grupo: 'renda', ordem: 2 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  sinc(ctx, 0, [{ t: 'cfg', k: 'categoriaGuardar', v: 'mercado' }]);
+  const imp = (modo, config) => JSON.parse(sinc(ctx, 99, [{ t: 'importar', modo, confirmado: true, dados: { ...base, config } }]).dados).categoriaGuardar;
+  assert.equal(imp('mesclar', { categoriaGuardar: 'pets' }), 'mercado', 'mesclar não troca a que já existe');
+  assert.equal(imp('substituir', { categoriaGuardar: 'pago' }), '', 'renda não vale; a antiga sumiu e é removida');
+  assert.equal(imp('mesclar', { categoriaGuardar: 'pets' }), 'pets', 'mesclar grava se não havia');
+  assert.equal(imp('substituir', {}), 'pets', 'sem a chave no arquivo, a que ainda existe fica');
+  assert.equal(imp('substituir', { categoriaGuardar: 'pets' }), 'pets');
+});
+
+test('importar informa o que foi ignorado', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const dados = {
+    versao: 3,
+    categorias: [
+      { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 },
+      { id: 'semnome', nome: '', grupo: 'fixo', ordem: 2 },
+    ],
+    anos: { 2026: {
+      lancamentos: [
+        { id: 'x0010', mes: 2, dia: 3, categoriaId: 'mercado', descricao: 'ok', valor: 10 },
+        { id: 'x0012', mes: 2, dia: 31, categoriaId: 'mercado', descricao: 'ruim', valor: 10 },
+      ],
+      orcamento: { mercado: { 1: 100, 13: 50 } },
+    } },
+  };
+  const r = sinc(ctx, 0, [{ t: 'importar', modo: 'substituir', confirmado: true, dados }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(r.importacao.categorias, { aceitas: 1, ignoradas: 1 });
+  assert.deepEqual(r.importacao.lancamentos, { aceitos: 1, ignorados: 1 });
+  assert.deepEqual(r.importacao.planos, { aceitos: 1, ignorados: 1 });
+  assert.equal(r.importacao.motivos.length, 3);
+  assert.ok(r.importacao.motivos.includes('lançamento x0012 (2026): dia inválido para o mês: 31'));
+  assert.ok(r.importacao.motivos.includes('plano mercado 2026/13: mês inválido'));
+  assert.ok(r.importacao.motivos.some((t) => /^categoria semnome: nome de categoria vazio/.test(t)));
+  assert.equal(sinc(ctx, r.revisao, [lanc('a1', { categoriaId: 'mercado' })]).importacao, undefined);
+});
+
+test('compatibilidade: o servidor da 2.8.0 preserva categoriaGuardar ao gravar outra configuração', () => {
+  const antigo = execFileSync('git', ['show', 'v2.8.0:src/Codigo.gs'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+  const abas = planilhaV1();
+  abas.config.push(['categoriaGuardar', 'mercado']);
+  const { ctx, planilha } = criarServidor(abas, { codigo: antigo });
+  const r = sinc(ctx, 0, [{ t: 'cfg', k: 'nome', v: 'Casa' }]);
+  assert.equal(r.aplicadas, 1);
+  const chaves = cfgDe(planilha);
+  assert.equal(chaves.categoriaGuardar, 'mercado');
+  assert.equal(chaves.nome, 'Casa');
+});

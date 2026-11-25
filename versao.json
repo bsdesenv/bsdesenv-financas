@@ -1,14 +1,14 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "2.8.0",
-  "ref": "v2.8.0",
+  "versao": "2.8.1",
+  "ref": "v2.8.1",
   "data": "2026-11-25",
   "novidades": [
-    "O disponível não sobe mais quando você gasta",
-    "Receber parte da renda não derruba o disponível",
-    "Meses fechados mostram a sobra realizada",
-    "Um nome para cada número",
-    "Quitar, Encerrar no mês e Não vem mais"
+    "Avisos não cobrem mais a folha aberta",
+    "\"Repetir até dezembro\" avisa antes de substituir",
+    "Renda e gasto não se trocam por engano",
+    "A categoria de economia fica protegida",
+    "A importação mostra o que fica de fora"
   ],
   "arquivos": [
     {
@@ -16,8 +16,8 @@
       "tipo": "SERVER_JS",
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
-      "bytes": 20137,
-      "sha256": "34264918ed836b4333645b20fd6f8e3fc6ffebd40b0278d2544bd5f71cb7c7d7"
+      "bytes": 23034,
+      "sha256": "f99bb81b455c24a5ae8da9498b2257666be78dd6d4b0263e099a20f433c7731f"
     },
     {
       "nome": "Index",
@@ -32,16 +32,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 60068,
-      "sha256": "76e2a9e7d2bd1b225f10f44866b6fa05934d4f09901f980cf530bd4b3afed057"
+      "bytes": 60669,
+      "sha256": "55b8a03d69693575753ddf6e5ccf79c6b8d9d62aa446357987d45a876cf673d9"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 178449,
-      "sha256": "fcb614eec64eeb508a40837f457813ada7183f46e207f89de5846c6159b1cdd9"
+      "bytes": 187604,
+      "sha256": "b1b44dd7e007daaaba4efad6bc52bf386920c464cb27a53040116f528433ab8e"
     },
     {
       "nome": "appsscript",

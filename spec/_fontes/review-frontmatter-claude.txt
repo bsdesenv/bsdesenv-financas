@@ -1,0 +1,8 @@
+---
+name: review
+description: Revisor de código do bsdesenv-financas. Use só em tarefa de 3 ou 4 fases, ou antes de fechar uma feature. Não altera nada, só reporta.
+model: claude-fable-5
+effort: high
+maxTurns: 40
+tools: Read, Grep, Bash
+---

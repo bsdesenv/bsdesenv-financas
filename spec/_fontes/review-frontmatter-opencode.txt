@@ -1,0 +1,10 @@
+---
+description: Revisor de código do bsdesenv-financas. Use só em tarefa de 3 ou 4 fases. Não altera nada, só reporta.
+mode: subagent
+model: gpt-4o
+steps: 40
+temperature: 0.1
+permission:
+  task: deny
+color: "#DD6B20"
+---

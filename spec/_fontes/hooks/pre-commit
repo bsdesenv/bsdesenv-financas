@@ -1,0 +1,116 @@
+#!/usr/bin/env sh
+# Comeca em sh e reentra em bash com um locale que existe. Editor que roda o git com um LC_ALL
+# ausente do container (o VS Code manda en_US.UTF-8) faz o bash avisar no stderr ao iniciar, e o
+# aviso vira a caixa de erro do commit — escondendo o motivo real da recusa. O corpo continua em
+# bash, que e o que os arrays e o `<<<` daqui exigem.
+# `sh -n` reprova este arquivo, e nao e defeito: o dash nao analisa a linha do primeiro array.
+# Na execucao o `exec` troca o processo antes dela, e o corpo e lido por bash.
+if [ -z "${HOOK_REENTRADO:-}" ]; then
+  HOOK_REENTRADO=1 exec env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash "$0" "$@"
+fi
+# pre-commit: mantem o material de IA e de trabalho fora do versionamento.
+#
+# Ativar (uma vez, da raiz do projeto):
+#   git config core.hooksPath spec/_fontes/hooks
+# Desativar:
+#   git config --unset core.hooksPath
+#
+# A regra "codigo que a spec descreve mudou, a spec nao" NAO mora aqui: esta no spec-acompanha,
+# chamado pelo commit-msg, porque o escape dela e um trailer na mensagem e o pre-commit roda antes
+# de a mensagem existir. Esta regra nao tem escape: e politica.
+
+set -u
+
+# ============================================
+# CONFIGURACAO (ajustar por projeto)
+# ============================================
+
+# Nunca podem ser versionados. Material de IA e local.
+# Neste projeto a spec/ e docs/ sao versionadas, por isso sairam da lista.
+NAO_VERSIONAR=(
+  ".claude/"
+  ".opencode/"
+  "CLAUDE.md"
+  "AGENTS.md"
+  ".mcp.json"
+  "opencode.json"
+)
+
+# Excecoes ao prefixo acima: caminho exato (ou prefixo com /) que passa apesar dele.
+VERSIONAR_APESAR=(
+  ".claude/skills/video-tutorial/"
+)
+
+# ============================================
+
+RAIZ="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$RAIZ" || exit 0
+
+STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)"
+[ -n "$STAGED" ] || exit 0
+
+vermelho() { printf '\033[31m%s\033[0m\n' "$1" >&2; }
+aviso()    { printf '%s\n' "$1" >&2; }
+
+# --------------------------------------------
+# Material de IA e de trabalho nunca entra em commit
+# --------------------------------------------
+INTRUSOS=""
+while IFS= read -r arquivo; do
+  # O + faz a lista vazia expandir para nada: no bash anterior ao 4.4 (o macOS traz o 3.2), array
+  # vazio sob set -u aborta com "unbound variable", e o kit distribui a lista vazia.
+  for liberado in ${VERSIONAR_APESAR[@]+"${VERSIONAR_APESAR[@]}"}; do
+    [ "$arquivo" = "$liberado" ] && continue 2
+    case "$liberado" in */) case "$arquivo" in "$liberado"*) continue 2 ;; esac ;; esac
+  done
+  for proibido in "${NAO_VERSIONAR[@]}"; do
+    case "$arquivo" in
+      "$proibido"*) INTRUSOS="$INTRUSOS  $arquivo"$'\n' ;;
+    esac
+  done
+done <<< "$STAGED"
+
+if [ -n "$INTRUSOS" ]; then
+  vermelho "pre-commit: este material nao e versionado neste projeto."
+  aviso ""
+  aviso "Staged indevidamente:"
+  printf '%s' "$INTRUSOS" >&2
+  aviso "Tirar do commit:"
+  aviso "  git restore --staged <arquivo>"
+  # O titulo so sai com comando embaixo: sozinho, parecia saida cortada.
+  COBRIR=""
+  for proibido in "${NAO_VERSIONAR[@]}"; do
+    git check-ignore -q "$proibido" 2>/dev/null || COBRIR="$COBRIR  echo '$proibido' >> .git/info/exclude"$'\n'
+  done
+  if [ -n "$COBRIR" ]; then
+    aviso ""
+    aviso "E cobrir de vez (arquivo local, nunca commitado):"
+    printf '%s' "$COBRIR" >&2
+  fi
+  exit 1
+fi
+
+# --------------------------------------------
+# Ponto de extensao: as travas do proprio projeto
+# --------------------------------------------
+# Depois das regras daqui, roda cada arquivo de pre-commit.d/, ao lado deste hook, em ordem alfabetica.
+# E onde o projeto, ou um modulo dele, poe a trava propria, sem editar este arquivo, que e do kit.
+# Codigo diferente de 0 barra o commit. Arquivo sem permissao de execucao tambem barra, com a mensagem:
+# trava com peca que nao roda nao e trava. Sem a pasta, nada muda.
+EXT="$(dirname "$0")/pre-commit.d"
+if [ -d "$EXT" ]; then
+  for t in "$EXT"/*; do
+    [ -f "$t" ] || continue
+    if [ ! -x "$t" ]; then
+      vermelho "pre-commit: $t nao tem permissao de execucao."
+      aviso "Trava que nao roda nao barra nada. Rode: chmod +x $t"
+      exit 1
+    fi
+    if ! "$t"; then
+      vermelho "pre-commit: a trava $(basename "$t"), de pre-commit.d/, barrou o commit."
+      exit 1
+    fi
+  done
+fi
+
+exit 0

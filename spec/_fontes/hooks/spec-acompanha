@@ -1,0 +1,197 @@
+#!/usr/bin/env sh
+# Comeca em sh e reentra em bash com um locale que existe. O VS Code roda o git com
+# LC_ALL=en_US.UTF-8, que o container pode nao ter: o bash avisa no stderr ao iniciar, e o editor
+# transforma esse aviso na caixa de erro do commit — escondendo o motivo real da recusa, que fica
+# nas linhas seguintes. O corpo continua em bash, que e o que os arrays e o `<<<` daqui exigem.
+# `sh -n` reprova este arquivo, e nao e defeito: o dash nao analisa a linha do primeiro array.
+if [ -z "${HOOK_REENTRADO:-}" ]; then
+  HOOK_REENTRADO=1 exec env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash "$0" "$@"
+fi
+# spec-acompanha: codigo que a spec/ descreve mudou, a spec/ tem de acompanhar no mesmo commit.
+#
+# Chamado pelo commit-msg, nao pelo pre-commit: o escape (trailer `Spec-OK: <motivo>`) mora na
+# mensagem, e o pre-commit roda antes de a mensagem existir. O trailer fica no historico, entao
+# quem audita acha os commits que dispensaram a spec e le o motivo.
+#
+# Cada gatilho e conferido por si: tocar so um doc que nao e o aceito por ele nao o satisfaz (uma
+# migration nova pede o doc de entidades, nao o de estado). Dois modos, decididos pelo git, sem config:
+#   - spec VERSIONADA (`git ls-files -- spec` nao vazio): modo stage. "Acompanhou" e "um doc aceito
+#     esta neste commit".
+#   - spec FORA do git (o padrao do kit): nao ha stage para olhar, entao modo mtime. "Acompanhou" e
+#     "o doc aceito foi modificado desde o ultimo commit" (para doc que e pasta, o .md mais novo
+#     dentro dela).
+#
+# Uso: spec-acompanha <arquivo-da-mensagem>
+
+set -u
+
+# ============================================
+# CONFIGURACAO (ajustar por projeto)
+# ============================================
+
+# Formato: "prefixo-ou-arquivo|docs aceitos separados por espaco|o que conferir|modo"
+# modo A: so arquivo adicionado (status A). Editar controller ou model existente e o dia a dia,
+#         e a spec descreve o modulo, nao cada linha dele.
+# modo *: qualquer status (A, M, D). Rota, policy e dependencia mudam o que a spec afirma mesmo
+#         quando so editadas.
+# Doc aceito terminado em `/` e prefixo de pasta (ex.: spec/features/): qualquer .md dentro vale.
+# Arquivo gerado por ferramenta de release (package.json, que o bump de versao altera em todo
+# commit de release) fica de fora de proposito: entrar aqui barraria todo release.
+GATILHOS=(
+  "src/Codigo.gs|spec/produto.md spec/regras.md|entidades, operacoes e sincronizacao|*"
+  "src/App.html|spec/produto.md|mapa de telas e modulos|*"
+  "src/Index.html|spec/produto.md|ponto de entrada do app|A"
+  "src/Estilos.html|spec/produto.md|estilo das telas|A"
+  "src/appsscript.json|spec/regras.md|escopos de permissao|*"
+  "instalador/|spec/produto.md|instalador e atualizador|A"
+)
+
+# Tamanho minimo do motivo do trailer: "ok" ou "x" nao e motivo.
+MOTIVO_MINIMO=10
+
+# ============================================
+
+MSG="${1:-}"
+
+RAIZ="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$RAIZ" || exit 0
+
+[ -d spec ] || exit 0
+# Sem gatilho configurado nao ha o que conferir.
+[ "${#GATILHOS[@]}" -gt 0 ] || exit 0
+# Merge em curso: o que entra vem de outro commit que ja passou por aqui.
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+
+STAGE="$(git diff --cached --name-status --no-renames 2>/dev/null)"
+[ -n "$STAGE" ] || exit 0
+
+# Modo decidido pelo git: spec com algum arquivo rastreado e spec versionada.
+if [ -n "$(git ls-files -- spec 2>/dev/null | head -n 1)" ]; then
+  MODO_SPEC="stage"
+else
+  MODO_SPEC="mtime"
+fi
+
+# Mensagem sem as linhas de comentario e sem o que vem depois da tesoura do `commit -v` (o diff
+# que o git anexa ali pode conter, ele mesmo, um "Spec-OK:" de outro arquivo).
+mensagem_limpa() {
+  [ -f "$MSG" ] || return 0
+  while IFS= read -r linha || [ -n "$linha" ]; do
+    case "$linha" in
+      "# ------------------------ >8 ------------------------"*) break ;;
+      "#"*) continue ;;
+    esac
+    printf '%s\n' "$linha"
+  done <"$MSG"
+}
+
+ARQUIVOS=""
+STATUS_E_ARQUIVO=()
+while IFS=$'\t' read -r st arquivo; do
+  [ -n "$arquivo" ] || continue
+  ARQUIVOS="$ARQUIVOS$arquivo"$'\n'
+  STATUS_E_ARQUIVO+=("$st|$arquivo")
+done <<<"$STAGE"
+
+# mtime de um arquivo: stat -c no GNU, stat -f no BSD (macOS), onde o -c nao existe e todo doc
+# parecia de 1970, barrando o commit com a spec em dia. stat em vez de find -printf, porque nem todo
+# ambiente tem GNU find (ha quem use bfs).
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+
+# mtime do doc, ou do .md mais novo dentro dele quando e pasta.
+mtime_do_doc() {
+  local alvo="$1" m maior=0 f
+  if [ -d "$alvo" ]; then
+    while IFS= read -r f; do
+      m="$(mtime "$f")"
+      [ "$m" -gt "$maior" ] && maior="$m"
+    done < <(find "$alvo" -type f -name '*.md' 2>/dev/null)
+  elif [ -f "$alvo" ]; then
+    maior="$(mtime "$alvo")"
+  fi
+  printf '%s' "$maior"
+}
+
+ULTIMO_COMMIT="$(git log -1 --format=%ct 2>/dev/null || echo 0)"
+[ -n "$ULTIMO_COMMIT" ] || ULTIMO_COMMIT=0
+
+# Algum dos docs aceitos acompanhou este commit?
+doc_acompanhou() {
+  local doc a
+  for doc in $1; do
+    if [ "$MODO_SPEC" = "stage" ]; then
+      while IFS= read -r a; do
+        case "$a" in "$doc"*) return 0 ;; esac
+      done <<<"$ARQUIVOS"
+    else
+      # -ge e nao -gt de proposito: mtime e commit tem granularidade de segundo, e um fluxo
+      # automatizado que atualiza a spec e commita em seguida cai no mesmo segundo.
+      [ "$(mtime_do_doc "$doc")" -ge "$ULTIMO_COMMIT" ] && return 0
+    fi
+  done
+  return 1
+}
+
+DISPAROU=""
+for par in "${STATUS_E_ARQUIVO[@]}"; do
+  st="${par%%|*}"
+  arquivo="${par#*|}"
+  for regra in "${GATILHOS[@]}"; do
+    IFS='|' read -r alvo docs oque modo <<<"$regra"
+    case "$arquivo" in
+      "$alvo"*) ;;
+      *) continue ;;
+    esac
+    [ "$modo" = "A" ] && [ "$st" != "A" ] && continue
+    doc_acompanhou "$docs" && continue
+    DISPAROU="$DISPAROU  $arquivo"$'\n'"    -> $docs  ($oque)"$'\n'
+  done
+done
+
+[ -n "$DISPAROU" ] || exit 0
+
+# Escape: trailer Spec-OK com motivo.
+MOTIVO_CURTO=0
+while IFS= read -r linha; do
+  case "$linha" in
+    Spec-OK:*)
+      motivo="${linha#Spec-OK:}"
+      motivo="${motivo#"${motivo%%[![:space:]]*}"}"
+      motivo="${motivo%"${motivo##*[![:space:]]}"}"
+      if [ "${#motivo}" -ge "$MOTIVO_MINIMO" ]; then
+        exit 0
+      fi
+      MOTIVO_CURTO=1
+      ;;
+  esac
+done < <(mensagem_limpa)
+
+vermelho() { printf '\033[31m%s\033[0m\n' "$1" >&2; }
+aviso()    { printf '%s\n' "$1" >&2; }
+
+# A primeira linha e a decisao: o VS Code so mostra ela.
+vermelho "commit-msg: este commit toca codigo que a spec/ descreve e nao traz a spec/ junto."
+aviso ""
+if [ "$MOTIVO_CURTO" -eq 1 ]; then
+  aviso "O trailer Spec-OK existe, mas o motivo tem menos de $MOTIVO_MINIMO caracteres. Diga por que a spec ja esta correta."
+  aviso ""
+fi
+aviso "Gatilhos:"
+printf '%s' "$DISPAROU" >&2
+aviso ""
+aviso "Pergunta que resolve:"
+aviso "  o que existe no sistema depois deste commit que nao existia antes,"
+aviso "  e a spec/ nao menciona? (entidade, tabela, coluna, rota, endpoint,"
+aviso "  perfil, permissao, termo de dominio, dependencia)"
+aviso ""
+aviso "Duas saidas:"
+if [ "$MODO_SPEC" = "stage" ]; then
+  aviso "  1. incluir o doc aceito no commit (git add <doc aceito> ...)"
+else
+  aviso "  1. atualizar o doc aceito (a spec fica fora do git: vale o mtime, desde o ultimo commit)"
+fi
+aviso "  2. se a spec ja esta correta, acrescentar uma linha de trailer a mensagem"
+aviso "     (uma linha, ate 90 caracteres, por causa do footer-max-line-length do commitlint):"
+aviso "       Spec-OK: <motivo>"
+aviso "     git commit -m \"fix(modulo): ...\" -m \"Spec-OK: corrige o calculo, o modulo ja esta descrito\""
+exit 1

@@ -1,0 +1,12 @@
+{
+ "runtimes": [
+  "claude",
+  "opencode"
+ ],
+ "opcionais": {
+  "custo": false,
+  "release": false
+ },
+ "versao": "v1.5.1-4-g69f6fb0-dirty",
+ "atualizado_em": "2026-11-25"
+}

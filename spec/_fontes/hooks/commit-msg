@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+# commit-msg: cobra duas coisas da mensagem e do stage.
+#   1. spec-acompanha: codigo que a spec/ descreve nao muda sem a spec/ acompanhar. O escape e o
+#      trailer `Spec-OK: <motivo>` na mensagem (fica no historico), nao o --no-verify.
+#   2. commitlint: o cabecalho declara o tamanho da mudanca (Conventional Commits 1.0.0), e e ele que
+#      a ferramenta de release le para decidir patch, minor ou major. As regras ficam no config do
+#      commitlint do projeto; a tabela do que e cada tipo, na secao "Commit e release" de
+#      spec/convencoes.md.
+#
+# TEMPLATE, sem lacuna: o sinal do commitlint e o proprio projeto. Sem config, o projeto nao adotou
+# versionamento pelo commit e essa parte sai da frente — quem sinaliza a pendencia e a checagem 7D do
+# spec-analyze. A parte da spec roda antes, e roda mesmo sem commitlint: este hook e instalado em todo
+# projeto, porque carrega a spec.
+#
+# Ativo pelo mesmo core.hooksPath do pre-commit. --no-verify pula as duas partes; para dispensar so a
+# spec, use o trailer.
+
+# A marca de ferramenta de IA no commit (Co-Authored-By do Claude Code, do opencode) nao entra em
+# projeto nenhum. O settings.json do kit ja a esconde; isto pega a que escapar, por outro runtime
+# ou por mensagem escrita a mao. Co-autor humano passa.
+if grep -qiE '^co-authored-by:.*(claude|anthropic|opencode)' "$1"; then
+    echo "commit-msg: a mensagem leva a marca de ferramenta de IA (Co-Authored-By). Tire a linha e commite de novo." >&2
+    exit 1
+fi
+
+# Antes do tem_config: projeto sem commitlint tambem precisa da spec acompanhando.
+"$(dirname "$0")/spec-acompanha" "$1" || exit 1
+
+# Os nomes de arquivo que o commitlint procura (docs/reference/configuration.md), mais o campo
+# `commitlint` do package.json. Laco e nao `ls a* b*`: o ls sai com erro quando um dos padroes nao
+# casa, e o hook concluiria "sem config" num projeto que tem.
+tem_config() {
+  for f in commitlint.config.* .commitlintrc*; do
+    [ -e "$f" ] && return 0
+  done
+  [ -f package.json ] && grep -q '"commitlint"[[:space:]]*:[[:space:]]*{' package.json
+}
+
+tem_config || exit 0
+
+# Clone sem `npm install`: o `npx --no` falharia com um erro que nao diz o que fazer.
+if [ ! -x node_modules/.bin/commitlint ]; then
+  echo "commit-msg: o projeto usa commitlint e ele nao esta instalado. Rode: npm install" >&2
+  exit 1
+fi
+
+npx --no -- commitlint --edit "$1"

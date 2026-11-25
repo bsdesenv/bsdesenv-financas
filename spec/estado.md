@@ -1,0 +1,47 @@
+# Estado atual
+
+> Direção do produto, decisões que sobreviveram e lacunas conhecidas.
+> Atualizar sempre que uma tarefa mudar direção, fechar uma lacuna ou abrir outra.
+
+---
+
+## Direção atual
+
+Branch de trabalho: `main`. Branch principal: `main`.
+
+| Tema | Situação |
+|---|---|
+| Plano financeiro e UX | Em revisão: a sessão atual trabalha na revisão do plano financeiro e da experiência de uso do app. |
+| Versão 3.0.0 | Publicada. O app avisa quando houver nova versão; o instalador faz atualização preservando dados. |
+
+---
+
+## Lacunas abertas
+
+Uma lacuna é algo que o código não resolve e que precisa de decisão antes de virar tarefa. Registrar com ID para poder ser referenciada.
+
+### Q-001 — Qual o escopo exato da revisão de plano financeiro e UX?
+
+**Status:** aberta.
+
+Sabe-se que a direção é "Revisão de plano financeiro e UX", mas não está definido quais telas/fluxos entram primeiro e se a revisão inclui alteração de regra financeira (como o cálculo do disponível) ou só ajustes de interface.
+
+**Antes de codar qualquer coisa, responder:** se a revisão pode mudar a fórmula do `disponível` ou se fica só em layout/navegação; e quais são as duas ou três telas prioritárias.
+
+---
+
+## Restrições de processo
+
+- O repositório é público: nenhum dado pessoal, de cliente ou de máquina entra em commit.
+- A camada de IA (`spec/`, `.claude/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`) é versionada, exceto configuração local do runtime.
+- Backup da camada de IA não é necessário quando ela está versionada.
+
+---
+
+## Suposições em aberto
+
+Uma suposição é uma lacuna que foi preenchida com um palpite razoável para não travar o trabalho. Precisa ser confirmada ou invalidada antes da feature ser dada como pronta.
+
+| ID | Suposição | Status | Resolução |
+|---|---|---|---|
+| ASM-001 | A revisão de UX não muda a regra do `disponível` nem a estrutura das abas. | aberta | Confirmar com o usuário. |

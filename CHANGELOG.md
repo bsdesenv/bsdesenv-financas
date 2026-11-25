@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.8.0 — 2026-11-25
+
+### Mudou
+- **O disponível não sobe mais quando você gasta.** Cada plano agora reserva o que ainda falta dele até o fim do mês, ou até você encerrar a categoria. Gastar dentro do plano não mexe no disponível; gastar sem plano, ou além dele, reduz na mesma medida. Antes, o primeiro lançamento abaixo do plano liberava o resto do plano e o disponível subia.
+- **Receber parte da renda não derruba o disponível.** A renda do mês é o que já entrou mais o que ainda falta das rendas previstas, mostrado como "a receber". O vale do dia 20 não deixa mais o número negativo.
+- **Meses fechados mostram a sobra realizada.** O herói, os números do mês, o gráfico "Sobra mês a mês" e o rodapé da Planilha usam só o que foi lançado nos meses que já passaram; planos que ficaram sem lançamento aparecem à parte. O mês atual e os próximos aparecem como previstos.
+- **Um nome para cada número.** "Contas a pagar", "Falta guardar", "Ainda nos planos" e "Reservado" substituem "Planos sem lançamento", "Ainda na conta" e "A vencer este mês". O menu lateral diz **Mês**, o Extrato fala em **Saídas** e o Planejar mostra a **Sobra do plano**.
+
+### Novo
+- **Quitar, Encerrar no mês e Não vem mais.** No painel da categoria (e em **Contas a pagar**, para uma conta paga em parte), o que faltava do plano deixa de ser reservado, sem apagar o plano. **Reabrir no mês** desfaz.
+- **Estorno.** O Novo lançamento ganhou o tipo **Estorno**, que grava a devolução como valor negativo; no computador também dá para digitar "-50".
+- **Confirmação de valor fora do normal.** Um valor muito acima do habitual na categoria pede uma segunda confirmação antes de salvar.
+- **Aviso único da mudança.** Quem já usava o app vê, uma vez, o disponível pela regra antiga e pela nova.
+
+### Corrigido
+- **O campo de valor grava o que você digitou.** A máscara de centavos saiu dos campos de plano, meta, edição e do painel da categoria: "1200" é R$ 1.200,00, e "217,93 176,15" no painel são dois lançamentos (antes viravam R$ 21.793.176,15). Só o teclado numérico do celular continua em centavos.
+- **Editar um estorno não troca o sinal.** O campo aceita o "−" que o app mostra nos valores negativos.
+- **"1200x10" não vira dez lançamentos.** Só o asterisco repete valores ("36*4").
+- **Lançamento rápido no mês da tela.** Vendo outro mês, a barra do topo grava nesse mês, sem dia, e o aviso diz onde.
+- **Sugestões só com o que foi lançado.** A média dos 3 meses não usa mais o mês corrente pela metade nem planos que nunca foram lançados.
+- **"Confirmar" lança só o que falta** de uma conta já paga em parte.
+
+### Técnico
+- As regras de cálculo ficam numa seção pura do `App.html`, testada no Node (`testes/dominio.test.mjs`), com somas em centavos inteiros.
+- Os encerramentos ficam na aba `config` (`encerrada:AAAA-MM:categoria`); versões anteriores preservam essas chaves. O backup passa ao formato 3, com os encerramentos.
+
 ## 2.7.1 — 2026-11-25
 
 ### Corrigido

@@ -4,6 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { criarServidor } from './gas-mock.mjs';
 
 /** Planilha no formato exato da versão 1 (como a de quem já usa o app). */
@@ -298,4 +299,88 @@ test('sem permissão para ScriptApp, scriptId e urlApp ficam vazios e o app abre
   assert.equal(d.scriptId, '');
   assert.equal(d.urlApp, '');
   assert.equal(d.categorias.length, 3);
+});
+
+const marcasDe = (ctx) => JSON.parse(ctx.carregar()).marcas;
+
+test('marcas: encerrar e reabrir uma categoria no mês', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  assert.deepEqual(marcasDe(ctx), {});
+  const k = 'encerrada:2026-11:mercado';
+  let r = sinc(ctx, 0, [{ t: 'cfg', k, v: '1' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(marcasDe(ctx), { [k]: '1' });
+  assert.ok(planilha.ler('config').some((l) => l[0] === k && String(l[1]) === '1'));
+  const rev1 = r.revisao;
+  r = sinc(ctx, rev1, [{ t: 'cfg', k, v: '' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.ok(r.revisao > rev1, 'a revisão aumenta a cada operação aplicada');
+  assert.deepEqual(marcasDe(ctx), {});
+  assert.ok(!planilha.ler('config').some((l) => l[0] === k), 'a linha some da aba config');
+});
+
+test('marcas: recusas não derrubam o lote', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    { t: 'cfg', k: 'encerrada:2026-13:mercado', v: '1' },
+    { t: 'cfg', k: 'encerrada:2026-11:fantasma', v: '1' },
+    { t: 'cfg', k: 'encerrada:2026-11:mercado', v: 'talvez' },
+    { t: 'cfg', k: 'outra', v: '1' },
+    { t: 'cfg', k: 'encerrada:2026-10:salario', v: true },
+  ]);
+  assert.equal(r.aplicadas, 1);
+  assert.equal(r.rejeitadas.length, 4);
+  assert.match(r.rejeitadas[0].motivo, /marca inválida/);
+  assert.match(r.rejeitadas[1].motivo, /categoria inexistente/);
+  assert.match(r.rejeitadas[2].motivo, /valor de marca inválido/);
+  assert.match(r.rejeitadas[3].motivo, /desconhecida/);
+  assert.deepEqual(Object.keys(marcasDe(ctx)), ['encerrada:2026-10:salario']);
+});
+
+test('marcas: outras chaves de config ficam intactas', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const k = 'encerrada:2026-11:mercado';
+  sinc(ctx, 0, [{ t: 'cfg', k: 'nome', v: 'Casa' }, { t: 'cfg', k: 'tema', v: 'escuro' }, { t: 'cfg', k, v: '1' }]);
+  sinc(ctx, 3, [{ t: 'cfg', k, v: null }]);
+  const chaves = Object.fromEntries(planilha.ler('config').map((l) => [l[0], l[1]]));
+  assert.equal(chaves.titular, 'EXEMPLO');
+  assert.equal(chaves.nome, 'Casa');
+  assert.equal(chaves.tema, 'escuro');
+  assert.equal(chaves[k], undefined);
+});
+
+test('marcas: importar substitui, mescla e ignora o inválido', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const k1 = 'encerrada:2026-11:mercado';
+  const k2 = 'encerrada:2026-10:pets';
+  const base = {
+    versao: 3,
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }, { id: 'pets', nome: 'Pets', grupo: 'variavel', ordem: 2 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  sinc(ctx, 0, [{ t: 'cfg', k: k1, v: '1' }]);
+  let r = sinc(ctx, 1, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: { ...base, config: { marcas: { [k2]: '1' } } } }]);
+  assert.deepEqual(JSON.parse(r.dados).marcas, { [k2]: '1' }, 'substituir troca as marcas');
+
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: { ...base, config: { marcas: {
+    [k1]: '1', 'encerrada:2026-09:fantasma': '1', 'encerrada:2026-14:pets': '1', 'encerrada:2026-08:pets': 'x',
+  } } } }]);
+  assert.deepEqual(JSON.parse(r.dados).marcas, { [k1]: '1', [k2]: '1' }, 'mesclar acrescenta e ignora o inválido');
+
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: base }]);
+  assert.equal(Object.keys(JSON.parse(r.dados).marcas).length, 2, 'backup sem marcas mantém as atuais no mesclar');
+  r = sinc(ctx, r.revisao, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: base }]);
+  assert.deepEqual(JSON.parse(r.dados).marcas, {}, 'backup antigo no substituir zera as marcas');
+});
+
+test('marcas: o servidor da 2.7.1 preserva a marca ao gravar outra configuração', () => {
+  const antigo = execFileSync('git', ['show', 'v2.7.1:src/Codigo.gs'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+  const abas = planilhaV1();
+  abas.config.push(['encerrada:2026-11:mercado', '1']);
+  const { ctx, planilha } = criarServidor(abas, { codigo: antigo });
+  const r = sinc(ctx, 0, [{ t: 'cfg', k: 'nome', v: 'Casa' }]);
+  assert.equal(r.aplicadas, 1);
+  const chaves = Object.fromEntries(planilha.ler('config').map((l) => [l[0], l[1]]));
+  assert.equal(chaves['encerrada:2026-11:mercado'], 1, 'a marca continua na planilha');
+  assert.equal(chaves.nome, 'Casa');
 });

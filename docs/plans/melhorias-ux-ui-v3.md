@@ -1,6 +1,6 @@
 # Plano detalhado — Verdade financeira e clareza de decisão (v3)
 
-**Status:** em execução: decisões tomadas em 25/11/2026 (seção 15) e versão 2.8.0 implementada no branch `melhorias-v3-2.8.0`
+**Status:** em execução. Decisões tomadas em 25/11/2026 (seção 15). A **2.8.0 foi publicada em 25/11/2026** (tag `v2.8.0`, Release no GitHub). Próximo passo: 2.8.1, junto com o uso real (seção 16).
 **Base analisada:** bsdesenv-financas 2.6.2 (novembro de 2026, commit `de8b639`; os números de linha valem para ele). A 2.7.0 (commit `54f748c`, 24/11/2026: instalador e atualização em um clique) saiu durante a revisão sem mexer nos cálculos, e os achados reproduzem nela; as versões deste plano começam na 2.8.0.
 **Objetivo:** aumentar a confiança nos números e reduzir o esforço de decisão, sem trocar a arquitetura de dados (Google Sheets + Apps Script), sem perder a privacidade e sem transformar a home em um relatório.
 
@@ -16,7 +16,7 @@
 | 2 | 24/11/2026 | Achados reproduzidos no app (Chrome sem janela, dados de exemplo, data fixa em 18/11/2026) e referências conferidas na web. Entram três bugs P0 que a revisão 1 não tinha (renda parcial, campo de valor do painel, estorno), o modelo do "Disponível" por grupo de categoria, o glossário com um nome por fórmula, o fechamento do mês, cartão e parcelas, a validação sem telemetria e as correções de referências cruzadas e de linhas de código. |
 | 3 | 24/11/2026 | Parecer técnico final (seção seguinte): P0 reconferidos; modelo corrigido em casos de borda; histórico das regras já revertidas (4.7); quatro bugs novos; viabilidade no Apps Script; "Quitar" sem regravar o plano; prazos e ordem revistos; versões renumeradas para 2.8.x, porque a 2.7.0 saiu com o instalador. |
 | 3.1 | 25/11/2026 | Conferência da revisão 3: a origem deliberada dos itens 3.1 e 3.2 (regras da 2.2.0 e da 2.5.4, casos 405 e 596 do E2E) entra no diagnóstico; "Copiar de" deixa de contar como bug, porque o `docs/USAR.md:87` descreve o comportamento; saída sem código para o vale (4.7); reprodução do estorno e medida da home corrigidas. |
-| 4 | 25/11/2026 | O dono delegou as decisões da seção 15. Decididas e registradas ali, com a reversão (15.2). A principal: o herói adota a alternativa da seção 4.7, que reserva o que falta de todos os planos, inclusive os variáveis, como pede o caso 454 do E2E. A 2.8.0 foi implementada no mesmo dia, no branch `melhorias-v3-2.8.0`. |
+| 4 | 25/11/2026 | O dono delegou as decisões da seção 15. Decididas e registradas ali, com a reversão (15.2). A principal: o herói adota a alternativa da seção 4.7, que reserva o que falta de todos os planos, inclusive os variáveis, como pede o caso 454 do E2E. A 2.8.0 foi implementada no mesmo dia, no branch `melhorias-v3-2.8.0`, e publicada (merge no `main`, tag `v2.8.0`). Testes na publicação: 87/87 de unidade e servidor, 42/42 E2E. |
 
 ### Parecer técnico (revisão 3)
 

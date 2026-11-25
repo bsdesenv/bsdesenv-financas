@@ -29,7 +29,7 @@
   <img src="docs/img/computador-inicio.png" alt="Início no computador: lançamento rápido, resumo do disponível, indicadores do mês, categorias e ritmo do plano" width="860">
 </p>
 
-> **A regra em uma frase:** cada categoria conta pelo que foi lançado; se ainda não teve lançamento, vale o plano. O **disponível** é renda − o que já saiu − os planos sem lançamento.
+> **A regra em uma frase:** o **disponível** é a renda do mês − o que já saiu − o que ainda está reservado: as contas a pagar, o que falta guardar e o que resta dos planos. Gastar dentro de um plano não muda o disponível, e receber parte de uma renda prevista também não.
 
 ## Destaques
 

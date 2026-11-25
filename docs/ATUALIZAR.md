@@ -22,14 +22,25 @@ A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`
 ## O que continua igual
 
 - Todos os lançamentos, categorias e valores de orçamento, exatamente onde estão.
-- Os meses que já passaram fecham com a mesma regra de antes: vale o que foi lançado e, numa categoria sem lançamento, o valor do orçamento.
+- Todos os meses continuam calculados a partir das mesmas abas. A regra das contas mudou na 2.8.0 (veja "Da 2.7 para a 2.8").
 - O endereço do app, se você atualizar pela implantação existente (passo 4).
 
 ## O que muda
 
 - O **titular** vira o **nome do controle** (dá para trocar em Ajustes).
-- O **orçamento** passa a se chamar **plano**. A regra das contas é a mesma da versão 1 em todos os meses: vale o que foi lançado e, numa categoria sem lançamento, o plano (previsto).
+- O **orçamento** passa a se chamar **plano**. Até a 2.7, a regra das contas era a da versão 1: vale o que foi lançado e, numa categoria sem lançamento, o plano. A 2.8.0 mudou essa regra (veja "Da 2.7 para a 2.8").
 - Editar a planilha à mão passa a ser seguro: o app grava operações sobre o que está na planilha e percebe as edições.
+
+## Da 2.7 para a 2.8
+
+A 2.8.0 muda as contas do mês, não os dados. Nenhuma aba nem coluna nova.
+
+- **Disponível:** renda do mês − o que já saiu − o que ainda está reservado (contas a pagar, o que falta guardar e o que resta dos planos). Gastar dentro de um plano não muda o disponível; receber parte de uma renda prevista também não.
+- **Meses que já passaram:** mostram a sobra realizada, só com o que foi lançado. Planos que ficaram sem lançamento aparecem à parte.
+- **Encerrar uma categoria no mês** ("Quitar", "Encerrar no mês", "Não vem mais") grava uma linha `encerrada:AAAA-MM:categoria` na aba `config`.
+- Na primeira abertura, quem já usava o app vê o disponível pela regra antiga e pela nova.
+
+**Voltar para a 2.7.1:** reimplante o código da 2.7.1 no mesmo endereço (ou use a cópia de segurança que o **Atualizar agora** guarda). Os dados continuam válidos: a 2.7.1 preserva as linhas `encerrada:` da aba `config` e simplesmente as ignora, e os números voltam a seguir a regra antiga. Não volte para a versão 1: ela regrava todas as abas.
 
 ## Passo a passo
 

@@ -250,7 +250,7 @@ const S = {
   dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
   atualizacao: null, verificandoAtu: null,
   montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
-  busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
+  planoSalvo: null, planoPrevia: null, busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
    navegador: é só um reforço. A garantia é a planilha.
@@ -947,7 +947,7 @@ function cartaoPlanoMes(r) {
     const valorMeta = planoExp(g.id, S.ano, S.mes); const guardado = celReal(g.id, S.ano, S.mes).soma;
     meta = `<div class="plano-meta"><div class="legenda-barra" style="margin-top:0"><span><strong>Meta de economia</strong> · guardado ${moeda(guardado)}</span><span>${valorMeta ? `meta ${moeda(valorMeta)}` : 'sem meta'}</span></div>`
       + barra({ pct: valorMeta > 0 ? (Math.max(0, guardado) / valorMeta) * 100 : 0, estado: 'ok' })
-      + `<div class="plano-meta-campo"><label class="campo">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${valorMeta ? num(valorMeta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>`
+      + `<div class="plano-meta-campo"><label class="campo">Meta de ${MESES[S.mes - 1]}<input class="entrada valor" data-mudar="plano" data-cat="${esc(g.id)}" data-foco="meta-guardar" inputmode="decimal" autocomplete="off" value="${valorMeta ? num(valorMeta) : ''}" placeholder="${sug.valor ? num(sug.valor) : '0,00'}"></label>${marcaSalvo(g.id)}`
       + '<div class="acoes">'
       + (sug.valor > 0 && sug.valor !== valorMeta ? `<button type="button" class="botao pequeno" data-acao="meta-sugestao" data-valor="${sug.valor}" data-foco="meta-sugestao">Usar sugestão ${moeda(sug.valor)}</button>` : '')
       + (valorMeta > 0 ? '<button type="button" class="link" data-acao="meta-limpar" data-foco="meta-limpar">Limpar meta</button>' : '')
@@ -1184,6 +1184,40 @@ function telaAcompanhar(r) {
   const legenda = r.fase === 'atual' ? `<p class="dica-ritmo"><i aria-hidden="true"></i>A marca nas barras das categorias variáveis indica o dia de hoje (${Math.round(r.ritmo * 100)}% do mês decorrido).</p>` : '';
   return legenda + blocos + `<div class="acoes"><button type="button" class="botao fantasma" data-acao="tela" data-tela="planilha" data-foco="ver-planilha">${ic('planilha', 18)}Ver o ano inteiro na planilha</button></div>`;
 }
+/** Planejar com retorno: o que cada atalho gravaria (só as categorias cujo valor mudaria). */
+function alvoPlano(tipo) {
+  const ant = deChave(chaveMes(S.ano, S.mes) - 1);
+  return cats().map((c) => {
+    const antes = planoExp(c.id, S.ano, S.mes);
+    let v = 0;
+    if (tipo === 'copiar-plano') v = arred(planoExp(c.id, ant.ano, ant.mes));
+    else if (tipo === 'copiar-real') v = arred(valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes));
+    else if (tipo === 'media') v = media3(c.id, S.ano, S.mes);
+    else if (tipo === 'limpar') return { c, antes, v: null, valor: antes };
+    return { c, antes, v, valor: v };
+  }).filter((x) => (x.v === null ? x.antes > 0 : x.v > 0 && x.v !== x.antes));
+}
+function somaPlano(alvo) { return alvo.reduce((a, x) => a + (x.valor || 0), 0); }
+function qtdCats(n) { return `${n} categoria${n > 1 ? 's' : ''}`; }
+function planoPreviaAtiva(tipo) {
+  const p = S.planoPrevia;
+  return !!p && p.ano === S.ano && p.mes === S.mes && p.tela === S.tela && p.modo === S.modoMes && (!tipo || p.tipo === tipo);
+}
+function cancelarPrevia() { if (S.planoPrevia) { S.planoPrevia = null; return true; } return false; }
+function marcaSalvo(cid) {
+  const p = S.planoSalvo;
+  return p && p.cid === cid && p.ano === S.ano && p.mes === S.mes && p.ate > Date.now() ? '<span class="plano-salvo" role="status">salvo</span>' : '';
+}
+function avisarSalvo(cid, ano, mes) {
+  const ate = Date.now() + 2500;
+  S.planoSalvo = { cid, ano, mes, ate };
+  setTimeout(() => { if (S.planoSalvo && S.planoSalvo.ate === ate) { S.planoSalvo = null; render(); } }, 2550);
+}
+function aplicarPlano(alvo, msg) {
+  alvo.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }));
+  const ano = S.ano; const mes = S.mes;
+  aviso(msg, { acao: 'Desfazer', fn: () => alvo.forEach(({ c, antes }) => registrar({ t: 'orc', ano, categoriaId: c.id, mes, valor: antes || null })) });
+}
 function telaPlanejar() {
   const ant = deChave(chaveMes(S.ano, S.mes) - 1);
   const blocos = ORDEM_GRUPOS.map((g) => {
@@ -1193,16 +1227,34 @@ function telaPlanejar() {
       const e = planoExp(c.id, S.ano, S.mes); const med = media3(c.id, S.ano, S.mes);
       const resumo = `${e ? 'plano atual: ' + moeda(e) : 'sem plano'}${med ? ' · sugestão: ' + moeda(med) : ''}`;
       return `<div class="linha-plano">${mono(c, true)}<label class="lp-nome" for="pl-${esc(c.id)}">${esc(c.nome)}<span>${resumo}</span></label>`
-        + `<div class="lp-campo"><input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="0,00">`
+        + `<div class="lp-campo"><input class="entrada valor" id="pl-${esc(c.id)}" inputmode="decimal" autocomplete="off" data-mudar="plano" data-cat="${esc(c.id)}" data-foco="pl-${esc(c.id)}" value="${e ? num(e) : ''}" placeholder="0,00">` + marcaSalvo(c.id)
         + (med > 0 ? `<button type="button" class="link" data-acao="plano-sugestao" data-cat="${esc(c.id)}" data-valor="${med}" data-foco="sug-${esc(c.id)}">Usar sugestão</button>` : '')
         + '</div></div>';
     }).join('')}</div></section>`;
   }).join('');
+  if (S.planoPrevia && !planoPreviaAtiva()) S.planoPrevia = null;
+  const rotMes = MESES[ant.mes - 1];
+  let escolha = '';
+  let rotMedia = 'Preencher com as médias'; let rotLimpar = 'Limpar o mês';
+  if (planoPreviaAtiva('copiar')) {
+    const opc = (acao, titulo, tipo) => {
+      const a = alvoPlano(tipo);
+      return a.length
+        ? `<button type="button" class="botao pequeno" data-acao="${acao}" data-foco="${acao}">${titulo} (${qtdCats(a.length)} · ${moeda(somaPlano(a))})</button>`
+        : `<button type="button" class="botao pequeno" data-acao="${acao}" data-foco="${acao}" disabled>${titulo} (nada a copiar)</button>`;
+    };
+    escolha = `<div class="plano-escolha" role="group" aria-label="Copiar de ${rotMes}">`
+      + opc('plano-copiar-plano', `Copiar o plano de ${rotMes}`, 'copiar-plano')
+      + opc('plano-copiar-real', `Copiar o lançado em ${rotMes}`, 'copiar-real')
+      + '<button type="button" class="link" data-acao="plano-copiar-cancelar" data-foco="plano-copiar-cancelar">Cancelar</button></div>';
+  }
+  if (planoPreviaAtiva('media')) { const a = alvoPlano('media'); if (a.length) rotMedia = `Preencher ${qtdCats(a.length)} (${moeda(somaPlano(a))})? Toque de novo`; }
+  if (planoPreviaAtiva('limpar')) { const a = alvoPlano('limpar'); if (a.length) rotLimpar = `Limpar ${a.length} plano${a.length > 1 ? 's' : ''} (${moeda(somaPlano(a))})? Toque de novo`; }
   return '<details class="planejar-ajuda"><summary>Como os planos entram nos cálculos</summary>'
     + '<p class="sub">O que falta de cada plano fica reservado no disponível até você lançar tudo ou encerrar a categoria no mês; campo vazio significa sem plano. A sugestão é a média do que foi lançado nos 3 meses fechados anteriores e só entra nas contas quando você a usa. Guardar entra como compromisso: o que falta para a meta fica reservado.</p></details>'
-    + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar">Copiar de ${MESES[ant.mes - 1]}</button>`
-    + '<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">Preencher com as médias</button>'
-    + '<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">Limpar o mês</button></div>' + blocos;
+    + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar"${planoPreviaAtiva('copiar') ? ' aria-expanded="true"' : ''}>Copiar de ${rotMes}</button>`
+    + `<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">${rotMedia}</button>`
+    + `<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">${rotLimpar}</button></div>` + escolha + blocos;
 }
 
 /* ---------- Planilha ---------- */
@@ -2675,30 +2727,35 @@ const ACOES = {
     aviso(`Plano de ${c.nome}: ${moeda(v)}.`, { acao: 'Desfazer', fn: () => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null }) });
   },
   'plano-copiar': () => {
+    S.planoPrevia = planoPreviaAtiva('copiar') ? null : { tipo: 'copiar', ano: S.ano, mes: S.mes, tela: S.tela, modo: S.modoMes };
+    render();
+  },
+  'plano-copiar-cancelar': () => { S.planoPrevia = null; render(); const b = $('[data-foco="plano-copiar"]'); if (b) b.focus(); },
+  'plano-copiar-plano': () => {
     const ant = deChave(chaveMes(S.ano, S.mes) - 1);
-    const alvo = cats().map((c) => ({ c, antes: planoExp(c.id, S.ano, S.mes), v: arred(valorFechado(c.id, ant.ano, ant.mes) || planoExp(c.id, ant.ano, ant.mes)) }))
-      .filter((x) => x.v > 0 && x.v !== x.antes);
-    alvo.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }));
-    const total = alvo.reduce((a, x) => a + x.v, 0);
-    aviso(alvo.length ? `Plano copiado de ${MESES[ant.mes - 1]} em ${alvo.length} categoria${alvo.length > 1 ? 's' : ''}: ${moeda(total)}.` : `Nada para copiar de ${MESES[ant.mes - 1]}.`, {
-      acao: alvo.length ? 'Desfazer' : undefined,
-      fn: alvo.length ? () => alvo.forEach(({ c, antes }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null })) : undefined,
-    });
+    const alvo = alvoPlano('copiar-plano'); S.planoPrevia = null;
+    if (!alvo.length) { aviso(`Nada para copiar de ${MESES[ant.mes - 1]}.`); render(); return; }
+    aplicarPlano(alvo, `Plano de ${MESES[ant.mes - 1]} copiado em ${qtdCats(alvo.length)}: ${moeda(somaPlano(alvo))}.`);
+  },
+  'plano-copiar-real': () => {
+    const ant = deChave(chaveMes(S.ano, S.mes) - 1);
+    const alvo = alvoPlano('copiar-real'); S.planoPrevia = null;
+    if (!alvo.length) { aviso(`Nada para copiar de ${MESES[ant.mes - 1]}.`); render(); return; }
+    aplicarPlano(alvo, `Lançado em ${MESES[ant.mes - 1]} copiado em ${qtdCats(alvo.length)}: ${moeda(somaPlano(alvo))}.`);
   },
   'plano-media': () => {
-    const alvo = cats().map((c) => ({ c, antes: planoExp(c.id, S.ano, S.mes), v: media3(c.id, S.ano, S.mes) }))
-      .filter((x) => x.v > 0 && x.v !== x.antes);
-    alvo.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v }));
-    const total = alvo.reduce((a, x) => a + x.v, 0);
-    aviso(alvo.length ? `Plano preenchido com as médias em ${alvo.length} categoria${alvo.length > 1 ? 's' : ''}: ${moeda(total)}.` : 'Ainda não há histórico para calcular médias.', {
-      acao: alvo.length ? 'Desfazer' : undefined,
-      fn: alvo.length ? () => alvo.forEach(({ c, antes }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: antes || null })) : undefined,
-    });
+    const alvo = alvoPlano('media');
+    if (!alvo.length) { S.planoPrevia = null; aviso('Ainda não há histórico para calcular médias.'); render(); return; }
+    if (!planoPreviaAtiva('media')) { S.planoPrevia = { tipo: 'media', ano: S.ano, mes: S.mes, tela: S.tela, modo: S.modoMes }; render(); return; }
+    S.planoPrevia = null;
+    aplicarPlano(alvo, `Plano preenchido com as médias em ${qtdCats(alvo.length)}: ${moeda(somaPlano(alvo))}.`);
   },
   'plano-limpar': () => {
-    const antes = cats().map((c) => ({ c, v: planoExp(c.id, S.ano, S.mes) })).filter((x) => x.v);
-    antes.forEach(({ c }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: null }));
-    if (antes.length) aviso(`Plano de ${MESES[S.mes - 1]} limpo. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.`, { acao: 'Desfazer', fn: () => antes.forEach(({ c, v }) => registrar({ t: 'orc', ano: S.ano, categoriaId: c.id, mes: S.mes, valor: v })) });
+    const alvo = alvoPlano('limpar');
+    if (!alvo.length) { S.planoPrevia = null; render(); return; }
+    if (!planoPreviaAtiva('limpar')) { S.planoPrevia = { tipo: 'limpar', ano: S.ano, mes: S.mes, tela: S.tela, modo: S.modoMes }; render(); return; }
+    S.planoPrevia = null;
+    aplicarPlano(alvo, `Plano de ${MESES[S.mes - 1]} limpo. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.`);
   },
   recarregar: () => location.reload(),
 };
@@ -2710,13 +2767,14 @@ const MUDAR = {
     const ano = S.ano; const mes = S.mes; const cid = el.dataset.cat;
     const antes = planoExp(cid, ano, mes);
     if (txt && (v === null || v < 0)) { aviso('Valor de plano inválido. Use, por exemplo, 1.360,00.', { tipo: 'erro' }); el.value = antes ? num(antes) : ''; return; }
+    S.planoPrevia = null;
     registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: v || null });
     if (!v && antes > 0) {
       aviso('Plano removido. Isso não cancela a despesa; ela só deixa de ser reservada no disponível.', {
         acao: 'Desfazer',
         fn: () => registrar({ t: 'orc', ano, categoriaId: cid, mes, valor: antes }),
       });
-    }
+    } else if (v) avisarSalvo(cid, ano, mes);
   },
   nome: (el) => registrar({ t: 'cfg', k: 'nome', v: el.value.trim() }),
   'cat-nome': (el) => {
@@ -2752,6 +2810,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   const fn = ACOES[el.dataset.acao];
+  if (S.planoPrevia && !['plano-copiar', 'plano-copiar-plano', 'plano-copiar-real', 'plano-copiar-cancelar', 'plano-media', 'plano-limpar'].includes(el.dataset.acao)) { S.planoPrevia = null; render(); }
   if (fn) { e.preventDefault(); fn(el, e); }
 });
 document.addEventListener('change', (e) => { const el = e.target.closest('[data-mudar]'); if (el && MUDAR[el.dataset.mudar]) MUDAR[el.dataset.mudar](el, e); });

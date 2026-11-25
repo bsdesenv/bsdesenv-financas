@@ -19,7 +19,7 @@ O app pede um nome (por exemplo "Finanças da casa") e um modelo de categorias:
 
 Todos os modelos já vêm com a categoria **Guardar**, um fixo especial. Em todos eles, o app reserva o que falta para a meta de Guardar, o que falta das contas fixas e o que resta dos planos. O resto é o disponível para gastar. Se você importar um backup antigo sem essa categoria, o cartão **Meta de economia** oferece criá-la.
 
-Dá para mudar tudo depois em **Ajustes › Categorias**: renomear, reordenar, criar e apagar.
+Dá para mudar tudo depois em **Ajustes › Categorias**: renomear, reordenar, criar, apagar e trocar o grupo.
 
 ## Os três tipos de categoria
 
@@ -29,9 +29,15 @@ Dá para mudar tudo depois em **Ajustes › Categorias**: renomear, reordenar, c
 
 Isso importa porque o app trata cada grupo de um jeito. Fixos reservam o que ainda falta pagar (**contas a pagar**). Variáveis reservam o que resta do plano (**ainda nos planos**). Rendas entram na **renda do mês**, e a parte que ainda não chegou fica como **a receber**. As variáveis também ganham alerta de ritmo.
 
+Uma categoria com lançamentos não muda entre renda e gasto. Veja a seção **Ajustes**, mais abaixo.
+
 ## Guardar
 
-A categoria **Guardar** é um fixo especial, com o id `guardar`. O app a reconhece pelo id mesmo que você mude o nome; se ela não existir, vale a primeira categoria de gasto cujo nome comece com "Guardar". O plano mensal dela é a sua **meta de economia**, e cada lançamento nela é uma **transferência** feita.
+A categoria **Guardar** é um fixo especial, com o id `guardar`. O plano mensal dela é a sua **meta de economia**, e cada lançamento nela é uma **transferência** feita.
+
+O app lembra qual é a sua categoria de economia, mesmo que você mude o nome dela. Ao abrir, ele anota essa escolha na planilha, uma vez só. Sem essa anotação, ele usa o id `guardar`. Se também não existir, vale a primeira categoria de gasto cujo nome comece com "Guardar".
+
+A categoria de economia não pode ser apagada: o botão fica desabilitado em **Ajustes**. Também não pode virar renda.
 
 Ela não entra na barra de gastos, nos avisos de "passou do plano" nem em "Sem plano" (guardar mais do que a meta é bom). Entra no total de saídas, na sobra e no disponível. O cartão **Contas a pagar** não mostra Guardar: a transferência é confirmada no cartão **Meta de economia**.
 
@@ -58,7 +64,16 @@ No **Novo lançamento**, o seletor de tipo tem **Gasto**, **Estorno** e **Renda*
 
 **Valor fora do normal.** Se o valor for muito acima do habitual daquela categoria, o app pede confirmação antes de salvar. O botão vira **Confirmar R$ X**.
 
-Errou? Logo depois de salvar aparece **Desfazer**. Para corrigir depois, toque no lançamento no **Extrato**.
+Errou? Logo depois de salvar aparece **Desfazer** (veja a seção Avisos e Desfazer). Para corrigir depois, toque no lançamento no **Extrato**.
+
+## Avisos e Desfazer
+
+Depois de salvar, apagar ou ajustar algo, o app mostra um aviso. Quando dá para voltar atrás, o aviso traz **Desfazer**.
+
+- O aviso com **Desfazer** fica 10 segundos na tela. Enquanto o ponteiro do mouse ou o foco do teclado estiver em cima dele, a contagem para.
+- Um aviso novo não apaga o **Desfazer** anterior. Dá para desfazer até 10 ações desta sessão.
+- No computador, **Ctrl+Z** desfaz a última ação que ainda não foi desfeita. Cada toque desfaz uma ação, da mais recente para a mais antiga. Vale fora de um campo de texto.
+- Com uma folha aberta, os avisos aparecem no topo (celular) ou à esquerda do painel (computador). Assim eles não cobrem o botão **Salvar** nem o teclado.
 
 ## As telas
 
@@ -115,6 +130,7 @@ Cada categoria com o que foi gasto, o plano e o ritmo. No topo, para o mês atua
 
 - **Copiar de** (nome do mês anterior)**:** usa os valores do mês passado como plano deste mês — o que foi lançado e, nas categorias sem lançamento, o plano. O aviso mostra quantas categorias e o total; dá para **Desfazer**.
 - **Preencher com as médias:** grava como plano a média dos últimos 3 meses fechados em todas as categorias que têm histórico, só com o que foi lançado. Só acontece se você tocar no botão, e o aviso mostra o total e oferece **Desfazer**.
+- **Repetir até dezembro:** no painel da categoria, digite o valor do plano e toque em **Repetir até dezembro**. O plano vale do mês que está na tela até dezembro. Se algum desses meses já tem um plano diferente, o primeiro toque só avisa, com "Substituir N planos? Toque de novo", e diz quais meses vão mudar. O segundo toque grava. Depois, o aviso oferece **Desfazer**.
 - **Usar sugestão:** a média de cada categoria (só com o que foi lançado nos 3 meses fechados antes deste) aparece como **texto ao lado do campo**, com um botão **Usar sugestão**. O campo do plano fica vazio (placeholder `0,00`) até você digitar ou tocar em **Usar sugestão**. Digite como se escreve, por exemplo `1200` ou `12,00`. A sugestão **não entra nos totais** enquanto não virar plano.
 - **Como os planos entram nos cálculos:** no modo Planejar, abra essa explicação quando precisar rever a diferença entre plano, previsto, sugestão e Guardar. Ela fica recolhida por padrão para deixar as categorias e os campos mais próximos.
 - **Guardar:** a linha mostra "Guardado", "Previsto R$ ... · nada guardado", "Faltam R$ ..." ou "Nada guardado". O plano dela é a meta; para mudar a meta, edite o plano aqui ou no cartão Meta de economia. Enquanto a transferência não é lançada, o que falta dela fica reservado como **Falta guardar**. Depois de confirmar, o valor entra como guardado.
@@ -136,13 +152,23 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas.
 
 Nome do controle, tema (automático, claro ou escuro), categorias, a seção **Atualizações** e a seção **Seus dados**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
 
+Em **Ajustes › Categorias**:
+
+- **Trocar o grupo:** entre **Fixos** e **Variáveis**, a troca é livre, e o aviso traz **Desfazer**.
+- **Renda e gasto:** uma categoria com lançamentos não muda entre renda e gasto. Isso inverteria o sinal do que já foi lançado. O app avisa e sugere criar outra categoria.
+- **Categoria de economia:** o botão de apagar fica desabilitado, e ela não pode virar renda.
+
+O navegador busca a fonte no Google Fonts e o ícone no GitHub. Se o aviso de versão estiver ligado, ele também consulta o arquivo de versões no GitHub ou no jsDelivr. O texto de Ajustes diz isso. Esses serviços veem o endereço IP de quem usa, mas nenhum dado da planilha é enviado.
+
 ## Seus dados e backup
 
 Tudo fica na planilha do seu Google Drive. O botão **Abrir a planilha** em Ajustes leva até ela.
 
 - **Baixar backup (JSON):** um arquivo com tudo, inclusive o tema escolhido e os encerramentos de categorias (formato 3). Vale fazer uma vez por mês e guardar no computador ou no Drive.
 - **Exportar lançamentos (CSV):** os lançamentos num arquivo que abre no Excel ou no Google Sheets. O botão fica em Ajustes e na Planilha.
-- **Importar backup:** traz de volta um arquivo baixado. Aceita os formatos 1, 2 e 3. Ele pergunta se é para **juntar** com o que já existe ou **substituir tudo**. Ao substituir, o tema do arquivo é aplicado; ao juntar, o tema atual é mantido.
+- **Importar backup:** traz de volta um arquivo baixado. Aceita os formatos 1, 2 e 3. Ao escolher o arquivo, o app mostra antes quantas categorias e quantos lançamentos vão entrar. Também mostra o que fica de fora e o motivo, por exemplo "dia inválido para o mês: 31" ou "categoria inexistente". Depois, pergunta se é para **juntar** com o que já existe ou **substituir tudo**. Ao substituir, o tema do arquivo é aplicado; ao juntar, o tema atual é mantido.
+- **Substituir tudo** troca os dados atuais pelo conteúdo do arquivo. Por isso o botão mostra **Baixar backup agora**, e o botão **Substituir tudo** só libera depois que você digitar SUBSTITUIR.
+- No fim da importação, o aviso repete o que ficou de fora.
 - O próprio Google guarda versões antigas da planilha em **Arquivo › Histórico de versões**.
 
 ## Sem internet
@@ -162,6 +188,7 @@ Pode usar os dois. Cada aparelho envia só o que mudou, então um não apaga o q
 | `/` | buscar no Extrato |
 | setas e `Enter` | andar e abrir células na Planilha |
 | `Esc` | fechar o painel aberto |
+| `Ctrl+Z` | no computador, desfaz a última ação que ainda não foi desfeita (fora de um campo de texto) |
 | endereço do app + `?novo=1` | abre já na tela de lançamento |
 | endereço do app + `?novo=mercado` | abre o lançamento com a categoria "Mercado" escolhida |
 

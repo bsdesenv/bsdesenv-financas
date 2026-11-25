@@ -32,7 +32,9 @@ O app recebe tudo agrupado por ano:
                     orcamento: { mercado: { "11": 1200 } } } } }
 ```
 
-O backup em JSON (Ajustes › Baixar backup) usa esse mesmo formato e inclui o tema em `config: { tema }`. A importação aceita backups da versão 1 e da 2: no modo **substituir**, aplica o `config.tema` do arquivo se ele for válido; no modo **mesclar**, preserva o tema atual.
+O backup em JSON (Ajustes › Baixar backup) usa esse mesmo formato e inclui o tema em `config: { tema }`. A importação aceita backups dos formatos 1, 2 e 3: no modo **substituir**, aplica o `config.tema` do arquivo se ele for válido; no modo **mesclar**, preserva o tema atual.
+
+**Prévia e resumo.** Antes de gravar, o navegador mostra quantas categorias e lançamentos entram e o que fica de fora, com o motivo (até 5). A prévia (`previaImportacao()`) segue as mesmas regras do servidor. No modo substituir, o botão só libera depois de digitar SUBSTITUIR, e a folha oferece baixar um backup antes. O servidor aplica o `importar` em `importar_()`, que devolve `{ categorias: {aceitas, ignoradas}, lancamentos: {aceitos, ignorados}, planos: {aceitos, ignorados}, motivos }`, com até 5 motivos. Em `sincronizar`, esse resumo vem no campo `importacao`.
 
 ## Sincronização
 
@@ -76,12 +78,15 @@ A pasta [`instalador/`](../instalador) é um projeto Apps Script **separado**, o
 
 ## Categoria Guardar
 
-A categoria de economia é a que tem `id === 'guardar'` ou, se ela não existir, a primeira categoria que não é de renda cujo nome normalizado começa por "guardar" (por exemplo, "Guardar" ou "Guardar / Investir"). A função `catGuardar()` centraliza essa busca.
+A categoria de economia é a que `catGuardar()` devolve. A função centraliza a busca, nesta ordem: primeiro a categoria indicada em `config.categoriaGuardar`, se existir e não for de renda; depois a que tem `id === 'guardar'`; por último, a primeira categoria que não é de renda cujo nome normalizado começa por "guardar" (por exemplo, "Guardar" ou "Guardar / Investir").
 
 - É criada com `{ id: 'guardar', nome: 'Guardar', grupo: 'fixo', ordem: menor ordem dos fixos − 1 }` pelos modelos de primeiro acesso e pelas ações que precisam dela (`criar-guardar` e `meta-sugestao`, quando ainda não existe).
 - O **plano** mensal dela é a meta de economia; o **lançamento** nela é a transferência feita.
 - Fica fora da barra de gastos, dos avisos de "passou do plano" e de "Sem plano". O que foi guardado entra em "já saiu"; o que falta para a meta entra em "falta guardar", que o disponível desconta. Um resgate (lançamento negativo) não aumenta o que falta guardar.
 - O cartão "Contas a pagar" não a mostra; a transferência é confirmada no cartão "Meta de economia".
+- A chave `categoriaGuardar` da aba `config` guarda o id dela. `fixarGuardar()` grava a chave uma vez, ao abrir, se ainda não existir; por isso renomear não a perde. `salvarCfg_` valida a chave: a categoria precisa existir e não pode ser de renda.
+- `salvarCat_` recusa virar renda para a categoria de economia. `apagarCat_` recusa apagá-la, e o botão de apagar fica desabilitado em Ajustes (`ehGuardar`).
+- `importar_` leva `config.categoriaGuardar` do backup, se a categoria existir e não for de renda. No modo mesclar, só quando ainda não há uma escolhida.
 - `sugestaoMeta()` devolve `{ valor, meses }` a partir da média de `rendaReal − gastoConsumoReal` dos últimos 3 meses fechados que tenham lançamentos. O valor é 80% dessa média, arredondado para baixo em múltiplos de 10 quando for pelo menos 100; se a média for menor ou igual a zero, o valor é 0. A sugestão só vira plano quando a pessoa usa o botão da sugestão ou grava o campo.
 
 ## Lançamento rápido
@@ -89,6 +94,14 @@ A categoria de economia é a que tem `id === 'guardar'` ou, se ela não existir,
 No computador, a barra do topo é um campo de lançamento rápido de gasto. `lancarRapido()` usa `interpretarLinha()` — o mesmo interpretador do campo de valor do formulário completo — para separar valor, categoria e descrição; grava no mês em exibição (no mês atual, com a data de hoje; em outro mês, sem dia, e o aviso diz o mês) e mostra o aviso com **Desfazer**. Um valor muito acima do habitual abre o formulário completo, que pede confirmação. Se a categoria não for reconhecida, abre o formulário completo com o texto (`abrirNovo({ texto })`), sem gravar nada.
 
 O atalho `N` foca esse campo no computador; no celular, como o campo não existe, abre o formulário completo. **Novo lançamento** e `Ctrl+K` sempre abrem o formulário completo. Na tela Início, o cartão **Variáveis do mês** resume **Gasto**, **Plano** e **Ainda nos planos** apenas das categorias variáveis e desenha **“Para onde foi”** com as 5 maiores categorias variáveis do mês + **Demais**. São agregações de exibição da regra descrita em "Regras de cálculo".
+
+## Avisos e Desfazer
+
+`aviso(msg, { acao, fn, tipo, tempo })` mostra um aviso por vez, no contêiner `#avisos`. Quando `acao` é `'Desfazer'` e há `fn`, o item entra na pilha `desfazeres`, com no máximo 10 itens. Um aviso novo não remove os itens da pilha. `Ctrl+Z`, fora de um campo de texto, chama `desfazerUltimo()`, que desfaz o item mais recente ainda não desfeito.
+
+- O aviso com Desfazer dura 10 s. O temporizador para com `mouseenter` ou `focusin` e recomeça ao sair do aviso.
+- Com uma folha aberta, o aviso sai no topo (celular) ou à esquerda do painel (computador), para não cobrir o Salvar nem o teclado.
+- Com uma folha aberta, o resto da tela fica inerte (`inert` no `#app`). Problemas de sincronização (sem conexão, alterações guardadas no aparelho) e a volta ao normal são anunciados na região `#sinc-anuncio`, e não cada "Salvando…".
 
 ## Camada visual do Início
 
@@ -155,7 +168,7 @@ A Planilha usa a mesma regra no rodapé (meses fechados: só o lançado; mês at
 
 - `@OnlyCurrentDoc`: o script só enxerga a planilha onde está instalado.
 - Sem `ALLOWALL`: outros sites não conseguem embutir o app.
-- Validação no servidor: ids no padrão `[A-Za-z0-9_-]`, mês 1–12, dia válido para o mês (`diasNoMes_()` recusa 31/02, por exemplo), valor finito e diferente de zero, categoria existente, lote de até 500 operações.
+- Validação no servidor: ids no padrão `[A-Za-z0-9_-]`, mês 1–12, dia válido para o mês (`diasNoMes_()` recusa 31/02, por exemplo), valor finito e diferente de zero, categoria existente, troca de grupo recusada quando a categoria tem lançamentos e muda entre renda e gasto (`salvarCat_`), lote de até 500 operações.
 - Texto que começa com `=`, `+`, `-` ou `@` recebe um apóstrofo antes de ir para a planilha, para não virar fórmula.
 - No navegador, todo texto vindo dos dados é escapado antes de entrar no HTML.
 - A consulta de versão é feita pelo navegador (leitura pública, sem dados da planilha); o GitHub vê o IP. O instalador é opcional e tem escopos próprios, descritos em [SEGURANCA.md](SEGURANCA.md).
@@ -165,7 +178,7 @@ A Planilha usa a mesma regra no rodapé (meses fechados: só o lançado; mês at
 - `testes/gas-mock.mjs` imita `SpreadsheetApp`, `LockService` e `HtmlService`, inclusive o que a planilha faz com texto que parece número ou fórmula. O `Codigo.gs` de verdade roda dentro do Node.
 - `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema e as marcas), data inválida, `onEdit` a página, as marcas `encerrada:` na `config` e a compatibilidade com o `Codigo.gs` da versão anterior.
 - `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões.
-- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado).
+- `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado). Cobre também os recursos da 2.8.0 (quitar, encerrar no mês, não vem mais, estorno, lançamento rápido em outro mês, `1200x10`, valor fora do normal, aviso único) e da 2.8.1 (avisos fora da folha, repetir até dezembro com confirmação, proteção de grupo e de Guardar, importação com prévia, Desfazer em pilha e acessibilidade).
 - `testes/versao.test.mjs` confere o `versao.json` contra o `package.json`, o `VERSAO_APP`, o changelog e os hashes dos arquivos.
 - `testes/instalador.test.mjs` roda o `instalador/Codigo.gs` num `vm` com as APIs do Google e do GitHub simuladas: canal, hashes, instalação e atualização (cópia de segurança, arquivo `Código` removido, extras mantidos, só a implantação pedida).
 - `npm run versao -- --conferir` falha se o `versao.json` estiver desatualizado; o workflow de publicação roda os testes antes de criar a tag.

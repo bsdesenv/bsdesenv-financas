@@ -1,3 +1,4 @@
+<!-- cobre: src/Codigo.gs, src/appsscript.json -->
 # Segurança e privacidade
 
 O Finanças é código aberto (MIT) e roda inteiro na sua conta Google. Esta página explica o que cada parte acessa, o que sai do seu Drive e o que você pode desligar.

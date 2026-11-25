@@ -1,3 +1,4 @@
+<!-- cobre: src/App.html, src/Estilos.html -->
 # Como usar
 
 Um guia curto do dia a dia. Se ainda não instalou, comece por [INSTALAR.md](INSTALAR.md).

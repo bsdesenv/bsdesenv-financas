@@ -75,6 +75,8 @@ Um comentário descreve o estado do código quando foi escrito, não é garantia
 
 A regra é **transversal**: arquivo que uma tarefa abre sai higienizado, e nenhum arquivo é aberto só para isso.
 
+**Régua nova nasce com fixture nos dois sentidos.** É a regra da trava com teste aplicada aos verificadores estáticos, e o motivo está medido: os dois primeiros nasceram sem fixture e precisaram de **quatro** correções no mesmo dia, todas achadas rodando contra código de produção. Nenhuma chegou a produção, e as quatro custaram uma rodada de investigação cada. `sh spec/_fontes/verificar.test.sh` roda as fixtures de `spec/_fontes/fixtures/`, nomeadas `reprova-*` e `passa-*`.
+
 **Código morto:** nunca apagar direto, e só comentar mediante autorização explícita. Autorizado, comentar o bloco inteiro com um marcador padronizado, e aplicar em toda a cadeia, nunca só um lado.
 
 ---
@@ -99,7 +101,7 @@ Construir o novo em paralelo, sem tocar no atual. Só quando estiver bom, repont
 |---|---|
 | Servidor / domínio | `npm test` (filtrado quando possível) |
 | Fluxo de tela (e2e) | `npm run test:e2e` |
-| Fim de toda tarefa | `sh spec/_fontes/verificar-entrega.sh`: encadeia testes, inventário e documentação, imprimindo só o que falhar |
+| Fim de toda tarefa | `sh spec/_fontes/verificar-entrega.sh`: encadeia lint, formatador, inventário e documentação, imprimindo só o que falhar; os testes (`npm test`, `npm run test:e2e`) rodam à parte |
 
 Ao debugar bug reportado, checar o console do navegador **primeiro**, antes de assumir causa.
 

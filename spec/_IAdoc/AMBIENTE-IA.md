@@ -32,8 +32,8 @@ Como a `spec/` está no git, backup da camada de IA não é necessário; `spec/_
    └─────────┘            └──────────┘           └──────────┘
 
    executam:  Claude Code          opencode
-              claude-opus-5        gpt-4o
-              claude-fable-5       gpt-4o-mini
+              sonnet (pleno)       glm-5.3 (pleno)
+              haiku (leves)        deepseek-v4.1-flash (sessão e leves)
 
    travas:    commit-msg (spec-acompanha)
               pre-commit (não versiona material de IA)
@@ -48,15 +48,15 @@ Como a `spec/` está no git, backup da camada de IA não é necessário; `spec/_
 
 | | Claude Code | opencode |
 |---|---|---|
-| Leve / fechado | `claude-fable-5` | `gpt-4o-mini` |
-| Médio / sessão | `claude-fable-5` | `gpt-4o` |
-| Pleno / decisão | `claude-opus-5` | `gpt-4o` |
+| Leve (mecanico, levantamento/explore, review) | `haiku` | `opencode-go/deepseek-v4.1-flash` |
+| Médio | `sonnet` (pleno) | `opencode-go/deepseek-v4.1-flash` (sessão, no `opencode.json`) |
+| Forte | o modelo da sessão principal | `opencode-go/glm-5.3` (pleno) |
 | Lê `CLAUDE.md`? | sim | sim |
 | Skills | sim | não |
 | Memória | sim (`~/.claude/projects/...`) | não |
 | MCPs | não | não |
 
-Dois runtimes existem por **disponibilidade e custo**: Claude Code é o principal; opencode é a alternativa local sem custo de API.
+Dois runtimes existem por **disponibilidade e custo**: Claude Code é o principal; o opencode roda no plano OpenCode Go (assinatura com cota). No Go, o `deepseek-v4.1-flash` dá a maior cota por dólar (por isso é sessão e leve ao mesmo tempo) e o `glm-5.3` é o mais forte com cota folgada (escolha de 25/11/2026, pela console do Go e por benchmarks públicos).
 
 ### 3.2 `CLAUDE.md` / `AGENTS.md`
 
@@ -100,7 +100,7 @@ Nenhum. O projeto roda no Google Apps Script; não há servidor local para ferra
 
 | Trava | O que faz | Como testar |
 |---|---|---|
-| `pre-commit` | Bloqueia commit de `.claude/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `opencode.json`; permite `spec/` e `.claude/skills/video-tutorial/` | `sh spec/_fontes/hooks/pre-commit` |
+| `pre-commit` | Bloqueia commit de `.claude/`, `.opencode/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, `opencode.json` e dos backups reais `dados-financeiro*`; permite `spec/` e `.claude/skills/video-tutorial/` | `sh spec/_fontes/hooks/pre-commit` |
 | `commit-msg` → `spec-acompanha` | Exige que mudança em `src/Codigo.gs`, `src/App.html`, `src/appsscript.json` etc. traga `spec/` junto ou tenha `Spec-OK: <motivo>` | `sh spec/_fontes/hooks/spec-acompanha <arquivo>` |
 | `safety-net.sh` | Pede confirmação antes de comandos destrutivos (rm, drop, truncate, etc.) | `sh .claude/hooks/safety-net.test.sh` |
 
@@ -115,12 +115,13 @@ npm test
 # E2E (precisa do Chrome; instalar com npx puppeteer browsers install chrome se der erro)
 npm run test:e2e
 
-# Portão de entrega
+# Portão de entrega (lint, formatador, inventário e documentação; não roda testes)
 sh spec/_fontes/verificar-entrega.sh
 
 # Auditoria da máquina (substitui a skill spec-analyze em scripts)
 sh spec/_fontes/verificar-inventario.sh
 sh spec/_fontes/verificar-comentarios.sh
+sh spec/_fontes/verificar-documentacao.sh
 ```
 
 ---
@@ -143,8 +144,8 @@ sh spec/_fontes/verificar-comentarios.sh
 - Sem Laravel, Quasar, commitlint, prettier, eslint.
 - O backend é Google Apps Script (`src/Codigo.gs`); o frontend é HTML/CSS/JS vanilla servido por `doGet`.
 - A base de dados é a planilha Google; regras de schema estão em `spec/regras.md`.
-- `spec/_fontes/verificar-documentacao.sh` foi removido: o projeto não tem `docs/dev/` nem `docs/uso/`.
-- `TETO_DOCBLOCK` foi ajustado para `25` em `spec/_fontes/verificar-comentarios.sh` para acomodar os headers existentes.
+- `spec/_fontes/verificar-documentacao.sh` confere `docs/*.md` pelo `cobre:` da primeira linha. Não há `docs/uso/` nem ajuda em tela, por isso as checagens dessas pastas saíram.
+- `TETO_DOCBLOCK` fica no padrão do kit (8). Prosa longa de cabeçalho vai para `docs/ARQUITETURA.md`.
 
 ---
 

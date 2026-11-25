@@ -4,9 +4,15 @@
   "opencode"
  ],
  "opcionais": {
-  "custo": false,
+  "custo": true,
   "release": false
  },
  "versao": "v1.5.1-4-g69f6fb0-dirty",
- "atualizado_em": "2026-11-25"
+ "atualizado_em": "2026-11-25",
+ "adaptadas": {
+  "spec/_fontes/hooks/pre-commit": {
+   "local": "06bfff42adc43df63daeedc9520087e254ad228d",
+   "kit": "88266176ed3aaca52e40bc5a587e45babea6a850"
+  }
+ }
 }

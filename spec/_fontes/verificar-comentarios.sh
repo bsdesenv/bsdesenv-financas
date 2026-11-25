@@ -29,7 +29,7 @@ set -eu
 raiz=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$raiz"
 
-TETO_DOCBLOCK=${TETO_DOCBLOCK:-25}
+TETO_DOCBLOCK=${TETO_DOCBLOCK:-8}
 falhas=0
 
 if [ "$#" -gt 0 ]; then

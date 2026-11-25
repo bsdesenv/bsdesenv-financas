@@ -1,3 +1,4 @@
+<!-- cobre: src/Codigo.gs, src/App.html -->
 # Atualizar
 
 ## Da versão 2 em diante

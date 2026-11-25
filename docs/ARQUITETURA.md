@@ -1,3 +1,4 @@
+<!-- cobre: src/Codigo.gs, src/App.html, src/Index.html, src/Estilos.html -->
 # Arquitetura
 
 ## Arquivos

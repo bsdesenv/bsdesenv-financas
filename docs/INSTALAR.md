@@ -1,3 +1,4 @@
+<!-- cobre: src/Codigo.gs, src/appsscript.json, src/App.html, src/Index.html, src/Estilos.html -->
 # Instalar
 
 O resultado é um endereço (termina em `/exec`) que você abre no computador e no celular. Os dados ficam numa planilha do seu Google Drive.

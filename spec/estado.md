@@ -40,7 +40,9 @@ Sabe-se que a direção é "Revisão de plano financeiro e UX", mas não está d
 
 ## Ambiente de IA
 
-Instalação concluída em `e29e6bc`. Runtimes configurados: Claude Code (`claude-opus-5`, `claude-fable-5`) e opencode (`gpt-4o`, `gpt-4o-mini`). Hooks ativos (`spec/_fontes/hooks`), agentes instalados, skills `spec`, `spec-analyze` e `bsdesenv-financas` em `.claude/skills/`. Ver detalhes em `spec/_IAdoc/AMBIENTE-IA.md`.
+Instalação concluída em `e29e6bc`. Runtimes configurados: Claude Code (`sonnet`, `haiku`) e opencode (`glm-5.3` no pleno, `deepseek-v4.1-flash` na sessão e nos leves; plano OpenCode Go). Hooks ativos (`spec/_fontes/hooks`), agentes instalados, skills `spec`, `spec-analyze` e `bsdesenv-financas` em `.claude/skills/`. Ver detalhes em `spec/_IAdoc/AMBIENTE-IA.md`.
+
+Correção da instalação em 25/11/2026, pelo `ATUALIZAR.md` do kit: modelos dos agentes (haiku nos leves, sonnet no pleno), módulo de custo ligado, avisos de economia e rodapé ligados, fixture do núcleo restaurada, teto de docblock de volta a 8, trava de dados pessoais no pre-commit e `verificar-documentacao.sh` reinstalado. Backup do ambiente de IA anterior guardado fora do repositório.
 
 ---
 

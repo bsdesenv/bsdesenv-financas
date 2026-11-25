@@ -10,23 +10,5 @@
  * E mais outra.
  * E ainda outra.
  * E a nona.
- * Dez.
- * Onze.
- * Doze.
- * Treze.
- * Quatorze.
- * Quinze.
- * Dezesseis.
- * Dezessete.
- * Dezoito.
- * Dezenove.
- * Vinte.
- * Vinte e um.
- * Vinte e dois.
- * Vinte e tres.
- * Vinte e quatro.
- * Vinte e cinco.
- * Vinte e seis.
- * Vinte e sete.
  */
 class DocblockLongo {}

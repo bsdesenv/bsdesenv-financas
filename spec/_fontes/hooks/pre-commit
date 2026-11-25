@@ -34,6 +34,8 @@ NAO_VERSIONAR=(
   "AGENTS.md"
   ".mcp.json"
   "opencode.json"
+  # Dados pessoais reais (backup da planilha): o repositorio e publico.
+  "dados-financeiro"
 )
 
 # Excecoes ao prefixo acima: caminho exato (ou prefixo com /) que passa apesar dele.

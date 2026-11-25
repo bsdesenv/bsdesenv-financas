@@ -249,7 +249,7 @@ function chamar(fn, ...args) {
 const S = {
   dados: null, fila: [], enviando: false, falhas: 0, offline: false, atualizando: false, ultimaSync: 0, versao: 0,
   atualizacao: null, verificandoAtu: null,
-  montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
+  exemplo: null, montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
   planoSalvo: null, planoPrevia: null, busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
@@ -267,13 +267,13 @@ const ESCOPO = (() => {
 })();
 const LS = {
   ler(k) { try { return JSON.parse(localStorage.getItem('bf:' + ESCOPO + ':' + k)); } catch (e) { return null; } },
-  gravar(k, v) { try { localStorage.setItem('bf:' + ESCOPO + ':' + k, JSON.stringify(v)); } catch (e) { /* cheio ou bloqueado */ } },
+  gravar(k, v) { if (S.exemplo) return; try { localStorage.setItem('bf:' + ESCOPO + ':' + k, JSON.stringify(v)); } catch (e) { /* cheio ou bloqueado */ } },
   lerAntigo(k) { try { return JSON.parse(localStorage.getItem('bf:' + k)); } catch (e) { return null; } },
   apagarAntigo(k) { try { localStorage.removeItem('bf:' + k); } catch (e) { /* bloqueado */ } },
 };
-function persistirFila() { LS.gravar('fila', { planilha: S.dados && S.dados.planilha ? S.dados.planilha.id : null, ops: S.fila }); }
+function persistirFila() { if (S.exemplo) return; LS.gravar('fila', { planilha: S.dados && S.dados.planilha ? S.dados.planilha.id : null, ops: S.fila }); }
 let tCache = 0;
-function salvarCache() { clearTimeout(tCache); tCache = setTimeout(() => LS.gravar('cache', S.dados), 300); }
+function salvarCache() { if (S.exemplo) return; clearTimeout(tCache); tCache = setTimeout(() => LS.gravar('cache', S.dados), 300); }
 
 const cats = () => (S.dados ? S.dados.categorias.slice().sort((a, b) => a.ordem - b.ordem) : []);
 const catsDoGrupo = (g) => cats().filter((c) => c.grupo === g);
@@ -363,6 +363,7 @@ let tRetentativa = 0;
 function registrar(op) {
   aplicarOp(S.dados, op);
   S.versao++;
+  if (S.exemplo) { agendarRender(); return; }
   S.fila.push(op);
   persistirFila();
   salvarCache();
@@ -371,7 +372,7 @@ function registrar(op) {
 }
 function agendarEnvio(ms = 500) { clearTimeout(tEnvio); tEnvio = setTimeout(enviar, ms); }
 async function enviar() {
-  if (S.enviando || !S.fila.length || !S.dados) return;
+  if (S.exemplo || S.enviando || !S.fila.length || !S.dados) return;
   S.enviando = true;
   renderSinc();
   const lote = S.fila.slice(0, 200);
@@ -410,7 +411,7 @@ async function esvaziarFila() {
 }
 let ultimaVerificacao = 0;
 async function verificarNovidades(forcar = false) {
-  if (!S.dados || S.enviando) return;
+  if (!S.dados || S.exemplo || S.enviando) return;
   if (!forcar && Date.now() - ultimaVerificacao < 20000) return;
   ultimaVerificacao = Date.now();
   if (S.fila.length) { enviar(); return; }
@@ -698,7 +699,7 @@ function render() {
   else { tela.dataset.tela = S.tela; tela.innerHTML = TELAS[S.tela].html(); }
   if (S.tela === 'planilha') posPlanilha();
   for (const f of pilha) if (f.atualizar) f.atualizar();
-  renderSinc();
+  renderSinc(); renderFaixa();
   if (chave) {
     const novo = document.querySelector(`[data-foco="${CSS.escape(chave)}"]`);
     if (novo && novo !== document.activeElement && !pilha.length) {
@@ -781,7 +782,7 @@ function renderSinc() {
 function telaInicio() {
   const r = resumo(S.ano, S.mes);
   const blocos = r.fase === 'atual'
-    ? [cartaoHeroi(r), cartaoPagar(r), cartaoPlanoMes(r), cartaoOndeFoi(r), cartaoUltimos()]
+    ? [cartaoHeroi(r), !r.qtd && !r.renda && !r.saidasPrevistas ? '' : cartaoPagar(r), cartaoPlanoMes(r), cartaoOndeFoi(r), cartaoUltimos()]
     : r.fase === 'passado'
       ? [cartaoHeroi(r), cartaoOndeFoi(r), cartaoUltimos()]
       : [cartaoHeroi(r), cartaoCategorias(r), cartaoUltimos()];
@@ -790,7 +791,7 @@ function telaInicio() {
 }
 /** Aviso único da 2.8.0, para quem já usava o app: a regra mudou e o número também. */
 function avisoMudanca(r) {
-  if (LS.ler('aviso-2.8.0') || !(chaveMes(S.ano, S.mes) > inicioDados())) return '';
+  if (S.exemplo || LS.ler('aviso-2.8.0') || !(chaveMes(S.ano, S.mes) > inicioDados())) return '';
   const igual = Math.abs(r.legado.disponivel - r.disponivel) < 0.005;
   return '<div class="nota nota-info aviso-mudanca"><p><strong>As contas do mês mudaram na versão 2.8.0.</strong> '
     + 'Agora o que falta de cada plano fica reservado até você lançar tudo ou encerrar a categoria no mês, e receber parte de uma renda prevista não derruba o número. '
@@ -809,6 +810,11 @@ function notaFechamentoAnterior() {
 }
 function cartaoHeroi(r) {
   const m = MESES[S.mes - 1];
+  if (r.fase === 'atual' && !r.qtd && !r.renda && !r.saidasPrevistas) {
+    return '<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><h2 id="h-livre" class="rotulo">Seu mês começa aqui</h2>'
+      + `<p style="font-size:1.375rem;font-weight:650;line-height:1.25;margin:6px 0">Sem plano em ${m}</p><p class="sub">Diga quanto vai entrar e o que quer guardar: o app calcula quanto dá para gastar por dia. Ou lance o primeiro gasto agora.</p>`
+      + `<div class="acoes"><button type="button" class="botao primario" data-acao="planejar">${ic('mes', 18)}Planejar ${m}</button><button type="button" class="botao" data-acao="novo">${ic('mais', 18)}Lançar agora</button></div></section>`;
+  }
   if (r.fase === 'atual') {
     const sub = r.disponivel > 0
       ? r.restantes === 1
@@ -2100,6 +2106,7 @@ function abrirImportar() {
         if (b.dataset.f === 'fechar') { fecharFolha(); return; }
         if (b.dataset.f === 'backup') { if (S.dados) exportarJSON(); return; }
         if (b.dataset.f !== 'importar' || !dados || b.disabled) return;
+        if (S.exemplo) { aviso('No modo exemplo nada é gravado. Toque em Começar do zero para importar de verdade.', { tipo: 'erro' }); return; }
         const m = modo();
         b.disabled = true; b.textContent = 'Importando…';
         try {
@@ -2207,7 +2214,7 @@ function resultadoGuardado() {
 const estadoDaVersao = (versao) => (compararVersoes(versao, S.dados.versaoApp || '0.0.0') > 0 ? 'nova' : 'atual');
 
 async function verificarAtualizacao({ forcar = false } = {}) {
-  if ((!forcar && !atualizacaoAuto()) || !S.dados) return;
+  if ((!forcar && !atualizacaoAuto()) || !S.dados || S.exemplo) return;
   if (S.verificandoAtu) return S.verificandoAtu;
   if (!forcar) {
     const a = S.atualizacao;
@@ -2487,45 +2494,133 @@ const MODELOS = {
 };
 function slug(nome) { return normal(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'categoria'; }
 function idUnico(nome) { let base = slug(nome); if (!/^[a-z0-9]/.test(base)) base = 'c' + base; let id = base; let i = 2; while (catPorId(id)) id = base + '-' + i++; return id; }
+/** Controle fictício e sempre igual: 12 meses até o mês atual, só para a pessoa experimentar sem gravar nada. */
+function gerarDadosExemplo(h) {
+  let a = 20261118;
+  const rnd = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const entre = (x, y) => x + Math.floor(rnd() * (y - x + 1));
+  const cs = MODELOS.essencial.cats.map(([nome, grupo], i) => ({ id: slug(nome), nome, grupo, ordem: i + 1 }));
+  // nome, plano do mês, quantos lançamentos, descrições, dia fixo
+  const R = [['Moradia', 1850, 1, ['Aluguel'], 5], ['Contas da casa', 380, 3, ['Luz', 'Água', 'Gás']], ['Internet e celular', 160, 2, ['Internet', 'Celular']],
+    ['Assinaturas', 90, 3, ['Streaming', 'Música', 'Nuvem']], ['Guardar', 500, 1, ['Reserva'], 6], ['Mercado', 1100, 7, ['Feira', 'Mercado do bairro', 'Padaria', '']],
+    ['Transporte', 450, 5, ['Combustível', 'App de transporte', 'Estacionamento']], ['Restaurantes e delivery', 400, 5, ['Almoço', 'Delivery', 'Lanche']],
+    ['Saúde e farmácia', 150, 2, ['Farmácia', 'Consulta']], ['Lazer', 300, 3, ['Cinema', 'Passeio', 'Show']], ['Compras', 250, 2, ['Roupas', 'Casa']],
+    ['Outros', 100, 2, ['']], ['Salário', 6800, 1, ['Salário'], 5]];
+  const fim = chaveMes(h.ano, h.mes); const anos = {}; let n = 0;
+  for (let k = fim - 11; k <= fim; k++) {
+    const { ano, mes } = deChave(k); const b = anos[ano] || (anos[ano] = { lancamentos: [], orcamento: {} });
+    const lim = k === fim ? h.dia : diasNoMes(ano, mes);
+    const novo = (cid, dia, descricao, valor) => b.lancamentos.push({ id: 'ex' + ++n, mes, dia, categoriaId: cid, descricao, valor });
+    for (const [nome, plano, q, descs, fixo] of R) {
+      const cid = slug(nome);
+      (b.orcamento[cid] = b.orcamento[cid] || {})[mes] = plano;
+      const qtd = k === fim && !fixo ? Math.round(q * lim / 30) : q;
+      for (let i = 0; i < qtd; i++) {
+        const dia = fixo || entre(1, lim);
+        if (dia <= lim) novo(cid, dia, descs[i % descs.length], fixo ? plano : Math.round(plano / q * (0.75 + rnd() * 0.5) * 100) / 100);
+      }
+    }
+    if (k === fim - 6) novo('compras', 12, 'Notebook novo', 1900);
+    if (k % 5 === 0 && k < fim) novo('outras-rendas', 20, 'Freela', 450);
+  }
+  return { nome: 'Exemplo', tema: 'auto', revisao: 0, marcas: {}, fechados: {}, categoriaGuardar: 'guardar', categorias: cs, anos };
+}
+function entrarExemplo() {
+  const real = S.dados; const h = hoje(); const ex = gerarDadosExemplo(h);
+  for (const k of ['planilha', 'urlApp', 'versaoApp', 'scriptId']) ex[k] = real[k];
+  S.exemplo = { real }; S.dados = ex; S.versao++;
+  S.tela = 'inicio'; S.ano = h.ano; S.mes = h.mes; S.modoMes = 'acompanhar';
+  $('#boasvindas').hidden = true;
+  montarApp();
+}
+function sairExemplo() {
+  if (!S.exemplo) return;
+  while (pilha.length) fecharFolha(true);
+  S.dados = S.exemplo.real; S.exemplo = null; S.versao++;
+  S.montado = false; S.tela = 'inicio';
+  $('#app').hidden = true; renderFaixa();
+  mostrarBoasVindas();
+  if (S.fila.length) enviar();
+}
+/** Faixa fixa no alto da coluna enquanto o app mostra dados de exemplo. */
+function renderFaixa() {
+  let f = $('#faixa-exemplo');
+  if (!S.exemplo) { if (f) f.remove(); document.documentElement.style.removeProperty('--faixa-h'); return; }
+  if (!f) {
+    f = document.createElement('div'); f.id = 'faixa-exemplo'; f.className = 'faixa-exemplo'; f.setAttribute('role', 'status');
+    f.innerHTML = '<span>Dados de exemplo: nada é gravado na sua planilha.</span><button type="button" class="botao pequeno" data-acao="sair-exemplo">Começar do zero</button>';
+    const col = $('.coluna'); col.insertBefore(f, col.firstChild);
+  }
+  document.documentElement.style.setProperty('--faixa-h', f.offsetHeight + 'px');
+}
+window.addEventListener('resize', () => { if (S.exemplo) renderFaixa(); });
 function mostrarBoasVindas() {
   $('#carga').hidden = true; $('#app').hidden = true;
   const box = $('#boasvindas'); box.hidden = false;
-  const st = { passo: 1, nome: S.dados.nome || '', modelo: 'essencial' };
+  const st = { passo: 1, nome: S.dados.nome || '', modelo: 'essencial', renda: '', moradia: '', meta: '', gasto: '' };
+  const lerCampos = () => { for (const k of ['renda', 'moradia', 'meta', 'gasto']) { const e = $('#bv-' + k); if (e) st[k] = e.value; } };
   const desenhar = () => {
-    const passos = `<div class="passos" aria-hidden="true"><i class="feito"></i><i class="${st.passo >= 2 ? 'feito' : ''}"></i></div>`;
+    const passos = `<div class="passos" aria-hidden="true"><i class="feito"></i><i class="${st.passo >= 2 ? 'feito' : ''}"></i><i class="${st.passo >= 3 ? 'feito' : ''}"></i></div>`;
     if (st.passo === 1) {
       box.innerHTML = `<div class="bv">${passos}<span class="logo logo-grande" aria-hidden="true"><i></i><i></i><i></i></span>`
         + '<h1>Bem-vindo ao seu controle financeiro</h1><p class="sub" style="font-size:15px">Lance gastos em segundos no celular, acompanhe o mês e veja o ano inteiro no computador.</p>'
         + `<label class="campo">Como quer chamar este controle?<input class="entrada" id="bv-nome" value="${esc(st.nome)}" placeholder="Ex.: Casa, Pessoal" maxlength="60"></label>`
         + `<div class="nota nota-info">${ic('cadeado', 18)}<p>Seus dados ficam numa planilha no seu Google Drive. O app roda na sua conta e só enxerga essa planilha.</p></div>`
-        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="avancar">Continuar</button></div></div>';
+        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="avancar">Continuar</button>'
+        + '<button type="button" class="botao grande" data-b="exemplo">Ver com dados de exemplo</button></div></div>';
       $('#bv-nome').focus();
-    } else {
+    } else if (st.passo === 2) {
       box.innerHTML = `<div class="bv">${passos}<h1>Por onde começamos?</h1><p class="sub" style="font-size:15px">Escolha um conjunto de categorias. O que você planeja guardar é descontado primeiro; o restante fica disponível para gastar. Dá para renomear, reordenar ou criar outras categorias a qualquer momento.</p>`
         + '<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend class="sr">Modelo de categorias</legend>'
         + Object.entries(MODELOS).map(([k, m]) => `<label class="opcao"><input type="radio" name="bv-modelo" value="${k}"${st.modelo === k ? ' checked' : ''}><span><strong>${m.nome}${m.cats.length > 2 ? ` · ${m.cats.length} categorias` : ''}</strong>${m.desc}</span></label>`).join('')
         + '</fieldset>'
         + `<button type="button" class="botao fantasma" data-b="importar" style="align-self:flex-start">${ic('enviar', 18)}Já tenho um backup: importar JSON</button>`
-        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="concluir">Começar</button><button type="button" class="botao fantasma" data-b="voltar">Voltar</button></div></div>';
+        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="seu-mes">Continuar</button><button type="button" class="botao fantasma" data-b="voltar">Voltar</button></div></div>';
+    } else {
+      const campo = (k, rotulo) => `<label class="campo">${rotulo}<input class="entrada valor" id="bv-${k}" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(st[k])}"></label>`;
+      box.innerHTML = `<div class="bv">${passos}<h1>Seu mês</h1><p class="sub" style="font-size:15px">Se quiser, já deixe ${Mes(hoje().mes)} encaminhado. Tudo é opcional e dá para mudar depois, em Mês e em Ajustes.</p>`
+        + campo('renda', 'Renda do mês') + (MODELOS[st.modelo].cats.some(([nome]) => nome === 'Moradia') ? campo('moradia', 'Moradia (aluguel ou prestação)') : '')
+        + campo('meta', 'Meta para guardar') + campo('gasto', 'Já gastou algo neste mês antes de começar? Quanto?')
+        + '<div class="rodape-bv"><button type="button" class="botao primario grande" data-b="concluir">Começar</button>'
+        + '<button type="button" class="botao" data-b="pular">Pular</button><button type="button" class="botao fantasma" data-b="voltar">Voltar</button></div></div>';
+      $('#bv-renda').focus();
     }
+  };
+  const concluir = (usar) => {
+    const ler = (k) => { const v = usar ? paraNumero(st[k]) : null; return v > 0 ? v : 0; };
+    const h = hoje();
+    const ids = {};
+    if (st.nome) registrar({ t: 'cfg', k: 'nome', v: st.nome });
+    MODELOS[st.modelo].cats.forEach(([nome, grupo], i) => { ids[nome] = idUnico(nome); registrar({ t: 'cat', c: { id: ids[nome], nome, grupo, ordem: i + 1 } }); });
+    fixarGuardar();
+    const plano = (cid, valor) => { if (cid && valor) registrar({ t: 'orc', ano: h.ano, categoriaId: cid, mes: h.mes, valor }); };
+    const primeiraRenda = MODELOS[st.modelo].cats.find(([, g]) => g === 'renda');
+    plano(primeiraRenda && ids[primeiraRenda[0]], ler('renda'));
+    plano(ids.Moradia, ler('moradia'));
+    plano(ids.Guardar, ler('meta'));
+    const gasto = ler('gasto'); const cg = ids.Outros || ids.Gastos;
+    if (gasto && cg) registrar({ t: 'lanc', l: { id: novoId(), ano: h.ano, mes: h.mes, dia: null, categoriaId: cg, descricao: 'Antes de começar o app', valor: gasto } });
+    box.hidden = true;
+    montarApp();
+    aviso('Tudo pronto. Toque em + para lançar o primeiro gasto.');
   };
   box.onclick = (e) => {
     const b = e.target.closest('[data-b]');
     if (!b) return;
-    if (b.dataset.b === 'avancar') { st.nome = $('#bv-nome').value.trim(); st.passo = 2; desenhar(); }
-    else if (b.dataset.b === 'voltar') { st.passo = 1; desenhar(); }
-    else if (b.dataset.b === 'importar') abrirImportar();
-    else if (b.dataset.b === 'concluir') {
-      st.modelo = ($('input[name="bv-modelo"]:checked') || {}).value || 'essencial';
-      if (st.nome) registrar({ t: 'cfg', k: 'nome', v: st.nome });
-      MODELOS[st.modelo].cats.forEach(([nome, grupo], i) => registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo, ordem: i + 1 } }));
-      fixarGuardar();
-      box.hidden = true;
-      montarApp();
-      aviso('Tudo pronto. Toque em + para lançar o primeiro gasto.');
-    }
+    const a = b.dataset.b;
+    if (a === 'avancar') { st.nome = $('#bv-nome').value.trim(); st.passo = 2; desenhar(); }
+    else if (a === 'exemplo') entrarExemplo();
+    else if (a === 'voltar') { lerCampos(); st.passo = st.passo - 1; desenhar(); }
+    else if (a === 'importar') abrirImportar();
+    else if (a === 'seu-mes') { st.modelo = ($('input[name="bv-modelo"]:checked') || {}).value || 'essencial'; st.passo = 3; desenhar(); }
+    else if (a === 'concluir') { lerCampos(); concluir(true); }
+    else if (a === 'pular') concluir(false);
   };
-  box.onkeydown = (e) => { if (e.key === 'Enter' && e.target.id === 'bv-nome') { e.preventDefault(); box.querySelector('[data-b="avancar"]').click(); } };
+  box.onkeydown = (e) => {
+    if (e.key !== 'Enter') return;
+    if (e.target.id === 'bv-nome') { e.preventDefault(); box.querySelector('[data-b="avancar"]').click(); }
+    else if (e.target.id && e.target.id.startsWith('bv-')) { e.preventDefault(); box.querySelector('[data-b="concluir"]').click(); }
+  };
   desenhar();
 }
 
@@ -2661,6 +2756,7 @@ function planejarSemPlano() {
 }
 const ACOES = {
   tela: (el) => irPara(el.dataset.tela),
+  'sair-exemplo': () => sairExemplo(),
   novo: () => abrirNovo(),
   planejar: () => { S.modoMes = 'planejar'; if (S.tela !== 'mes') irPara('mes'); else render(); },
   'mes-ant': () => mudarMes(-1),
@@ -2884,6 +2980,7 @@ function mostrarErroCarga(e) {
 let tRecarga = 0;
 let tentativasCarga = 0;
 async function carregarDoServidor({ inicial = false, filaSalva = null, filaAntiga = null } = {}) {
+  if (S.exemplo) return;
   try {
     const d = JSON.parse(await chamar('carregar'));
     let antigasRecuperadas = 0;

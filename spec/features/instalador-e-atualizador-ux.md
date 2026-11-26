@@ -285,7 +285,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: como simular versão nova, faixa fechada e versaoServidor maior no mock do e2e
 
-### T-020 — Documentação e scripts de teste [em-andamento]
+### T-020 — Documentação e scripts de teste [concluida]
 - refs: AC-025, AC-034, AC-039
 - depende: T-015, T-018, T-019
 - escreve: docs/INSTALAR.md, docs/ATUALIZAR.md, docs/USAR.md, docs/ARQUITETURA.md, docs/SEGURANCA.md, README.md, package.json

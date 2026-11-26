@@ -12,3 +12,4 @@
 | — | `redesign-ux-ui.md` | Redesign de UX/UI |
 
 Todo novo plano entra aqui na data em que é escrito.
+| 26/11/2026 | `261126-instalador-e-atualizador-ux.md` | UX/UI do instalador e do atualizador: trilha de passos, progresso real, fechar o ciclo da atualização, PC e celular |

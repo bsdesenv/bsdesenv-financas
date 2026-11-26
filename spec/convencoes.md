@@ -55,6 +55,8 @@ Formatação:
 - Id de cartão: `k` + 10 caracteres `[a-z0-9]` (`novoIdCartao`). Id de lançamento de cartão: `k<cartao>_<id>` (`idNoCartao`, lido por `cartaoDoId`). Sem coluna nova (R-004).
 - Nomes novos da 3.2.0 seguem `fatura*`, `mesDaFatura`, `idNoCartao`, `cartaoDoId`, `lancamentosDoCartao`, `limiteUsado`, `sinaisDaPlanilha`, `novoIdCartao`, `abrirCadastroCartao`, `abrirFatura`, `blocoFaturas`, `htmlCartoesCredito`, `abrirDiagnosticos`, `textoDiagnostico`. O prefixo `cartao*` já é de UI.
 - Modo `node testes/e2e.mjs --capturas` grava PNG de 320, 390 e 1440 px (claro e escuro) em `testes/saida/capturas`.
+- No `e2e.mjs`, toda página aberta dentro de um `caso` fecha ao fim dele, com o contexto próprio. Página que atravessa casos (`cel`, `pc`) abre com `{ manter: true }`. Página esquecida aberta deixa os cenários seguintes lentos e instáveis. A falha mostra a linha (`e2e.mjs:N`).
+- Foco visível em todo controle. Campo sem borda dentro de uma caixa (lançamento rápido) desenha o anel na caixa, com `:has(input:focus-visible)`, no padrão do `.chip-cartao`.
 
 ---
 

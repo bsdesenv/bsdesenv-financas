@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Finanças: antes de começar a instalação</title>
+<meta name="description" content="Controle financeiro simples, na sua própria planilha do Google. Veja os 4 passos da instalação, uns 3 minutos.">
+<link rel="icon" href="img/icone-192.png">
+<style>
+:root {
+  --fundo: #F4F6F9; --cartao: #FFFFFF; --cartao-2: #F8FAFC;
+  --tinta: #0E1525; --tinta-2: #475467; --tinta-3: #5B6B7F;
+  --linha: #E4E8EE; --trilho: #EAEEF3;
+  --acento: #4338CA; --acento-tinta: #FFFFFF; --acento-fraco: #EEF0FF; --acento-forte: #3730A3;
+  --ok: #047857; --ok-fundo: #ECFDF5; --ok-borda: #BBF0D6;
+  --aviso-fundo: #FFF5E6; --aviso-borda: #F6DDB5; --aviso-tinta: #8A4B08;
+  --nav: rgba(244, 246, 249, .94);
+  --sombra: 0 1px 2px rgba(14, 21, 37, .05), 0 8px 24px rgba(14, 21, 37, .06);
+  --raio: 18px; --raio-m: 13px; --raio-p: 9px;
+  --fonte: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0B0F17; --cartao: #131A26; --cartao-2: #18202E;
+    --tinta: #E8ECF3; --tinta-2: #B3BDCC; --tinta-3: #8C98AA;
+    --linha: #232C3B; --trilho: #232D3C;
+    --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340; --acento-forte: #C7CCFF;
+    --ok: #34D399; --ok-fundo: #0D2A20; --ok-borda: #15402F;
+    --aviso-fundo: #2A1F0E; --aviso-borda: #4A3615; --aviso-tinta: #F5C67A;
+    --nav: rgba(11, 15, 23, .94);
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--fundo); color: var(--tinta);
+  font: 16px/1.55 var(--fonte);
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  overflow-wrap: anywhere;
+}
+a { color: var(--acento); text-underline-offset: 3px; }
+a:hover { color: var(--acento-forte); }
+:focus-visible { outline: 3px solid var(--acento); outline-offset: 3px; border-radius: 6px; }
+.pular { position: absolute; left: 12px; top: -60px; background: var(--acento); color: var(--acento-tinta); padding: 12px 16px; border-radius: var(--raio-p); z-index: 20; }
+.pular:focus { top: 12px; }
+.miolo { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+section { padding: 28px 0; }
+h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 1.4rem; }
+p { margin: 0; }
+.mudo { color: var(--tinta-2); }
+
+/* Hero */
+.hero { padding-top: 32px; display: grid; gap: 28px; }
+.marca { display: flex; align-items: center; gap: 14px; }
+.marca img { width: 56px; height: 56px; border-radius: 14px; box-shadow: var(--sombra); }
+.marca h1 { font-size: 2rem; }
+.valor { font-size: 1.2rem; color: var(--tinta-2); margin-top: 16px; max-width: 30ch; }
+.telas { display: flex; align-items: flex-end; justify-content: center; gap: 14px; min-width: 0; }
+.telas img { display: block; height: auto; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--cartao); }
+.telas .cel { width: 34%; max-width: 190px; border-radius: 16px; flex: none; }
+.telas .pc { width: 60%; border-radius: 12px; }
+
+/* Botão */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 28px; border-radius: var(--raio-m);
+  background: var(--acento); color: var(--acento-tinta); font: inherit; font-weight: 700; font-size: 1.05rem;
+  text-decoration: none; box-shadow: 0 6px 18px rgba(67, 56, 202, .28);
+  transition: transform .15s ease, background-color .15s ease;
+}
+.btn:hover { background: var(--acento-forte); color: var(--acento-tinta); transform: translateY(-1px); }
+.btn:active { transform: none; }
+.btn:focus-visible { outline-color: var(--tinta); }
+.so-pc { display: none; }
+
+/* Selos */
+.selos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.selos li {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+  background: var(--cartao); border: 1px solid var(--linha); border-radius: 999px;
+  font-size: .95rem; font-weight: 600; color: var(--tinta-2);
+}
+.selos li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+
+/* Passos */
+.sub { margin-top: 6px; }
+.passos { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 16px; counter-reset: p; }
+.passo {
+  counter-increment: p; background: var(--cartao); border: 1px solid var(--linha);
+  border-radius: var(--raio); box-shadow: var(--sombra); overflow: hidden; display: flex; flex-direction: column; min-width: 0;
+}
+.passo .texto { padding: 16px 18px 20px; }
+.passo h3 { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+.passo h3::before {
+  content: counter(p); flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--acento); color: var(--acento-tinta); font-size: .95rem;
+}
+.passo p { margin-top: 8px; color: var(--tinta-2); }
+.passo b { color: var(--tinta); }
+.nota {
+  margin-top: 16px; padding: 14px 18px; border-radius: var(--raio-m);
+  background: var(--acento-fraco); color: var(--tinta); border: 1px solid var(--linha);
+}
+
+/* Ilustrações esquemáticas */
+.ilus {
+  background: var(--cartao-2); border-bottom: 1px solid var(--linha);
+  padding: 18px; display: grid; place-items: center; min-height: 168px;
+}
+.jan {
+  width: 100%; max-width: 280px; background: var(--cartao); border: 1px solid var(--linha);
+  border-radius: 14px; box-shadow: var(--sombra); overflow: hidden;
+}
+.jan .topo { display: flex; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--linha); background: var(--cartao-2); }
+.jan .topo i { width: 8px; height: 8px; border-radius: 50%; background: var(--trilho); }
+.jan .corpo { padding: 14px; display: grid; gap: 10px; }
+.fio { height: 8px; border-radius: 4px; background: var(--trilho); }
+.fio.g { width: 100%; } .fio.m { width: 72%; } .fio.p { width: 44%; }
+.aviso { display: flex; gap: 8px; align-items: center; background: var(--aviso-fundo); border: 1px solid var(--aviso-borda); border-radius: 9px; padding: 8px 10px; }
+.aviso::before { content: "!"; flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--aviso-tinta); color: var(--aviso-fundo); font-size: 12px; font-weight: 800; }
+.aviso .fio { background: var(--aviso-borda); flex: 1; }
+.alvo {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; min-height: 32px; width: fit-content;
+  border-radius: 9px; background: var(--acento-fraco); color: var(--acento); font-size: .8rem; font-weight: 700;
+  box-shadow: 0 0 0 3px var(--cartao), 0 0 0 5px var(--acento);
+}
+.alvo.btn-m { background: var(--acento); color: var(--acento-tinta); }
+.caixa { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--acento); display: grid; place-items: center; }
+.caixa.on { background: var(--acento); }
+.caixa.on::after { content: ""; width: 4px; height: 8px; border: solid var(--acento-tinta); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.linha-sel { display: flex; align-items: center; gap: 8px; }
+.chave { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chave .fio { flex: 1; }
+.chave .alvo { padding: 4px; min-height: 0; border-radius: 999px; background: var(--acento); }
+.chave .alvo b { display: block; width: 36px; height: 20px; position: relative; }
+.chave .alvo b::after { content: ""; position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--acento-tinta); }
+.campo { border: 2px solid var(--acento); border-radius: 9px; padding: 8px 10px; font-size: .85rem; font-weight: 600; box-shadow: 0 0 0 3px var(--cartao), 0 0 0 5px var(--acento); background: var(--cartao); color: var(--tinta); }
+.campo::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--acento); animation: pisca 1s steps(1) infinite; }
+.barra { height: 8px; border-radius: 4px; background: var(--trilho); overflow: hidden; }
+.barra::after { content: ""; display: block; width: 62%; height: 100%; background: var(--ok); border-radius: 4px; }
+@keyframes pisca { 50% { opacity: 0; } }
+
+/* Por que o aviso */
+.porque {
+  background: var(--aviso-fundo); border: 1px solid var(--aviso-borda); border-radius: var(--raio);
+  padding: 20px; color: var(--aviso-tinta);
+}
+.porque h2 { color: var(--aviso-tinta); font-size: 1.2rem; }
+.porque p { margin-top: 10px; }
+.porque a { color: inherit; font-weight: 700; }
+.porque ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.porque li a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Pronto */
+.pronto { text-align: center; }
+.pronto p { margin: 8px auto 0; max-width: 38ch; }
+.barra-cta {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--nav); border-top: 1px solid var(--linha);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.barra-cta .btn { width: 100%; }
+.alt { margin-top: 12px; }
+.alt a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font-weight: 600; }
+
+footer { padding: 8px 0 28px; color: var(--tinta-3); font-size: .9rem; text-align: center; }
+footer a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; color: var(--tinta-2); }
+
+@media (min-width: 480px) { .selos { gap: 10px; } }
+@media (min-width: 720px) {
+  .passos { grid-template-columns: 1fr 1fr; gap: 20px; }
+  h2 { font-size: 1.6rem; }
+}
+@media (min-width: 960px) {
+  body { padding-bottom: 0; }
+  section { padding: 44px 0; }
+  .hero { grid-template-columns: 5fr 7fr; align-items: center; gap: 48px; padding-top: 56px; }
+  .marca h1 { font-size: 2.6rem; }
+  .marca img { width: 68px; height: 68px; }
+  .valor { font-size: 1.4rem; }
+  .so-pc { display: inline-flex; margin-top: 28px; }
+  .telas .cel { width: 22%; }
+  .telas .pc { width: 72%; }
+  .barra-cta { position: static; padding: 24px 0 0; background: none; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .barra-cta .btn { width: auto; min-width: 320px; }
+  .porque { padding: 28px 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn { transition: none; }
+  .campo::after { animation: none; }
+}
+</style>
+</head>
+<body>
+<a class="pular" href="#passos">Ir para os passos</a>
+<main>
+  <div class="miolo">
+    <section class="hero" aria-labelledby="titulo">
+      <div>
+        <div class="marca">
+          <img src="img/icone-192.png" width="56" height="56" alt="">
+          <h1 id="titulo">Finanças</h1>
+        </div>
+        <p class="valor">Controle financeiro simples, na sua própria planilha do Google.</p>
+        <a class="btn so-pc" href="https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec">Começar a instalação</a>
+      </div>
+      <div class="telas">
+        <img class="pc" src="img/computador-inicio.png" width="1440" height="900" alt="Tela inicial do Finanças no computador">
+        <img class="cel" src="img/celular-inicio.png" width="780" height="1688" alt="Tela inicial do Finanças no celular">
+      </div>
+    </section>
+
+    <section aria-label="Em resumo">
+      <ul class="selos">
+        <li>Grátis</li>
+        <li>Código aberto</li>
+        <li>Não lê seus dados</li>
+        <li>Código conferido (SHA-256)</li>
+      </ul>
+    </section>
+
+    <section id="passos" aria-labelledby="t-passos">
+      <h2 id="t-passos">O que vai acontecer</h2>
+      <p class="mudo sub">Uns 3 minutos. São 4 passos.</p>
+      <ol class="passos">
+        <li class="passo">
+          <div class="ilus" aria-hidden="true">
+            <div class="jan">
+              <div class="topo"><i></i><i></i><i></i></div>
+              <div class="corpo">
+                <div class="aviso"><span class="fio"></span></div>
+                <span class="alvo">Avançado ›</span>
+                <div class="linha-sel"><span class="caixa on"></span><span class="fio m"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="texto">
+            <h3>Autorizar o instalador</h3>
+            <p>O Google avisa <b>“app não verificado”</b>. É esperado. Toque em <b>Avançado</b> e depois em <b>Acessar</b>. Marque <b>Selecionar tudo</b>.</p>
+          </div>
+        </li>
+        <li class="passo">
+          <div class="ilus" aria-hidden="true">
+            <div class="jan">
+              <div class="topo"><i></i><i></i><i></i></div>
+              <div class="corpo">
+                <div class="chave"><span class="fio"></span><span class="alvo"><b></b></span></div>
+                <div class="fio m"></div>
+                <div class="fio p"></div>
+              </div>
+            </div>
+          </div>
+          <div class="texto">
+            <h3>Ligar a API do Apps Script</h3>
+            <p>Uma chave para ligar, <b>uma vez só</b>. A tela abre sozinha e o instalador espera você voltar.</p>
+          </div>
+        </li>
+        <li class="passo">
+          <div class="ilus" aria-hidden="true">
+            <div class="jan">
+              <div class="topo"><i></i><i></i><i></i></div>
+              <div class="corpo">
+                <div class="fio p"></div>
+                <div class="campo">Finanças</div>
+                <div class="fio m"></div>
+              </div>
+            </div>
+          </div>
+          <div class="texto">
+            <h3>Escolher o nome da planilha</h3>
+            <p>Ela nasce no seu Drive, com o nome que você quiser. Só você tem acesso.</p>
+          </div>
+        </li>
+        <li class="passo">
+          <div class="ilus" aria-hidden="true">
+            <div class="jan">
+              <div class="topo"><i></i><i></i><i></i></div>
+              <div class="corpo">
+                <div class="fio g"></div>
+                <span class="alvo btn-m">Instalar</span>
+                <div class="barra"></div>
+              </div>
+            </div>
+          </div>
+          <div class="texto">
+            <h3>Instalar</h3>
+            <p>Toque em <b>Instalar</b> e espere uns 20 segundos. No fim, o link do seu app aparece na tela.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="nota">Na primeira vez que abrir o app, o Google pede para autorizar de novo. É normal: <b>o desenvolvedor é você</b>, porque o app roda na sua conta.</p>
+    </section>
+
+    <section aria-labelledby="t-porque">
+      <div class="porque">
+        <h2 id="t-porque">Por que o aviso aparece?</h2>
+        <p>O instalador ainda não passou pela verificação do Google, que é um processo longo e feito para empresas. Por isso o aviso aparece. O código é aberto: você pode conferir tudo o que ele faz.</p>
+        <p>O código é aberto: qualquer pessoa pode ler e conferir o que ele faz.</p>
+        <ul>
+          <li><a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/docs/SEGURANCA.md">Segurança e privacidade</a></li>
+          <li><a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/docs/SEGURANCA.md#como-conferir">Como conferir o código</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pronto" aria-labelledby="t-pronto">
+      <h2 id="t-pronto">Pronto para começar?</h2>
+      <p class="mudo">Você precisa só de uma conta Google.</p>
+      <div class="barra-cta">
+        <a class="btn" href="https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec">Começar a instalação</a>
+      </div>
+      <p class="alt"><a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/docs/INSTALAR.md#instalar-à-mão">Prefere instalar à mão?</a></p>
+    </section>
+  </div>
+</main>
+<footer>
+  <div class="miolo">
+    <a href="https://github.com/bsdesenv/bsdesenv-financas">Projeto no GitHub</a> ·
+    <a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/LICENSE">Licença MIT</a>
+  </div>
+</footer>
+</body>
+</html>

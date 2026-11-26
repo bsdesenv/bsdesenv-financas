@@ -105,9 +105,31 @@ input { width: 100%; min-height: 48px; padding: 0 12px; border-radius: var(--rai
 .girando { display: inline-block; width: 1em; height: 1em; margin-right: 8px; vertical-align: -2px; border-radius: 50%;
   border: 2px solid var(--linha); border-top-color: var(--acento); animation: girar .8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .girando { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: reduce) { .girando { animation: none; background: var(--acento); } }
 @media (prefers-reduced-motion: no-preference) { .botao { transition: opacity .15s; } .barra i { transition: width .3s; } }
 ul.novidades { margin: 8px 0 0; padding-left: 20px; }
+
+.etapas-barra { height: 8px; margin: 14px 0 6px; }
+.etapas-contagem { margin: 0 0 8px; font-size: .85rem; color: var(--tinta-2); }
+.etapas li { min-height: 52px; }
+.etapas .bolinha .girando { margin: 0; width: 14px; height: 14px; }
+.etapas .atual .bolinha { background: var(--cartao); border-color: var(--acento); }
+.etapas .et-txt { display: flex; flex-direction: column; min-width: 0; }
+.etapas .et-nota { color: var(--tinta-3); font-size: .82rem; font-weight: 500; overflow-wrap: anywhere; }
+.etapas .atual .et-nota { color: var(--acento-forte); }
+.etapas .feito .et-nome { color: var(--tinta); }
+
+.qr-caixa { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.qr { display: block; max-width: 100%; height: auto; image-rendering: pixelated; border: 1px solid var(--linha); border-radius: var(--raio-p); background: #FFFFFF; }
+.qr-texto { flex: 1 1 200px; min-width: 0; }
+.como { margin: 8px 0 0; padding-left: 20px; }
+.como li { margin: 6px 0; }
+.fica { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.fica li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+.fica li::before { content: '\2713'; color: var(--ok); font-weight: 700; }
+.versoes { font-size: 1.05rem; margin: 4px 0 8px; }
+.confirma { background: var(--cartao-2); border: 1px solid var(--linha); border-radius: var(--raio-m); padding: 12px 14px; margin-top: 10px; }
+.confirma p { margin: 0 0 6px; }
 
 .acao-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   background: var(--cartao); border-top: 1px solid var(--linha); }
@@ -248,7 +270,8 @@ body.sem-trilha .corpo { max-width: 620px; margin: 0 auto; grid-template-columns
     ligar('erro-copiar', function () { copiar(document.getElementById('erro-detalhe').textContent, this); });
   }
   function copiar(texto, botao) {
-    function feito(ok) { botao.textContent = ok ? 'Copiado' : 'Selecione e copie à mão'; setTimeout(function () { botao.textContent = 'Copiar'; }, 2500); }
+    var original = botao.textContent;
+    function feito(ok) { botao.textContent = ok ? 'Copiado' : 'Selecione e copie à mão'; setTimeout(function () { botao.textContent = original; }, 2500); }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(texto).then(function () { feito(true); }, function () { feito(false); });
     }
@@ -352,75 +375,271 @@ body.sem-trilha .corpo { max-width: 620px; margin: 0 auto; grid-template-columns
     var v = ultimo && ultimo.versao;
     mostrar('<section class="cartao"><h2>Instale o Finanças ' + esc(v.versao) + '</h2>' +
       '<p>Confira o que vai acontecer e toque em Instalar. Leva uns 20 segundos.</p>' +
-      '<div class="acoes"><button class="botao sec" id="voltar" type="button">Voltar ao nome</button></div></section>' + painelCriar() + '<div id="area"></div>',
+      '<div class="acoes"><button class="botao sec" id="voltar" type="button">Voltar ao nome</button></div></section>' + painelCriar(),
       '<button class="botao" id="instalar" type="button">Instalar o Finanças ' + esc(v.versao) + '</button>', 4);
     ligar('voltar', desenharNome);
     ligar('instalar', instalar);
   }
 
-  function trabalhando(titulo) {
-    document.getElementById('area').innerHTML = '<section class="cartao"><h2>' + esc(titulo) + '</h2>' +
-      '<p class="sub"><span class="girando" aria-hidden="true"></span>Leva uns 20 segundos. Não feche esta página.</p></section>';
+  /* ---------- progresso real: uma etapa por chamada ao servidor ---------- */
+  /* A lista e a barra só mudam quando uma etapa termina. Com prefers-reduced-motion a barra não anima
+     e a etapa em andamento mostra um ponto parado mais o texto "em andamento", sem nada girando. */
+  var ETAPAS_INSTALAR = ['Conferir o código', 'Criar a planilha', 'Enviar o código', 'Publicar'];
+  var ETAPAS_ATUALIZAR = ['Conferir o código', 'Guardar a cópia', 'Trocar o código', 'Publicar'];
+
+  function chamar(fn, args) {
+    return new Promise(function (ok, falha) {
+      var r = google.script.run.withSuccessHandler(ok).withFailureHandler(falha);
+      r[fn].apply(r, args);
+    });
+  }
+  function etapasHtml(nomes, feitas, notas) {
+    return nomes.map(function (nome, i) {
+      var cls = i < feitas ? 'feito' : (i === feitas ? 'atual' : 'futuro');
+      var ico = i < feitas ? '✓' : (i === feitas ? '<span class="girando"></span>' : String(i + 1));
+      var leitor = i < feitas ? ' (feito)' : (i === feitas ? '' : ' (aguardando)');
+      var nota = i < feitas ? (notas[i] || '') : (i === feitas ? 'em andamento…' : '');
+      return '<li class="' + cls + '"' + (i === feitas ? ' aria-current="step"' : '') + '><span class="bolinha" aria-hidden="true">' + ico + '</span>' +
+        '<span class="et-txt"><span class="et-nome">' + esc(nome) + '<span class="so-leitor">' + leitor + '</span></span>' +
+        (nota ? '<span class="et-nota">' + esc(nota) + '</span>' : '') + '</span></li>';
+    }).join('');
+  }
+  function progressoHtml(titulo) {
+    return '<section class="cartao" aria-labelledby="etapas-t"><h2 id="etapas-t">' + esc(titulo) + '</h2>' +
+      '<p class="sub">Não feche esta página. Cada etapa ganha um ✓ quando termina.</p>' +
+      '<div class="barra etapas-barra" id="etapas-barra" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0"><i id="etapas-preenchido"></i></div>' +
+      '<p class="etapas-contagem" id="etapas-contagem"></p>' +
+      '<ol class="passos etapas" id="etapas-lista"></ol></section>';
+  }
+  function pintar(nomes, feitas, notas) {
+    document.getElementById('etapas-lista').innerHTML = etapasHtml(nomes, feitas, notas);
+    document.getElementById('etapas-preenchido').style.width = (feitas * 100 / nomes.length) + '%';
+    document.getElementById('etapas-barra').setAttribute('aria-valuenow', String(feitas));
+    document.getElementById('etapas-contagem').textContent = feitas < nomes.length ? 'Etapa ' + (feitas + 1) + ' de ' + nomes.length : 'Tudo pronto';
+  }
+  /* cfg: { titulo, nomes, etapas: [{ fazer(ctx) → Promise, nota(r, ctx) }], ctx, notas, trilha, fim(ctx), falha(i, err) }.
+     de: etapa por onde começar (a nova tentativa de uma atualização retoma da que falhou). */
+  function executar(cfg, de) {
+    mostrar(progressoHtml(cfg.titulo), '', cfg.trilha);
+    function seguir(i) {
+      pintar(cfg.nomes, i, cfg.notas);
+      if (cfg.ctx.encerrar) return cfg.fim(cfg.ctx);
+      /* a barra cheia e os quatro \u2713 ficam à vista um instante antes da tela de sucesso */
+      if (i >= cfg.nomes.length) return void setTimeout(function () { cfg.fim(cfg.ctx); }, 450);
+      cfg.etapas[i].fazer(cfg.ctx).then(function (r) {
+        cfg.notas[i] = cfg.etapas[i].nota ? cfg.etapas[i].nota(r, cfg.ctx) : '';
+        seguir(i + 1);
+      }, function (err) { cfg.falha(i, err); });
+    }
+    seguir(de || 0);
+  }
+  function detalheDe(etapa, texto, versao) {
+    return 'Etapa: ' + etapa + '\nVersão: ' + versao + '\n' + texto;
   }
 
+  /* ---------- instalar ---------- */
   function instalar() {
-    var botao = document.getElementById('instalar');
-    botao.disabled = true;
-    trabalhando('Instalando\u2026');
-    google.script.run.withSuccessHandler(function (r) {
-      mostrar('<section class="cartao"><h2>Pronto!</h2><p>O Finanças ' + esc(r.versao) + ' está instalado no seu Drive.</p>' +
-        '<div class="acoes"><a class="botao" href="' + link(r.appUrl) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' +
-        '<a class="botao sec" href="' + link(r.planilhaUrl) + '" target="_blank" rel="noopener">Abrir a planilha</a></div>' +
-        '<div class="aviso">Na primeira vez o Google pede para você autorizar o app (só a planilha dele). Ele aparece como \u201cnão verificado\u201d porque foi criado agora, na sua conta: o desenvolvedor é você.</div>' +
-        '<p class="sub">Guarde o endereço do app nos favoritos ou adicione à tela inicial do celular. As próximas versões aparecem no próprio app, em Ajustes.</p></section>', '', 4);
-    }).withFailureHandler(function (e) {
-      var texto = msg(e);
-      /* o servidor já diz se a planilha foi para a lixeira; a página só repete o que ele afirmou */
-      var desfeito = /Nada ficou no seu Drive/.test(texto) ? 'A planilha criada foi para a lixeira. Nada ficou no seu Drive.' : '';
-      mostrarErro({ etapa: 'Instalar o Finanças', texto: texto, desfeito: desfeito, repetir: desenharInstalar }, 4);
-    }).instalar({ nome: nomePlanilha });
+    var v = ultimo.versao.versao;
+    var ctx = { nome: nomePlanilha, versao: v };
+    var cfg = {
+      titulo: 'Instalando o Finanças ' + v, nomes: ETAPAS_INSTALAR, trilha: 4, ctx: ctx, notas: [],
+      etapas: [
+        { fazer: function (c) { return chamar('prepararInstalacao', []).then(function (r) { c.versao = r.versao; return r; }); },
+          nota: function (r) { return r.arquivos + ' arquivos conferidos (SHA-256)'; } },
+        { fazer: function (c) { return chamar('criarPlanilha', [c.nome]).then(function (r) { c.planilhaId = r.planilhaId; return r; }); },
+          nota: function (r) { return 'Planilha “' + r.nome + '” criada'; } },
+        { fazer: function (c) { return chamar('criarProjeto', [c.planilhaId, c.versao]).then(function (r) { c.scriptId = r.scriptId; return r; }); },
+          nota: function () { return 'Projeto vinculado criado, código enviado'; } },
+        { fazer: function (c) { return chamar('publicarApp', [c.planilhaId, c.scriptId, c.versao]).then(function (r) { c.resultado = r; return r; }); },
+          nota: function () { return 'App da Web publicado'; } }
+      ],
+      fim: sucessoInstalar,
+      falha: function (i, err) { falhaInstalar(cfg, i, err); }
+    };
+    executar(cfg, 0);
+  }
+  /* O servidor já manda a planilha para a lixeira quando o envio ou a publicação falha e diz isso no texto;
+     a página repete só o que ele afirmou e, sem resposta dele, tenta a lixeira ela mesma. */
+  function falhaInstalar(cfg, i, err) {
+    var c = cfg.ctx, texto = msg(err);
+    var o = {
+      etapa: cfg.nomes[i], texto: texto, detalhe: detalheDe(cfg.nomes[i], texto, c.versao),
+      /* depois do envio a planilha já foi para a lixeira: a nova tentativa cria outra, sem reconferir o código */
+      repetir: function () { executar(cfg, i >= 2 ? 1 : i); }
+    };
+    if (i < 2) {
+      o.desfeito = 'Nada. Não havia nada criado no seu Drive.';
+      return mostrarErro(o, 4);
+    }
+    if (/Nada ficou no seu Drive/.test(texto)) {
+      o.desfeito = 'A planilha criada foi para a lixeira. Nada ficou no seu Drive.';
+      return mostrarErro(o, 4);
+    }
+    if (/Apague a planilha/.test(texto)) {
+      o.desfeito = 'Nada: a planilha não foi para a lixeira. Apague-a à mão, como o aviso acima diz.';
+      return mostrarErro(o, 4);
+    }
+    chamar('desfazerInstalacao', [c.planilhaId]).then(function (r) { return r && r.limpou; }, function () { return false; }).then(function (limpou) {
+      o.desfeito = limpou ? 'A planilha criada foi para a lixeira. Nada ficou no seu Drive.' : 'Nada: não consegui mandar a planilha para a lixeira. Apague-a à mão no seu Drive.';
+      mostrarErro(o, 4);
+    });
+  }
+
+  /* ---------- sucesso: levar para o celular ---------- */
+  function desenharQr(canvas, texto) {
+    var m = window.qrMatriz(texto), n = m.length, borda = 4;
+    var px = Math.max(3, Math.floor(240 / (n + 2 * borda))), lado = (n + 2 * borda) * px;
+    canvas.width = lado; canvas.height = lado; canvas.style.width = lado + 'px';
+    var g = canvas.getContext('2d');
+    g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, lado, lado);
+    g.fillStyle = '#000000';
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (m[y][x]) g.fillRect((x + borda) * px, (y + borda) * px, px, px);
+  }
+  function levarHtml(pc) {
+    if (pc) {
+      return '<section class="cartao" id="levar"><h3>Levar para o celular</h3><div class="qr-caixa">' +
+        '<canvas class="qr" id="qr" role="img" aria-label="QR code do endereço do app" width="1" height="1"></canvas>' +
+        '<div class="qr-texto"><p>Aponte a câmera do celular para o código e abra o endereço. Depois, no celular, ponha o app na tela inicial.</p>' +
+        '<div class="acoes"><button class="botao sec" id="copiar-endereco" type="button">Copiar endereço</button></div></div></div></section>';
+    }
+    return '<section class="cartao" id="levar"><h3>Ponha o Finanças na tela inicial</h3>' +
+      '<ul class="como"><li><strong>iPhone:</strong> Safari › Compartilhar › Adicionar à Tela de Início.</li>' +
+      '<li><strong>Android:</strong> Chrome › ⋮ › Adicionar à tela inicial.</li></ul>' +
+      '<p class="sub">Abra o app primeiro por este aparelho e faça isso na própria página do app.</p></section>';
+  }
+  function sucessoInstalar(c) {
+    var r = c.resultado;
+    /* PC (pointer: fine) mostra o QR; celular (pointer: coarse) mostra as instruções. Sem nenhum dos dois, vale o QR. */
+    var pc = !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    mostrar('<section class="cartao"><h2>Pronto! O Finanças ' + esc(r.versao) + ' está no seu Drive</h2>' +
+      '<p>Falta só abrir o app pela primeira vez.</p>' +
+      '<div class="aviso"><strong>O Google vai mostrar um aviso:</strong> “O Google não verificou este app”. É esperado: o app foi criado agora, na sua conta, e o desenvolvedor é você mesmo. Escolha Avançado, depois Acessar o Finanças, e autorize.</div>' +
+      '<div class="acoes"><a class="botao sec" id="abrir-planilha" href="' + link(r.planilhaUrl) + '" target="_blank" rel="noopener">Abrir a planilha</a></div></section>' + levarHtml(pc),
+      '<a class="botao" id="abrir-app" href="' + link(r.appUrl) + '" target="_blank" rel="noopener">Abrir o Finanças</a>', 0);
+    if (!pc) return;
+    try { desenharQr(document.getElementById('qr'), r.appUrl); } catch (x) { document.getElementById('qr').hidden = true; }
+    ligar('copiar-endereco', function () { copiar(r.appUrl, this); });
   }
 
   /* ---------- atualizar ---------- */
+  function voltarHtml(copia) {
+    return '<section class="cartao" id="voltar-cartao"><h3>Voltar para a versão anterior</h3>' +
+      '<p class="sub">O instalador guardou uma cópia antes de atualizar (' + esc(copia.descricao || 'cópia de segurança') + '; versão ' + esc(copia.numero) + ' no Apps Script).</p>' +
+      '<div id="voltar-corpo" aria-live="polite"><div class="acoes"><button class="botao sec" id="voltar-abrir" type="button">Voltar para a versão anterior</button></div></div></section>';
+  }
+  /* A confirmação fica no próprio cartão: texto do que acontece e dois botões. Sem confirm() nativo. */
+  function ligarVoltar(copia, impl) {
+    var corpo = document.getElementById('voltar-corpo');
+    if (!corpo) return;
+    function pergunta() {
+      corpo.innerHTML = '<div class="confirma" role="group" aria-labelledby="voltar-q"><p id="voltar-q" tabindex="-1"><strong>Voltar mesmo?</strong></p>' +
+        '<p>O código do app volta ao que era antes da atualização e o app passa a usar essa cópia. Seus dados na planilha e o endereço do app continuam iguais. Depois você pode atualizar de novo.</p>' +
+        '<div class="acoes"><button class="botao" id="voltar-sim" type="button">Sim, voltar</button><button class="botao sec" id="voltar-nao" type="button">Cancelar</button></div></div>';
+      document.getElementById('voltar-q').focus();
+      ligar('voltar-sim', function () { voltando(copia, impl); });
+      ligar('voltar-nao', function () {
+        corpo.innerHTML = '<div class="acoes"><button class="botao sec" id="voltar-abrir" type="button">Voltar para a versão anterior</button></div>';
+        ligar('voltar-abrir', pergunta);
+        document.getElementById('voltar-abrir').focus();
+      });
+    }
+    ligar('voltar-abrir', pergunta);
+  }
+  function voltando(copia, impl) {
+    mostrar('<section class="cartao"><h2>Voltando para a versão anterior…</h2><p class="sub"><span class="girando" aria-hidden="true"></span>Não feche esta página.</p></section>', '', 0);
+    chamar('voltarVersao', [SCRIPT, IMPL, copia.numero]).then(function (r) {
+      var url = (r.implantacoes && r.implantacoes[0]) || (impl && impl.url) || '';
+      mostrar('<section class="cartao"><h2>Voltou para a versão ' + esc(r.versaoAtual) + '</h2>' +
+        '<p>O endereço do app é o mesmo. Recarregue o Finanças para usar a versão de volta.</p>' +
+        (url ? '<div class="acoes"><a class="botao sec" href="' + link(url) + '" target="_blank" rel="noopener">Abrir o Finanças</a></div>' : '') + '</section>',
+        '<button class="botao" id="atualizar-de-novo" type="button">Atualizar de novo</button>', 0);
+      ligar('atualizar-de-novo', function () {
+        if (!ultimo || !ultimo.alvo || !ultimo.versao) return carregar();
+        ultimo.alvo.versaoAtual = r.versaoAtual; ultimo.alvo.copia = null;
+        desenharAtualizar(ultimo);
+      });
+    }, function (err) {
+      var texto = msg(err);
+      mostrarErro({
+        etapa: 'Voltar para a versão anterior', texto: texto, detalhe: detalheDe('Voltar para a versão anterior', texto, copia.numero),
+        desfeito: /nada foi alterado/i.test(texto) ? 'Nada. O app continua como estava antes do clique.' : '',
+        repetir: function () { voltando(copia, impl); }
+      }, 0);
+    });
+  }
+
   function desenharAtualizar(e) {
     var a = e.alvo, v = e.versao;
     if (!a || e.alvoErro) return mostrar('<section class="cartao"><h2>Não deu para abrir o projeto</h2><p>' + esc(e.alvoErro || 'Não encontrei o projeto (ou você não tem acesso a ele).') + '</p></section>');
     if (!a.ehFinancas) return mostrar('<section class="cartao"><h2>Este projeto não é o Finanças</h2><p>Nada foi alterado.</p></section>');
+    var impl = a.implantacoes.filter(function (d) { return d.id === IMPL; })[0] || a.implantacoes[0];
+    var volta = a.copia ? voltarHtml(a.copia) : '';
     if (!v) {
       mostrar('<section class="cartao"><h2>Versão indisponível</h2><p>' + esc(e.versaoErro || 'Não consegui consultar a versão publicada.') + '</p>' +
-        '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>');
-      return ligar('de-novo', carregar);
+        '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>' + volta);
+      ligar('de-novo', carregar);
+      return ligarVoltar(a.copia, impl);
     }
-    var impl = a.implantacoes.filter(function (d) { return d.id === IMPL; })[0] || a.implantacoes[0];
-    var voltar = impl ? '<a class="botao sec" href="' + link(impl.url) + '" target="_blank" rel="noopener">Voltar ao Finanças</a>' : '';
+    var abrir = impl ? '<a class="botao sec" href="' + link(impl.url) + '" target="_blank" rel="noopener">Voltar ao Finanças</a>' : '';
     if (!maior(v.versao, a.versaoAtual)) {
-      return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><p>Versão instalada: ' + esc(a.versaoAtual) + '.</p><div class="acoes">' + voltar + '</div></section>');
+      mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><p>Versão instalada: ' + esc(a.versaoAtual) + '.</p><div class="acoes">' + abrir + '</div></section>' + volta);
+      return ligarVoltar(a.copia, impl);
     }
-    mostrar('<section class="cartao"><h2>Nova versão disponível</h2><p>' + esc(a.versaoAtual) + ' \u2192 <strong>' + esc(v.versao) + '</strong>' + (v.data ? ' \u00b7 ' + esc(v.data) : '') + '</p>' +
-      (v.novidades && v.novidades.length ? '<ul class="novidades">' + v.novidades.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
-      '<p class="sub">Só o código muda; os dados da planilha e o endereço do app continuam os mesmos.</p>' +
-      '<div class="acoes"><button class="botao" id="atualizar" type="button">Atualizar para ' + esc(v.versao) + '</button></div></section><div id="area"></div>');
-    var botao = document.getElementById('atualizar');
-    botao.onclick = function () {
-      botao.disabled = true;
-      trabalhando('Atualizando\u2026');
-      google.script.run.withSuccessHandler(function (r) {
-        if (r.jaAtual) return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><div class="acoes">' + voltar + '</div></section>');
-        var url = r.implantacoes && r.implantacoes[0];
-        mostrar('<section class="cartao"><h2>Atualizado para ' + esc(r.versaoNova) + '!</h2>' +
-          '<p>Recarregue o Finanças para usar a versão nova.</p>' +
-          (r.extrasMantidos && r.extrasMantidos.length ? '<p class="sub">Arquivos seus mantidos: ' + esc(r.extrasMantidos.join(', ')) + '.</p>' : '') +
-          '<div class="acoes">' + (url ? '<a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' : '') + '</div>' +
-          '<p class="sub">Para voltar atrás: no editor do Apps Script, Implantar \u203a Gerenciar implantações, escolha a versão ' + esc(r.copiaSeguranca) + '.</p></section>');
-      }).withFailureHandler(function (err) {
-        document.getElementById('area').innerHTML = '';
-        botao.disabled = false;
-        var antigo = raiz.querySelector('.erro-msg'); if (antigo) antigo.remove();
-        var d = document.createElement('div');
-        d.className = 'erro-msg'; d.setAttribute('role', 'alert'); d.textContent = msg(err);
-        raiz.appendChild(d);
-      }).atualizar(SCRIPT, IMPL, v.versao);
+    mostrar('<section class="cartao"><h2>Atualizar ' + esc(a.titulo || 'o Finanças') + '</h2>' +
+      '<p class="versoes">' + esc(a.versaoAtual) + ' → <strong>' + esc(v.versao) + '</strong>' + (v.data ? ' · ' + esc(v.data) : '') + '</p>' +
+      (v.novidades && v.novidades.length ? '<h3>O que há de novo</h3><ul class="novidades">' + v.novidades.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') + '</section>' +
+      '<section class="cartao criar"><h3>O que fica como está</h3><ul class="fica"><li><span>Seus dados na planilha</span></li>' +
+      '<li><span>O endereço do app: o mesmo link continua valendo</span></li><li><span>Os arquivos que você criou no projeto</span></li></ul>' +
+      '<p class="sub">Antes de trocar o código, o instalador guarda uma cópia de segurança. Dá para voltar atrás.</p></section>' + volta,
+      '<button class="botao" id="atualizar" type="button">Atualizar para ' + esc(v.versao) + '</button>', 0);
+    ligar('atualizar', function () { atualizar(a, impl, v.versao); });
+    ligarVoltar(a.copia, impl);
+  }
+
+  function atualizar(a, impl, versao) {
+    var ctx = { versao: versao };
+    var cfg = {
+      titulo: 'Atualizando para ' + versao, nomes: ETAPAS_ATUALIZAR, trilha: 0, ctx: ctx, notas: [],
+      etapas: [
+        { fazer: function (c) {
+            return chamar('prepararAtualizacao', [SCRIPT, IMPL, c.versao]).then(function (r) { if (r.jaAtual) c.encerrar = true; return r; });
+          }, nota: function (r) { return r.jaAtual ? '' : r.arquivos + ' arquivos conferidos (SHA-256)'; } },
+        { fazer: function (c) { return chamar('guardarCopia', [SCRIPT, c.versao]).then(function (r) { c.copia = r.copiaSeguranca; return r; }); },
+          nota: function (r) { return 'Cópia guardada (versão ' + r.copiaSeguranca + ' no Apps Script)'; } },
+        { fazer: function (c) { return chamar('trocarCodigo', [SCRIPT, c.versao]).then(function (r) { c.extras = r.extrasMantidos || []; return r; }); },
+          nota: function (r) { return r.extrasMantidos && r.extrasMantidos.length ? 'Código trocado; arquivos seus mantidos: ' + r.extrasMantidos.join(', ') : 'Código trocado'; } },
+        { fazer: function (c) { return chamar('publicarAtualizacao', [SCRIPT, IMPL, c.versao]).then(function (r) { c.publicado = r; return r; }); },
+          nota: function () { return 'Publicado no mesmo endereço'; } }
+      ],
+      fim: function (c) { sucessoAtualizar(c, a, impl); },
+      falha: function (i, err) {
+        var texto = msg(err);
+        var desfeito = [
+          'Nada. Seu projeto continua como estava.',
+          'Nada. O código continua na versão atual.',
+          'Nada. O código continua na versão atual; a cópia de segurança ficou guardada.',
+          'Nada. O código novo já está no projeto e falta só publicar: "Tentar de novo" conclui a publicação.'
+        ][i];
+        /* a nova tentativa retoma da etapa que falhou: reconferir depois de trocar o código acharia "já atualizado" */
+        mostrarErro({ etapa: cfg.nomes[i], texto: texto, desfeito: desfeito, detalhe: detalheDe(cfg.nomes[i], texto, versao), repetir: function () { executar(cfg, i); } }, 0);
+      }
     };
+    executar(cfg, 0);
+  }
+
+  function sucessoAtualizar(c, a, impl) {
+    var abrir = impl ? '<a class="botao sec" href="' + link(impl.url) + '" target="_blank" rel="noopener">Voltar ao Finanças</a>' : '';
+    if (c.encerrar) {
+      mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><div class="acoes">' + abrir + '</div></section>', '', 0);
+      return;
+    }
+    var r = c.publicado, url = (r.implantacoes && r.implantacoes[0]) || (impl && impl.url) || '';
+    var copia = { numero: c.copia, descricao: 'Cópia antes de atualizar para ' + c.versao };
+    mostrar('<section class="cartao"><h2>Atualizado para ' + esc(r.versaoNova) + '!</h2>' +
+      '<p>Recarregue o Finanças para usar a versão nova. O endereço do app é o mesmo.</p>' +
+      (c.extras && c.extras.length ? '<p class="sub">Arquivos seus mantidos: ' + esc(c.extras.join(', ')) + '.</p>' : '') + '</section>' + voltarHtml(copia),
+      url ? '<a class="botao" id="abrir-app" href="' + link(url) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' : '', 0);
+    ligarVoltar(copia, impl);
   }
 
   carregar();

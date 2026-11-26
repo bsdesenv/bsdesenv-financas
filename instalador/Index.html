@@ -11,79 +11,183 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&amp;display=swap">
 <style>
 :root {
-  --fundo: #F4F6F9; --cartao: #FFFFFF; --tinta: #0E1525; --tinta-2: #475467; --linha: #E4E8EE;
-  --acento: #4338CA; --acento-tinta: #FFFFFF; --acento-fraco: #EEF0FF;
+  --fundo: #F4F6F9; --cartao: #FFFFFF; --cartao-2: #F8FAFC; --tinta: #0E1525; --tinta-2: #475467; --tinta-3: #5B6B7F; --linha: #E4E8EE;
+  --acento: #4338CA; --acento-tinta: #FFFFFF; --acento-fraco: #EEF0FF; --acento-forte: #3730A3;
   --ok: #047857; --ok-fundo: #ECFDF5; --erro: #B42318; --erro-fundo: #FEF3F2;
   --aviso-fundo: #FFF5E6; --aviso-tinta: #8A4B08;
+  --sombra: 0 1px 2px rgba(14, 21, 37, .05), 0 8px 24px rgba(14, 21, 37, .06);
+  --raio: 18px; --raio-m: 13px; --raio-p: 9px;
   --fonte: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --fundo: #0B0F17; --cartao: #131A26; --tinta: #E8ECF3; --tinta-2: #B3BDCC; --linha: #232C3B;
-    --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340;
+    --fundo: #0B0F17; --cartao: #131A26; --cartao-2: #172031; --tinta: #E8ECF3; --tinta-2: #B3BDCC; --tinta-3: #94A0B4; --linha: #232C3B;
+    --acento: #9AA3FF; --acento-tinta: #0B0F17; --acento-fraco: #1E2340; --acento-forte: #C7CCFF;
     --ok: #34D399; --ok-fundo: #0D2A20; --erro: #F87171; --erro-fundo: #2D1517;
     --aviso-fundo: #2A1F0E; --aviso-tinta: #F5C67A;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--fundo); color: var(--tinta); font: 16px/1.5 var(--fonte); }
-main { max-width: 620px; margin: 0 auto; padding: 20px 16px 96px; }
-header { margin-bottom: 20px; }
-h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
-h2 { margin: 0 0 6px; font-size: 1.05rem; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--fundo); color: var(--tinta); font: 16px/1.5 var(--fonte); padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+main { max-width: 1040px; margin: 0 auto; padding: 16px 16px 8px; }
+h1 { margin: 0; font-size: 1.125rem; letter-spacing: -.01em; line-height: 1.2; }
+h2 { margin: 0 0 6px; font-size: 1.25rem; letter-spacing: -.01em; line-height: 1.3; }
+h3 { margin: 0 0 8px; font-size: .95rem; }
 .sub { color: var(--tinta-2); font-size: .9rem; margin: 0; }
-.cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
-.cartao p { margin: 6px 0; }
 a { color: var(--acento); }
 :focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
-.botao { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 13px;
+h2:focus { outline: none; }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca small { display: block; color: var(--tinta-3); font-size: .75rem; line-height: 1.2; }
+.logo { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 11px; background: var(--acento);
+  display: inline-flex; align-items: flex-end; justify-content: center; gap: 3px; padding-bottom: 9px; }
+.logo i { width: 5px; border-radius: 2px; background: color-mix(in srgb, var(--acento-tinta) 60%, var(--acento)); }
+.logo i:nth-child(1) { height: 10px; } .logo i:nth-child(2) { height: 18px; background: var(--acento-tinta); } .logo i:nth-child(3) { height: 7px; }
+.selo { font-size: .8rem; color: var(--tinta-2); text-align: right; }
+
+.progresso { margin-bottom: 14px; }
+.progresso-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 600; font-size: .95rem; }
+.progresso-linha span:last-child { color: var(--tinta-2); font-weight: 500; font-size: .85rem; }
+.barra { height: 6px; margin-top: 8px; border-radius: 6px; background: var(--linha); overflow: hidden; }
+.barra i { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--acento); }
+.olho { display: none; margin: 0 0 6px; font-size: .85rem; font-weight: 600; color: var(--acento-forte); }
+.trilha-det { margin: -2px 0 14px; }
+.trilha-det summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--acento); font-weight: 600; font-size: .92rem; }
+.trilha-pc { display: none; }
+
+.passos { list-style: none; margin: 0; padding: 0; }
+.passos li { display: flex; align-items: center; gap: 12px; min-height: 44px; color: var(--tinta-3); font-size: .95rem; position: relative; }
+.passos li + li::before { content: ''; position: absolute; left: 13px; top: -14px; height: 14px; border-left: 2px solid var(--linha); }
+.passos .bolinha { flex: 0 0 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--linha); background: var(--cartao); font-size: .8rem; font-weight: 700; }
+.passos .feito { color: var(--tinta-2); }
+.passos .feito .bolinha { background: var(--ok); border-color: var(--ok); color: var(--cartao); }
+.passos .atual { color: var(--tinta); font-weight: 650; }
+.passos .atual .bolinha { background: var(--acento); border-color: var(--acento); color: var(--acento-tinta); }
+
+.cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); padding: 18px; margin-bottom: 14px; box-shadow: var(--sombra); }
+.cartao p { margin: 6px 0; }
+.criar { background: var(--cartao-2); box-shadow: none; }
+.lista-criar { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; }
+.lista-criar li { display: grid; grid-template-columns: 28px 1fr; gap: 0 10px; }
+.lista-criar .ico { grid-row: span 2; width: 28px; height: 28px; border-radius: 9px; background: var(--acento-fraco); color: var(--acento-forte);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
+.lista-criar b { font-weight: 650; font-size: .95rem; }
+.lista-criar span { color: var(--tinta-2); font-size: .88rem; overflow-wrap: anywhere; }
+
+.botao { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: var(--raio-m);
   border: 1px solid var(--acento); background: var(--acento); color: var(--acento-tinta); font: 600 1rem var(--fonte);
   text-decoration: none; cursor: pointer; }
 .botao.sec { background: transparent; color: var(--acento); }
 .botao[disabled] { opacity: .5; cursor: not-allowed; }
 .acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.acoes .botao { min-height: 44px; }
 label { display: block; font-weight: 600; margin-bottom: 6px; }
-input { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 13px; border: 1px solid var(--linha); background: var(--fundo);
+input { width: 100%; min-height: 48px; padding: 0 12px; border-radius: var(--raio-m); border: 1px solid var(--linha); background: var(--fundo);
   color: var(--tinta); font: 1rem var(--fonte); }
-.aviso { background: var(--aviso-fundo); color: var(--aviso-tinta); border-radius: 13px; padding: 12px 14px; margin-top: 12px; font-size: .92rem; }
-.erro-msg { background: var(--erro-fundo); color: var(--erro); border-radius: 13px; padding: 12px 14px; margin-top: 12px; }
+.aviso { background: var(--aviso-fundo); color: var(--aviso-tinta); border-radius: var(--raio-m); padding: 12px 14px; margin-top: 12px; font-size: .92rem; }
+.erro-msg { background: var(--erro-fundo); color: var(--erro); border-radius: var(--raio-m); padding: 12px 14px; margin-top: 12px; }
+.erro-bloco { border-color: var(--erro); }
+.erro-bloco h2 { color: var(--erro); }
+.erro-bloco .desfeito { background: var(--ok-fundo); color: var(--ok); border-radius: var(--raio-m); padding: 10px 14px; font-size: .92rem; }
+.erro-bloco details { margin-top: 12px; }
+.erro-bloco summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--tinta-2); font-size: .92rem; }
+.erro-bloco pre { margin: 0 0 10px; padding: 10px 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--fundo); border: 1px solid var(--linha); border-radius: var(--raio-p); font: .8rem/1.45 ui-monospace, Menlo, Consolas, monospace; }
+.status { min-height: 1.4em; margin: 0 0 8px; font-size: .85rem; color: var(--tinta-3); }
 .girando { display: inline-block; width: 1em; height: 1em; margin-right: 8px; vertical-align: -2px; border-radius: 50%;
   border: 2px solid var(--linha); border-top-color: var(--acento); animation: girar .8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .girando { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: no-preference) { .botao { transition: opacity .15s; } .barra i { transition: width .3s; } }
 ul.novidades { margin: 8px 0 0; padding-left: 20px; }
-footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  background: var(--cartao); border-top: 1px solid var(--linha); font-size: .8rem; color: var(--tinta-2); text-align: center; }
-@media (prefers-reduced-motion: no-preference) { .botao { transition: opacity .15s; } }
+
+.acao-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--cartao); border-top: 1px solid var(--linha); }
+.acao-barra:empty { display: none; }
+.acao-barra .botao { flex: 1; min-height: 52px; }
+footer { padding: 8px 16px 16px; font-size: .8rem; color: var(--tinta-3); text-align: center; }
+
+body.sem-trilha .progresso, body.sem-trilha .trilha-det, body.sem-trilha .trilha-pc { display: none; }
+body.sem-trilha .corpo { max-width: 620px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); }
+
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+  main { padding: 28px 24px 8px; }
+  .progresso, .trilha-det { display: none; }
+  .olho { display: block; }
+  .corpo { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 36px; align-items: start; }
+  .trilha-pc { display: block; position: sticky; top: 24px; padding: 8px 4px; }
+  .trilha-pc h3 { color: var(--tinta-3); font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+  .passo { max-width: 620px; }
+  .acao-barra { position: static; padding: 0; background: none; border: 0; margin: 0 0 14px; }
+  .acao-barra .botao { flex: 0 1 auto; min-height: 48px; }
+  footer { padding-bottom: 24px; }
+  h2 { font-size: 1.5rem; }
+}
 </style>
 </head>
 <body data-script="<?= script ?>" data-implantacao="<?= implantacao ?>">
 <main>
-  <header>
-    <h1>Finanças · instalador</h1>
-    <p class="sub">um projeto bsdesenv</p>
+  <header class="topo">
+    <div class="marca">
+      <span class="logo" aria-hidden="true"><i></i><i></i><i></i></span>
+      <div><h1>Finanças · instalador</h1><small>um projeto bsdesenv</small></div>
+    </div>
+    <span class="selo">Código aberto · MIT</span>
   </header>
-  <div id="conteudo" aria-live="polite"></div>
+  <div class="progresso" id="progresso" hidden>
+    <div class="progresso-linha"><span id="prog-txt">Passo 1 de 4</span><span id="prog-nome"></span></div>
+    <div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="4" id="prog-barra"><i id="prog-preenchido"></i></div>
+  </div>
+  <details class="trilha-det" id="trilha-det" hidden><summary>Ver todos os passos</summary><ol class="passos" id="trilha-m"></ol></details>
+  <div class="corpo">
+    <nav class="trilha-pc" id="trilha-pc" aria-label="Passos da instalação" hidden><h3>Passos</h3><ol class="passos" id="trilha-d"></ol></nav>
+    <div class="passo">
+      <div id="conteudo" aria-live="polite"></div>
+      <p class="status" id="status" role="status"></p>
+      <div class="acao-barra" id="acao"></div>
+    </div>
+  </div>
 </main>
 <footer>
   Código aberto: <a href="https://github.com/bsdesenv/bsdesenv-financas/tree/main/instalador" target="_blank" rel="noopener">github.com/bsdesenv/bsdesenv-financas (pasta instalador)</a>
   · <a href="https://github.com/bsdesenv/bsdesenv-financas/blob/main/docs/SEGURANCA.md" target="_blank" rel="noopener">Segurança</a>
 </footer>
+<?!= incluir_('Qr') ?>
 <script>
 (function () {
   var SCRIPT = document.body.getAttribute('data-script') || '';
   var IMPL = document.body.getAttribute('data-implantacao') || '';
   var URL_CONFIG = 'https:\/\/script.google.com/home/usersettings';
+  var URL_MAO = 'https:\/\/github.com/bsdesenv/bsdesenv-financas/blob/main/docs/INSTALAR.md#instalar-à-mão';
+  var PASSOS = ['Autorizar', 'Ligar a API', 'Escolher o nome', 'Instalar'];
   var raiz = document.getElementById('conteudo');
+  var barraAcao = document.getElementById('acao');
+  /* passo: 1 a 4 na trilha; 0 fora dela (atualizar, erros sem passo). */
+  var passo = 0;
+  /* ultimo: o último estado() recebido. */
+  var ultimo = null;
+  var nomePlanilha = 'Finanças';
+  /* seq: só a resposta da chamada mais nova vale. emVoo: trava para a conferência sozinha não se sobrepor. */
+  var seq = 0;
+  var emVoo = false;
 
-  // Todo texto vindo do servidor ou do GitHub passa por aqui antes de entrar no HTML.
+  /* Todo texto vindo do servidor ou do GitHub passa por aqui antes de entrar no HTML. */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  // Só aceita links do Google em https para botões (o servidor já os monta, mas a página confere).
-  // Sem barra dupla fora de comentário (por isso [/] e https:\/\/): ver testes/htmlservice.test.mjs.
+  /* Só aceita links do Google em https para botões (o servidor já os monta, mas a página confere).
+     Sem barra dupla fora de comentário (por isso [/] e https:\/\/): ver testes/htmlservice.test.mjs. */
   function link(url) {
     return /^https:\/\/(script|docs|drive)\.google\.com[/]/.test(url || '') ? esc(url) : '#';
   }
@@ -92,50 +196,166 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
     for (var i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
     return false;
   }
-  // O Apps Script entrega o erro do servidor como "Error: texto"; a pessoa só precisa do texto.
+  /* O Apps Script entrega o erro do servidor como "Error: texto"; a pessoa só precisa do texto. */
   function msg(e) {
     return String((e && e.message) || e || 'Algo deu errado. Tente de novo.').replace(/^(Error|Exception|Erro):\s*/, '');
   }
-  function mostrar(html) { raiz.innerHTML = html; var h = raiz.querySelector('h2'); if (h) { h.tabIndex = -1; h.focus(); } }
-  function falha(texto) {
-    var antigo = raiz.querySelector('.erro-msg'); if (antigo) antigo.remove();
-    var d = document.createElement('div');
-    d.className = 'erro-msg'; d.setAttribute('role', 'alert'); d.textContent = texto;
-    raiz.appendChild(d);
-  }
-  function deNovo(id) { var b = document.getElementById(id); if (b) b.onclick = carregar; }
+  function status(texto) { document.getElementById('status').textContent = texto || ''; }
 
-  function carregar() {
-    mostrar('<section class="cartao"><p><span class="girando" aria-hidden="true"></span>Verificando…</p></section>');
-    google.script.run.withSuccessHandler(desenhar).withFailureHandler(function (e) {
-      mostrar('<section class="cartao"><h2>Não deu para verificar agora</h2><p>' + esc(msg(e)) + '</p>' +
-        '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>');
-      deNovo('de-novo');
+  /* ---------- moldura: trilha, progresso e barra de ação ---------- */
+  function trilhaHtml(n) {
+    return PASSOS.map(function (nome, i) {
+      var k = i + 1, cls = k < n ? 'feito' : (k === n ? 'atual' : 'futuro');
+      return '<li class="' + cls + '"' + (k === n ? ' aria-current="step"' : '') + '><span class="bolinha" aria-hidden="true">' + (k < n ? '\u2713' : k) + '</span>' +
+        '<span>' + nome + '<span class="so-leitor">' + (k < n ? ' (feito)' : (k === n ? ' (passo atual)' : '')) + '</span></span></li>';
+    }).join('');
+  }
+  function moldura(n) {
+    var t = n > 0;
+    document.body.classList.toggle('sem-trilha', !t);
+    ['progresso', 'trilha-det', 'trilha-pc'].forEach(function (id) { document.getElementById(id).hidden = !t; });
+    if (!t) return;
+    document.getElementById('prog-txt').textContent = 'Passo ' + n + ' de ' + PASSOS.length;
+    document.getElementById('prog-nome').textContent = PASSOS[n - 1];
+    document.getElementById('prog-preenchido').style.width = (n * 100 / PASSOS.length) + '%';
+    document.getElementById('prog-barra').setAttribute('aria-valuenow', String(n));
+    document.getElementById('trilha-m').innerHTML = trilhaHtml(n);
+    document.getElementById('trilha-d').innerHTML = trilhaHtml(n);
+  }
+  /* html: conteúdo do passo; acao: botão principal (fica fixo embaixo no celular); n: passo da trilha (0 = fora dela). */
+  function mostrar(html, acao, n) {
+    passo = n || 0;
+    moldura(passo);
+    raiz.innerHTML = (passo ? '<p class="olho">Passo ' + passo + ' de ' + PASSOS.length + '</p>' : '') + html;
+    barraAcao.innerHTML = acao || '';
+    var h = raiz.querySelector('h2'); if (h) { h.tabIndex = -1; h.focus(); }
+  }
+  function ligar(id, fn) { var b = document.getElementById(id); if (b) b.onclick = fn; }
+
+  /* ---------- erro que diz o que fazer ---------- */
+  /* o: { etapa, texto, desfeito (opcional), detalhe (opcional), repetir (função) } */
+  function erroHtml(o) {
+    return '<section class="cartao erro-bloco" role="alert"><h2>Parou em: ' + esc(o.etapa) + '</h2>' +
+      '<p>' + esc(o.texto) + '</p>' +
+      (o.desfeito ? '<p class="desfeito"><strong>O que foi desfeito:</strong> ' + esc(o.desfeito) + '</p>' : '') +
+      '<div class="acoes"><button class="botao" id="erro-repetir" type="button">Tentar de novo</button>' +
+      '<a class="botao sec" id="erro-mao" href="' + URL_MAO + '" target="_blank" rel="noopener">Instalar à mão</a></div>' +
+      '<details><summary>Detalhe técnico</summary><pre id="erro-detalhe">' + esc(o.detalhe || o.texto) + '</pre>' +
+      '<button class="botao sec" id="erro-copiar" type="button">Copiar</button></details></section>';
+  }
+  function ligarErro(o) {
+    ligar('erro-repetir', o.repetir);
+    ligar('erro-copiar', function () { copiar(document.getElementById('erro-detalhe').textContent, this); });
+  }
+  function copiar(texto, botao) {
+    function feito(ok) { botao.textContent = ok ? 'Copiado' : 'Selecione e copie à mão'; setTimeout(function () { botao.textContent = 'Copiar'; }, 2500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(texto).then(function () { feito(true); }, function () { feito(false); });
+    }
+    var t = document.createElement('textarea');
+    t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    var ok = false; try { ok = document.execCommand('copy'); } catch (x) { ok = false; }
+    t.remove(); feito(ok);
+  }
+  function mostrarErro(o, n) {
+    mostrar(erroHtml(o), '', n);
+    ligarErro(o);
+  }
+
+  /* ---------- estado e conferência ---------- */
+  /* Passo da trilha que o estado pede; 0 quando o instalador está atualizando um projeto. */
+  function passoDe(e) {
+    if (e.autorizar) return 1;
+    if (!e.apiLigada) return 2;
+    return SCRIPT ? 0 : 3;
+  }
+  /* silencioso: conferência ao voltar à aba. Não repinta se o passo não mudou e ignora falha. */
+  function consultar(silencioso) {
+    if (silencioso && emVoo) return;
+    var meu = ++seq;
+    emVoo = true;
+    if (silencioso) status('Conferindo\u2026');
+    else mostrar('<section class="cartao"><p><span class="girando" aria-hidden="true"></span>Verificando\u2026</p></section>');
+    google.script.run.withSuccessHandler(function (e) {
+      if (meu !== seq) return;
+      emVoo = false; status('');
+      ultimo = e;
+      if (silencioso && passoDe(e) === passo) return;
+      desenhar(e);
+    }).withFailureHandler(function (err) {
+      if (meu !== seq) return;
+      emVoo = false; status('');
+      if (silencioso) return;
+      var o = { etapa: 'Conferir o instalador', texto: msg(err), desfeito: 'Nada foi criado nem alterado no seu Drive.', repetir: carregar };
+      mostrarErro(o, 0);
     }).estado(SCRIPT, IMPL);
   }
+  function carregar() { consultar(false); }
+  /* AC-026: ao voltar à aba, quem espera a autorização ou a chave da API não precisa clicar. */
+  function conferir() {
+    if (passo === 1 || passo === 2) consultar(true);
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') conferir(); });
+  window.addEventListener('focus', conferir);
 
-  // Mostra só o que falta: autorizar, ligar a API ou, com tudo pronto, instalar/atualizar.
+  /* Mostra só o que falta: autorizar, ligar a API ou, com tudo pronto, instalar/atualizar. */
   function desenhar(e) {
     if (e.autorizar) return desenharAutorizar(e.autorizar);
     if (!e.apiLigada) return desenharApi();
     if (SCRIPT) return desenharAtualizar(e);
-    desenharInstalar(e);
+    if (!e.versao) return mostrarErro({ etapa: 'Consultar a versão publicada', texto: e.versaoErro || 'Não consegui consultar a versão publicada.', desfeito: 'Nada foi criado nem alterado no seu Drive.', repetir: carregar }, 3);
+    desenharNome();
   }
 
   function desenharAutorizar(url) {
     mostrar('<section class="cartao"><h2>Autorize o instalador</h2>' +
-      '<p>Na tela do Google, marque <strong>todas</strong> as permissões (ou “Selecionar tudo”) e continue. Sem elas o instalador não consegue criar nem atualizar o Finanças.</p>' +
-      '<div class="acoes"><a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Autorizar</a>' +
-      '<button class="botao sec" id="de-novo" type="button">Já autorizei</button></div></section>');
-    deNovo('de-novo');
+      '<p>Na tela do Google, marque <strong>todas</strong> as permissões (ou \u201cSelecionar tudo\u201d) e continue. Sem elas o instalador não consegue criar nem atualizar o Finanças.</p>' +
+      '<div class="acoes"><button class="botao sec" id="de-novo" type="button">Já autorizei</button></div>' +
+      '<p class="sub">Esperando você voltar\u2026 (confere sozinho quando a aba voltar)</p></section>',
+      '<a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Autorizar</a>', 1);
+    ligar('de-novo', carregar);
   }
 
   function desenharApi() {
     mostrar('<section class="cartao"><h2>Ligue a API do Apps Script</h2>' +
       '<p>Uma vez só: nas configurações do Apps Script, ligue a chave <strong>API Google Apps Script</strong>. É ela que deixa o instalador criar e atualizar o app no seu Drive.</p>' +
-      '<div class="acoes"><a class="botao" href="' + URL_CONFIG + '" target="_blank" rel="noopener">Abrir as configurações</a>' +
-      '<button class="botao sec" id="de-novo" type="button">Já liguei</button></div></section>');
-    deNovo('de-novo');
+      '<div class="acoes"><button class="botao sec" id="de-novo" type="button">Já liguei</button></div>' +
+      '<p class="sub">Esperando você voltar\u2026 (confere sozinho quando a aba voltar)</p></section>',
+      '<a class="botao" href="' + URL_CONFIG + '" target="_blank" rel="noopener">Abrir as configurações \u2197</a>', 2);
+    ligar('de-novo', carregar);
+  }
+
+  /* ---------- nome e o que será criado ---------- */
+  /* AC-027: mostra antes de instalar o que vai mudar no Drive. */
+  function painelCriar() {
+    return '<section class="cartao criar" aria-labelledby="criar-t"><h3 id="criar-t">O que será criado</h3><ul class="lista-criar">' +
+      '<li><span class="ico" aria-hidden="true">1</span><b>Uma planilha no seu Drive</b><span id="criar-nome">\u201c' + esc(nomePlanilha) + '\u201d</span></li>' +
+      '<li><span class="ico" aria-hidden="true">2</span><b>Um projeto Apps Script vinculado</b><span>o código do app, dentro dessa planilha</span></li>' +
+      '<li><span class="ico" aria-hidden="true">3</span><b>Um app da Web só seu</b><span>só você abre o endereço</span></li></ul>' +
+      '<p class="sub">Nada sai da sua conta Google. O instalador não lê seus dados nem outras planilhas.</p></section>';
+  }
+  function desenharNome() {
+    mostrar('<section class="cartao"><h2>Escolha o nome da planilha</h2>' +
+      '<p>É o nome que aparece no seu Drive. Seus dados ficam só nela.</p>' +
+      '<label for="nome">Nome da planilha</label><input id="nome" maxlength="80" value="' + esc(nomePlanilha) + '" autocomplete="off"></section>' + painelCriar(),
+      '<button class="botao" id="continuar" type="button">Continuar</button>', 3);
+    var campo = document.getElementById('nome');
+    campo.oninput = function () {
+      nomePlanilha = campo.value;
+      document.getElementById('criar-nome').textContent = '\u201c' + (campo.value.trim() || 'Finanças') + '\u201d';
+    };
+    ligar('continuar', function () { nomePlanilha = campo.value.trim() || 'Finanças'; desenharInstalar(); });
+  }
+
+  function desenharInstalar() {
+    var v = ultimo && ultimo.versao;
+    mostrar('<section class="cartao"><h2>Instale o Finanças ' + esc(v.versao) + '</h2>' +
+      '<p>Confira o que vai acontecer e toque em Instalar. Leva uns 20 segundos.</p>' +
+      '<div class="acoes"><button class="botao sec" id="voltar" type="button">Voltar ao nome</button></div></section>' + painelCriar() + '<div id="area"></div>',
+      '<button class="botao" id="instalar" type="button">Instalar o Finanças ' + esc(v.versao) + '</button>', 4);
+    ligar('voltar', desenharNome);
+    ligar('instalar', instalar);
   }
 
   function trabalhando(titulo) {
@@ -143,35 +363,22 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
       '<p class="sub"><span class="girando" aria-hidden="true"></span>Leva uns 20 segundos. Não feche esta página.</p></section>';
   }
 
-  /* ---------- instalar ---------- */
-  function desenharInstalar(e) {
-    var v = e.versao;
-    mostrar('<section class="cartao"><h2>Instale o Finanças no seu Google Drive</h2>' +
-      '<p>O instalador cria uma planilha e o app dela no <strong>seu</strong> Drive. Seus dados ficam só nessa planilha; o instalador não lê seus dados nem outras planilhas.</p>' +
-      '<label for="nome">Nome da planilha</label><input id="nome" maxlength="80" value="Finanças" autocomplete="off">' +
-      '<div class="acoes">' + (v
-        ? '<button class="botao" id="instalar" type="button">Instalar o Finanças ' + esc(v.versao) + '</button>'
-        : '<button class="botao sec" id="de-novo" type="button">Tentar de novo</button>') + '</div>' +
-      (e.versaoErro ? '<div class="erro-msg" role="alert">' + esc(e.versaoErro) + '</div>' : '') + '</section><div id="area"></div>');
-    if (v) document.getElementById('instalar').onclick = instalar;
-    else deNovo('de-novo');
-  }
-
   function instalar() {
     var botao = document.getElementById('instalar');
     botao.disabled = true;
-    trabalhando('Instalando…');
+    trabalhando('Instalando\u2026');
     google.script.run.withSuccessHandler(function (r) {
       mostrar('<section class="cartao"><h2>Pronto!</h2><p>O Finanças ' + esc(r.versao) + ' está instalado no seu Drive.</p>' +
         '<div class="acoes"><a class="botao" href="' + link(r.appUrl) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' +
         '<a class="botao sec" href="' + link(r.planilhaUrl) + '" target="_blank" rel="noopener">Abrir a planilha</a></div>' +
-        '<div class="aviso">Na primeira vez o Google pede para você autorizar o app (só a planilha dele). Ele aparece como “não verificado” porque foi criado agora, na sua conta: o desenvolvedor é você.</div>' +
-        '<p class="sub">Guarde o endereço do app nos favoritos ou adicione à tela inicial do celular. As próximas versões aparecem no próprio app, em Ajustes.</p></section>');
+        '<div class="aviso">Na primeira vez o Google pede para você autorizar o app (só a planilha dele). Ele aparece como \u201cnão verificado\u201d porque foi criado agora, na sua conta: o desenvolvedor é você.</div>' +
+        '<p class="sub">Guarde o endereço do app nos favoritos ou adicione à tela inicial do celular. As próximas versões aparecem no próprio app, em Ajustes.</p></section>', '', 4);
     }).withFailureHandler(function (e) {
-      document.getElementById('area').innerHTML = '';
-      botao.disabled = false;
-      falha(msg(e));
-    }).instalar({ nome: document.getElementById('nome').value });
+      var texto = msg(e);
+      /* o servidor já diz se a planilha foi para a lixeira; a página só repete o que ele afirmou */
+      var desfeito = /Nada ficou no seu Drive/.test(texto) ? 'A planilha criada foi para a lixeira. Nada ficou no seu Drive.' : '';
+      mostrarErro({ etapa: 'Instalar o Finanças', texto: texto, desfeito: desfeito, repetir: desenharInstalar }, 4);
+    }).instalar({ nome: nomePlanilha });
   }
 
   /* ---------- atualizar ---------- */
@@ -182,21 +389,21 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
     if (!v) {
       mostrar('<section class="cartao"><h2>Versão indisponível</h2><p>' + esc(e.versaoErro || 'Não consegui consultar a versão publicada.') + '</p>' +
         '<div class="acoes"><button class="botao" id="de-novo" type="button">Tentar de novo</button></div></section>');
-      return deNovo('de-novo');
+      return ligar('de-novo', carregar);
     }
     var impl = a.implantacoes.filter(function (d) { return d.id === IMPL; })[0] || a.implantacoes[0];
     var voltar = impl ? '<a class="botao sec" href="' + link(impl.url) + '" target="_blank" rel="noopener">Voltar ao Finanças</a>' : '';
     if (!maior(v.versao, a.versaoAtual)) {
       return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><p>Versão instalada: ' + esc(a.versaoAtual) + '.</p><div class="acoes">' + voltar + '</div></section>');
     }
-    mostrar('<section class="cartao"><h2>Nova versão disponível</h2><p>' + esc(a.versaoAtual) + ' → <strong>' + esc(v.versao) + '</strong>' + (v.data ? ' · ' + esc(v.data) : '') + '</p>' +
+    mostrar('<section class="cartao"><h2>Nova versão disponível</h2><p>' + esc(a.versaoAtual) + ' \u2192 <strong>' + esc(v.versao) + '</strong>' + (v.data ? ' \u00b7 ' + esc(v.data) : '') + '</p>' +
       (v.novidades && v.novidades.length ? '<ul class="novidades">' + v.novidades.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
       '<p class="sub">Só o código muda; os dados da planilha e o endereço do app continuam os mesmos.</p>' +
       '<div class="acoes"><button class="botao" id="atualizar" type="button">Atualizar para ' + esc(v.versao) + '</button></div></section><div id="area"></div>');
     var botao = document.getElementById('atualizar');
     botao.onclick = function () {
       botao.disabled = true;
-      trabalhando('Atualizando…');
+      trabalhando('Atualizando\u2026');
       google.script.run.withSuccessHandler(function (r) {
         if (r.jaAtual) return mostrar('<section class="cartao"><h2>Você já está na versão mais recente</h2><div class="acoes">' + voltar + '</div></section>');
         var url = r.implantacoes && r.implantacoes[0];
@@ -204,11 +411,14 @@ footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(
           '<p>Recarregue o Finanças para usar a versão nova.</p>' +
           (r.extrasMantidos && r.extrasMantidos.length ? '<p class="sub">Arquivos seus mantidos: ' + esc(r.extrasMantidos.join(', ')) + '.</p>' : '') +
           '<div class="acoes">' + (url ? '<a class="botao" href="' + link(url) + '" target="_blank" rel="noopener">Abrir o Finanças</a>' : '') + '</div>' +
-          '<p class="sub">Para voltar atrás: no editor do Apps Script, Implantar › Gerenciar implantações, escolha a versão ' + esc(r.copiaSeguranca) + '.</p></section>');
+          '<p class="sub">Para voltar atrás: no editor do Apps Script, Implantar \u203a Gerenciar implantações, escolha a versão ' + esc(r.copiaSeguranca) + '.</p></section>');
       }).withFailureHandler(function (err) {
         document.getElementById('area').innerHTML = '';
         botao.disabled = false;
-        falha(msg(err));
+        var antigo = raiz.querySelector('.erro-msg'); if (antigo) antigo.remove();
+        var d = document.createElement('div');
+        d.className = 'erro-msg'; d.setAttribute('role', 'alert'); d.textContent = msg(err);
+        raiz.appendChild(d);
       }).atualizar(SCRIPT, IMPL, v.versao);
     };
   }

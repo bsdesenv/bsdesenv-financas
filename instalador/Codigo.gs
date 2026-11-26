@@ -118,7 +118,9 @@ function prepararInstalacao() {
 function criarPlanilha(nome) {
   var limpo = String(nome || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Finanças';
   exigirPreparo_();
-  var p = api_('POST', API_DRIVE + '?fields=id,webViewLink', { name: limpo, mimeType: 'application/vnd.google-apps.spreadsheet' });
+  var p = api_('POST', API_DRIVE + '?fields=id,webViewLink', {
+    name: limpo, mimeType: 'application/vnd.google-apps.spreadsheet', appProperties: { financasInstalador: '1' },
+  });
   return { planilhaId: p.id, planilhaUrl: p.webViewLink, nome: limpo };
 }
 
@@ -144,6 +146,7 @@ function publicarApp(planilhaId, scriptId, versao) {
   exigirVersao_(versao, true);
   try {
     exigirPreparo_();
+    exigirFinancas_(scriptId);
     var pub = conferirVersao_(versao);
     var v = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Finanças ' + pub.versao });
     var d = api_('POST', 'projects/' + scriptId + '/deployments', {
@@ -158,7 +161,7 @@ function publicarApp(planilhaId, scriptId, versao) {
   }
 }
 
-/** Manda a planilha da instalação para a lixeira (a pessoa desistiu ou a instalação falhou). */
+/** Manda a planilha da instalação para a lixeira (a pessoa desistiu ou a instalação falhou). Só a recém-criada por este instalador. */
 function desfazerInstalacao(planilhaId) {
   exigirIdPlanilha_(planilhaId);
   exigirPreparo_();
@@ -177,8 +180,22 @@ function falhaInstalacao_(err, planilhaId) {
   return new Error('A instalação não terminou: ' + err.message + sufixo);
 }
 
+/*
+ * Decisão: o drive.file alcança também a planilha de dados de uma instalação anterior (criada pelo
+ * mesmo instalador). Por isso só vai à lixeira o arquivo com o marcador appProperties gravado em
+ * criarPlanilha E criado há no máximo 60 minutos. Não há como saber, sem escopo novo, se já existe
+ * projeto vinculado, então essa terceira conferência não entra.
+ */
+var JANELA_LIXEIRA_MS = 60 * 60 * 1000;
+
 function lixeira_(planilhaId) {
-  try { api_('PATCH', API_DRIVE + '/' + planilhaId, { trashed: true }); return true; } catch (e) { return false; }
+  try {
+    var f = api_('GET', API_DRIVE + '/' + planilhaId + '?fields=createdTime,appProperties');
+    var idade = Date.now() - Date.parse(f.createdTime || '');
+    if (!f.appProperties || f.appProperties.financasInstalador !== '1' || !(idade <= JANELA_LIXEIRA_MS)) return false;
+    api_('PATCH', API_DRIVE + '/' + planilhaId, { trashed: true });
+    return true;
+  } catch (e) { return false; }
 }
 
 function planilhaUrl_(planilhaId) {
@@ -257,6 +274,11 @@ function publicarAtualizacao(scriptId, implantacaoId, versaoNova) {
   var alvo = exigirFinancas_(scriptId);
   var pub = conferirVersao_(versaoNova);
   if (alvo.versaoAtual !== pub.versao) throw new Error('O código do projeto não está na versão ' + pub.versao + '; nada foi publicado.');
+  // A versão declarada não basta: cada arquivo do manifesto tem de ter o mesmo conteúdo do publicado.
+  var intactos = pub.arquivos.every(function (a) {
+    return alvo.arquivos.some(function (f) { return f.name === a.nome && f.type === a.tipo && sha256Hex_(f.source || '') === a.sha256; });
+  });
+  if (!intactos) throw new Error('O código do projeto não confere com a versão ' + pub.versao + '; nada foi publicado. Tente atualizar de novo.');
   var escolhidas = escolherImplantacoes_(scriptId, implantacaoId);
   var v = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Finanças ' + pub.versao });
   return { versaoNova: pub.versao, implantacoes: apontarImplantacoes_(scriptId, escolhidas, v.versionNumber, pub.versao) };

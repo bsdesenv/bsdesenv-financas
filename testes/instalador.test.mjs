@@ -247,7 +247,7 @@ test('instalar: caminho feliz, na ordem e com os corpos certos', () => {
     `POST projects/${r.scriptId}/versions`,
     `POST projects/${r.scriptId}/deployments`,
   ]);
-  assert.deepEqual(g[0].corpo, { name: 'Minhas contas', mimeType: 'application/vnd.google-apps.spreadsheet' });
+  assert.deepEqual(g[0].corpo, { name: 'Minhas contas', mimeType: 'application/vnd.google-apps.spreadsheet', appProperties: { financasInstalador: '1' } });
   assert.deepEqual(g[1].corpo, { title: 'Finanças', parentId: env.planilhas[0].id });
   assert.deepEqual(g[2].corpo.files.map((f) => f.name), ['Codigo', 'Index', 'Estilos', 'App', 'appsscript']);
   assert.deepEqual(g[3].corpo, { description: 'Finanças 2.7.0' });
@@ -267,6 +267,11 @@ test('instalar: nome vazio vira "Finanças" e nome longo é cortado em 80', () =
   assert.equal(env.planilhas[1].name.length, 80);
 });
 
+// Planilha como o criarPlanilha a deixa: com o marcador e recém-criada (ou `extra` por cima).
+const planilhaDaInstalacao = (id, name, extra = {}) => ({
+  id, name, createdTime: new Date().toISOString(), appProperties: { financasInstalador: '1' }, ...extra,
+});
+const FINANCAS = "// bsdesenv-financas\nvar VERSAO_APP = '2.6.2';\n";
 const pedidoCriarProjeto = (r) => r.metodo === 'POST' && r.url === 'https://script.googleapis.com/v1/projects';
 const patches = (env) => env.chamadas.filter((x) => x.metodo === 'PATCH');
 
@@ -440,7 +445,7 @@ test('etapas: criarPlanilha limpa o nome e devolve id, url e nome', () => {
   const env = ambiente();
   const r = c(env, 'criarPlanilha', '  Minhas   contas ');
   assert.deepEqual(r, { planilhaId: env.planilhas[0].id, planilhaUrl: `https://docs.google.com/spreadsheets/d/${env.planilhas[0].id}/edit`, nome: 'Minhas contas' });
-  assert.deepEqual(env.escritas().map((x) => x.corpo), [{ name: 'Minhas contas', mimeType: 'application/vnd.google-apps.spreadsheet' }]);
+  assert.deepEqual(env.escritas().map((x) => x.corpo), [{ name: 'Minhas contas', mimeType: 'application/vnd.google-apps.spreadsheet', appProperties: { financasInstalador: '1' } }]);
   assert.equal(c(env, 'criarPlanilha', '').nome, 'Finanças');
 });
 
@@ -468,7 +473,7 @@ test('etapas: criarProjeto valida argumentos antes de qualquer chamada', () => {
 
 test('etapas: criarProjeto recusa se saiu outra versão ou o hash não bate, e limpa a planilha', () => {
   const env = ambiente();
-  env.planilhas.push({ id: PLANILHA, name: 'X' });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'X'));
   assert.throws(() => env.ctx.criarProjeto(PLANILHA, '2.6.0'), /A instalação não terminou: Saiu outra versão.*Nada ficou no seu Drive\./);
   assert.equal(env.planilhas[0].trashed, true);
   env.planilhas[0].trashed = false;
@@ -479,7 +484,7 @@ test('etapas: criarProjeto recusa se saiu outra versão ou o hash não bate, e l
 
 test('etapas: criarProjeto com falha manda a planilha para a lixeira', () => {
   const env = ambiente();
-  env.planilhas.push({ id: PLANILHA, name: 'Minhas contas' });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'Minhas contas'));
   env.falhas.push({ casar: pedidoCriarProjeto, codigo: 500, vezes: 1 });
   assert.throws(() => env.ctx.criarProjeto(PLANILHA, '2.7.0'), (e) => {
     assert.equal(e.message, 'A instalação não terminou: O Google está ocupado; tente de novo em instantes. Nada ficou no seu Drive.');
@@ -492,7 +497,7 @@ test('etapas: criarProjeto com falha manda a planilha para a lixeira', () => {
 
 test('etapas: criarProjeto com falha e lixeira falhando cita o nome da planilha', () => {
   const env = ambiente();
-  env.planilhas.push({ id: PLANILHA, name: 'Minhas contas' });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'Minhas contas'));
   env.falhas.push({ casar: pedidoCriarProjeto, codigo: 500, vezes: 1 });
   env.falhas.push({ casar: (r) => r.metodo === 'PATCH', codigo: 500, vezes: -1 });
   assert.throws(() => env.ctx.criarProjeto(PLANILHA, '2.7.0'), /Apague a planilha "Minhas contas" que ficou no seu Drive e tente de novo\.$/);
@@ -501,7 +506,7 @@ test('etapas: criarProjeto com falha e lixeira falhando cita o nome da planilha'
 
 test('etapas: publicarApp cria a versão e a implantação e devolve os endereços', () => {
   const env = ambiente();
-  const p = env.projeto(ID, { arquivos: [{ name: 'Codigo', type: 'SERVER_JS', source: 'x' }] });
+  const p = env.projeto(ID, { arquivos: [{ name: 'Codigo', type: 'SERVER_JS', source: FINANCAS }] });
   const r = c(env, 'publicarApp', PLANILHA, ID, '2.7.0');
   assert.deepEqual(nomes(env), [`POST projects/${ID}/versions`, `POST projects/${ID}/deployments`]);
   const g = env.escritas();
@@ -517,8 +522,8 @@ test('etapas: publicarApp cria a versão e a implantação e devolve os endereç
 
 test('etapas: publicarApp com falha manda a planilha para a lixeira', () => {
   const env = ambiente();
-  env.projeto(ID, {});
-  env.planilhas.push({ id: PLANILHA, name: 'X' });
+  env.projeto(ID, { arquivos: [{ name: 'Codigo', type: 'SERVER_JS', source: FINANCAS }] });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'X'));
   env.falhas.push({ casar: (r) => r.url.endsWith('/deployments') && r.metodo === 'POST', codigo: 500, vezes: 1 });
   assert.throws(() => env.ctx.publicarApp(PLANILHA, ID, '2.7.0'), /^Error: A instalação não terminou: O Google está ocupado; tente de novo em instantes\. Nada ficou no seu Drive\.$/);
   assert.equal(env.planilhas[0].trashed, true);
@@ -527,7 +532,7 @@ test('etapas: publicarApp com falha manda a planilha para a lixeira', () => {
 
 test('etapas: desfazerInstalacao manda a planilha para a lixeira e informa se limpou', () => {
   const env = ambiente();
-  env.planilhas.push({ id: PLANILHA, name: 'X' });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'X'));
   assert.deepEqual(c(env, 'desfazerInstalacao', PLANILHA), { limpou: true });
   assert.equal(patches(env)[0].url, `https://www.googleapis.com/drive/v3/files/${PLANILHA}`);
   assert.deepEqual(patches(env)[0].corpo, { trashed: true });
@@ -535,6 +540,36 @@ test('etapas: desfazerInstalacao manda a planilha para a lixeira e informa se li
   env.falhas.push({ casar: (r) => r.metodo === 'PATCH', codigo: 500, vezes: -1 });
   assert.deepEqual(c(env, 'desfazerInstalacao', PLANILHA), { limpou: false });
   assert.throws(() => env.ctx.desfazerInstalacao('curto'), /planilha inválido/);
+});
+
+test('etapas: desfazerInstalacao recusa planilha sem marcador e planilha antiga', () => {
+  const env = ambiente();
+  env.planilhas.push({ id: PLANILHA, name: 'Dados antigos', createdTime: new Date().toISOString() });
+  assert.deepEqual(c(env, 'desfazerInstalacao', PLANILHA), { limpou: false });
+  env.planilhas[0].appProperties = { financasInstalador: '1' };
+  env.planilhas[0].createdTime = new Date(Date.now() - 61 * 60 * 1000).toISOString();
+  assert.deepEqual(c(env, 'desfazerInstalacao', PLANILHA), { limpou: false });
+  assert.equal(patches(env).length, 0);
+  assert.ok(!env.planilhas[0].trashed);
+  env.planilhas[0].createdTime = new Date(Date.now() - 59 * 60 * 1000).toISOString();
+  assert.deepEqual(c(env, 'desfazerInstalacao', PLANILHA), { limpou: true });
+});
+
+test('etapas: criarProjeto com falha não manda à lixeira planilha sem marcador', () => {
+  const env = ambiente();
+  env.planilhas.push({ id: PLANILHA, name: 'Dados antigos', createdTime: new Date().toISOString() });
+  env.falhas.push({ casar: pedidoCriarProjeto, codigo: 500, vezes: 1 });
+  assert.throws(() => env.ctx.criarProjeto(PLANILHA, '2.7.0'), /Apague a planilha "Dados antigos" que ficou no seu Drive e tente de novo\.$/);
+  assert.equal(patches(env).length, 0);
+  assert.ok(!env.planilhas[0].trashed);
+});
+
+test('etapas: publicarApp recusa projeto que não é o Finanças, sem criar versão', () => {
+  const env = ambiente();
+  env.projeto(ID, { arquivos: [{ name: 'Codigo', type: 'SERVER_JS', source: 'x' }] });
+  env.planilhas.push(planilhaDaInstalacao(PLANILHA, 'X'));
+  assert.throws(() => env.ctx.publicarApp(PLANILHA, ID, '2.7.0'), /não parece ser o Finanças; nada foi alterado/);
+  assert.ok(!env.escritas().some((x) => x.url.includes('/versions') || x.url.includes('/deployments')));
 });
 
 /* ---------------- etapas da atualização ---------------- */
@@ -575,6 +610,21 @@ test('etapas: guardarCopia, trocarCodigo e publicarAtualizacao escrevem uma cois
   assert.deepEqual(c(env, 'publicarAtualizacao', ID, IMPL_B, '2.7.0'), { versaoNova: '2.7.0', implantacoes: ['https://script.google.com/macros/s/BBB/exec'] });
   assert.equal(p.deployments.find((d) => d.deploymentId === IMPL_B).deploymentConfig.versionNumber, 2);
   assert.equal(p.deployments.find((d) => d.deploymentId === IMPL_A).deploymentConfig.versionNumber, 3);
+});
+
+test('etapas: publicarAtualizacao recusa arquivo do manifesto editado e aceita só extras', () => {
+  const env = ambiente();
+  const p = instalacao(env);
+  env.ctx.trocarCodigo(ID, '2.7.0');
+  p.files.push({ name: 'Outro', type: 'HTML', source: 'mais um extra' });
+  p.files.find((f) => f.name === 'Extra').source = 'extra editado';
+  assert.deepEqual(c(env, 'publicarAtualizacao', ID, IMPL_B, '2.7.0'), { versaoNova: '2.7.0', implantacoes: ['https://script.google.com/macros/s/BBB/exec'] });
+  p.files.find((f) => f.name === 'Index').source += '<script>editado</script>';
+  const escritas = env.escritas().length;
+  assert.throws(() => env.ctx.publicarAtualizacao(ID, IMPL_B, '2.7.0'), /^Error: O código do projeto não confere com a versão 2\.7\.0; nada foi publicado\. Tente atualizar de novo\.$/);
+  assert.equal(env.escritas().length, escritas);
+  p.files = p.files.filter((f) => f.name !== 'Index');
+  assert.throws(() => env.ctx.publicarAtualizacao(ID, IMPL_B, '2.7.0'), /não confere com a versão 2\.7\.0/);
 });
 
 test('etapas: trocarCodigo confere o hash logo antes do PUT e a versão recebida', () => {

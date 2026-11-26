@@ -73,10 +73,10 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
       }
       if (metodo === 'GET') {
         const pl = env.planilhas.find((x) => x.id === url.split('?')[0].split('/').pop());
-        return pl ? resp(200, { name: pl.name }) : resp(404, { error: { message: 'File not found' } });
+        return pl ? resp(200, { name: pl.name, createdTime: pl.createdTime, appProperties: pl.appProperties }) : resp(404, { error: { message: 'File not found' } });
       }
       const id = 'PLANILHA' + String(++seq).padStart(14, '0');
-      env.planilhas.push({ id, ...corpo });
+      env.planilhas.push({ id, createdTime: new Date().toISOString(), ...corpo });
       return resp(200, { id, webViewLink: `https://docs.google.com/spreadsheets/d/${id}/edit` });
     }
     // Chave "API Google Apps Script" desligada: toda chamada ao script.googleapis.com volta o 403 do usersettings.
@@ -162,7 +162,7 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
 
   const contexto = {
     console: { error() {}, log() {} },
-    JSON, Array, Object, String, Number, RegExp, Error, encodeURIComponent,
+    JSON, Array, Object, String, Number, RegExp, Error, Date, encodeURIComponent,
     UrlFetchApp: { fetch: (url, opcoes) => rotear({ ...opcoes, url }), fetchAll: (reqs) => reqs.map(rotear) },
     ScriptApp: {
       getOAuthToken: () => 'token-falso',

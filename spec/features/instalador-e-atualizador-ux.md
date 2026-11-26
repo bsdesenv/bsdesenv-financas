@@ -153,7 +153,7 @@ Como `pessoa` que ainda não instalou, quero saber o que vai aparecer antes de c
 | `publicarAtualizacao(scriptId, implantacaoId, versaoNova)` | `{ versaoNova, implantacoes }` | versão + implantações apontadas |
 | `voltarVersao(scriptId, implantacaoId, versaoNumero)` | `{ versaoAtual, implantacoes }` | conteúdo da cópia de volta + implantações apontadas para ela |
 
-`instalar(opcoes)` e `atualizar(...)` continuam, agora encadeando as etapas, com o mesmo retorno. `estado()` ganha `alvo.copia = { numero, descricao }` (a versão mais recente com descrição "Cópia antes de atualizar…", ou `null`). Toda escrita de código continua precedida da conferência SHA-256 da mesma versão. `doGet` passa a incluir `instalador/Qr.html` e o favicon do app.
+`instalar(opcoes)` e `atualizar(...)` continuam, agora encadeando as etapas, com o mesmo retorno. `estado()` ganha `alvo.copia = { numero, descricao }` (a versão mais recente com descrição "Cópia antes de atualizar…", ou `null`). Toda escrita de código baixado continua precedida da conferência SHA-256 da mesma versão, e `publicarAtualizacao` confere de novo o hash do código do projeto antes de publicar. A exceção é `voltarVersao`: ela não baixa nada, só repõe a cópia que o próprio projeto guardou antes de atualizar. `doGet` passa a incluir `instalador/Qr.html` e o favicon do app.
 
 **Contrato `ContratoQr` (`instalador/Qr.html`).** Um `<script>` que define `window.qrMatriz(texto)` → `boolean[][]` (byte mode, correção M, versão mínima que caiba). Adaptado da biblioteca qrcodegen de Project Nayuki (MIT), com a licença no cabeçalho. Sem barra dupla fora de comentário (`testes/htmlservice.test.mjs`).
 

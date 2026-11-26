@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.4.0 — 2026-11-26
+
+### Novo
+- **Liberar a sobra.** Quando uma conta vem mais barata ou você não vai gastar mais numa categoria, **Liberar** devolve ao disponível o que faltava do plano. O mês fecha no que você gastou, e o plano continua gravado. O aviso tem **Desfazer**, e **Voltar a reservar** desfaz pela categoria.
+- **Liberar direto na composição.** Em **Ver composição**, cada linha de **Contas a pagar** e **Ainda nos planos** tem o botão **Liberar**, e **Liberar todos** libera os planos de uma vez. Tocar no nome abre a categoria.
+- **Revisar sobras.** Nos últimos 7 dias do mês, se ainda houver plano reservado, o quadro do disponível mostra **Revisar sobras**, que abre a composição já em **Ainda nos planos**.
+
+### Mudou
+- **Um nome só.** **Quitar** e **Encerrar no mês** viraram **Liberar**. Na renda, continua **Não vem mais**.
+- **Sem teclado ao abrir uma categoria no celular.** O painel da categoria abre sem pôr o cursor no valor, para o teclado não cobrir o resumo.
+- **README mais direto.** A página do projeto mostra o que o app faz e como começar.
+
 ## 3.3.0 — 2026-11-26
 
 ### Mudou

@@ -1018,6 +1018,9 @@ const copiasFalsas = (p) => p.evaluateOnNewDocument(() => {
 const planilhaIgual = () => amb.linhas().map((l) => l.join('|')).join('\n');
 const estadoAtu = (p, estado) => p.waitForFunction((e) => S.atualizacao && S.atualizacao.estado === e && !S.verificandoAtu, { timeout: 10000 }, estado);
 const verificarJa = (p) => p.evaluate(() => verificarAtualizacao({ forcar: true }));
+/** "Outras formas" vem recolhido: abre o bloco (como a pessoa faria, pelo resumo) antes de usar "Atualizar à mão…" ou "Verificar agora". */
+const abrirOutras = async (p) => { if (!(await p.$eval('#atu-outras', (e) => e.open))) { await p.click('#atu-outras summary'); await sleep(100); } };
+const atualizarAMao = async (p) => { await abrirOutras(p); await p.click('[data-acao="atualizar"]'); await folhaAberta(p); };
 const pastaAtu = path.join(SAIDA, 'atualizacao');
 fs.mkdirSync(pastaAtu, { recursive: true });
 
@@ -1039,7 +1042,7 @@ await caso('atualização: versão igual mostra “versão mais recente” e nen
   await pronto(p);
   await irPara(p, 'ajustes', 'atualizacoes'); await estadoAtu(p, 'atual');
   const txt = await p.$eval('#atu-estado', (e) => e.textContent);
-  assert.match(txt, /Você está na versão mais recente · verificado às 12:\d\d/);
+  assert.match(txt, /Atualizado\s*verificado às 12:\d\d/);
   assert.equal(await p.$eval('#atu-estado', (e) => e.getAttribute('aria-live')), 'polite');
   assert.equal(await p.$('.ponto-novo'), null);
   assert.equal(await p.$('[data-acao="atualizar"]'), null);
@@ -1066,7 +1069,10 @@ await caso('atualização: versão nova mostra ponto, cartão, folha com os pass
   const inst = await p.$eval('a[data-foco="atu-instalador"]', (e) => ({ href: e.href, alvo: e.target, texto: e.textContent.trim() }));
   assert.match(inst.href, /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec\?script=ID_DO_PROJETO_DE_TESTE&implantacao=ID_DA_IMPLANTACAO_DE_TESTE$/);
   assert.equal(inst.alvo, '_blank');
-  assert.equal(inst.texto, 'Atualizar agora');
+  assert.equal(inst.texto, `Atualizar para ${VERSAO_NOVA}`);
+  assert.equal(await p.$eval('#atu-outras', (e) => e.open), false, 'Outras formas começa recolhido');
+  assert.equal(await p.$eval('.atu-sobre', (e) => e.open), false, 'Sobre e privacidade começa recolhido');
+  await abrirOutras(p);
   assert.equal(await p.$eval('[data-acao="atualizar"]', (e) => e.textContent.trim()), 'Atualizar à mão…');
   await p.evaluate(() => document.querySelector('#atu-estado').closest('.cartao').scrollIntoView({ block: 'center' })); await sleep(150);
   await p.screenshot({ path: path.join(pastaAtu, 'computador-claro-cartao.png') });
@@ -1101,14 +1107,14 @@ await caso('atualização: plano B de cópia (execCommand) e, sem ele, o código
   };
   const p = await abrir(amb, PC, url, { antes: ambiente(true) });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await atualizarAMao(p);
   await p.waitForSelector('.atu-arq'); await p.click('[data-f="copiar"][data-i="0"]');
   await p.waitForFunction(() => window.__copiado.length === 1);
   assert.equal(await p.evaluate(() => window.__copiado[0]), ARQ_FALSOS[0].conteudo);
   assert.equal(await p.$eval('[data-f="copiar"][data-i="0"]', (e) => e.textContent), 'Copiado ✓');
   const q = await abrir(amb, PC, url, { antes: ambiente(false) });
   await pronto(q); await verificarJa(q); await estadoAtu(q, 'nova');
-  await irPara(q, 'ajustes', 'atualizacoes'); await q.click('[data-acao="atualizar"]'); await folhaAberta(q);
+  await irPara(q, 'ajustes', 'atualizacoes'); await atualizarAMao(q);
   await q.waitForSelector('.atu-arq'); await q.click('[data-f="copiar"][data-i="1"]');
   await q.waitForSelector('textarea[readonly]');
   assert.equal(await q.$eval('textarea[readonly]', (t) => t.value), ARQ_FALSOS[1].conteudo);
@@ -1120,7 +1126,7 @@ await caso('atualização: plano B de cópia (execCommand) e, sem ele, o código
 await caso('atualização: hash que não confere mostra o erro e não copia nada', async () => {
   const p = await abrir(amb, PC, url, { antes: async (pg) => { pg.github.resposta = githubFalso({ versao: VERSAO_NOVA, adulterar: 'src/Index.html' }); await copiasFalsas(pg); } });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await atualizarAMao(p);
   await p.waitForSelector('.atu-arq'); await p.click('[data-f="copiar"][data-i="1"]');
   await p.waitForSelector('.atu-erro');
   assert.equal(await p.$eval('.atu-erro', (e) => e.textContent), 'O arquivo baixado não confere com a versão publicada. Tente de novo mais tarde.');
@@ -1137,7 +1143,7 @@ await caso('atualização: tag ainda não publicada mostra a mensagem de espera'
     pg.github.resposta = (u) => (u.includes('/v' + VERSAO_NOVA + '/') || u.includes('@v' + VERSAO_NOVA + '/') ? { status: 404, body: '404' } : base(u));
   } });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await atualizarAMao(p);
   await p.waitForSelector('.atu-erro');
   assert.equal(await p.$eval('.atu-erro', (e) => e.textContent), `A versão ${VERSAO_NOVA} ainda está sendo publicada. Tente de novo em alguns minutos.`);
 });
@@ -1184,6 +1190,7 @@ await caso('atualização: celular (390 px) sem transbordo no cartão e na folha
   const alturas = await p.$$eval('#atu-acoes .botao, .interruptor', (l) => l.map((e) => e.getBoundingClientRect().height));
   assert.ok(alturas.every((h) => h >= 43.5), 'alvos de 44 px: ' + alturas);
   await p.screenshot({ path: path.join(pastaAtu, 'celular-escuro-cartao.png') });
+  await p.tap('#atu-outras summary'); await sleep(100);
   await p.tap('[data-acao="atualizar"]'); await folhaAberta(p);
   await p.waitForFunction(() => document.querySelectorAll('.atu-arq').length === 5);
   r = await sobra(p);
@@ -1195,6 +1202,131 @@ await caso('atualização: celular (390 px) sem transbordo no cartão e na folha
   await p.screenshot({ path: path.join(pastaAtu, 'celular-escuro-folha.png') });
   r = await sobra(p);
   assert.ok(r.pagina <= 0 && r.escopo <= 0 && !r.fora.length, 'folha após copiar: ' + JSON.stringify(r));
+});
+
+/* ---------- Atualiza: faixa de versão nova, app percebe a atualização, "O que mudou", folha à mão (T-019) ---------- */
+const chaveLS = (k) => `bf:arquivo:${new URL(url).pathname}:${k}`;
+const MAIOR_NOVA = `${maiorInst + 2}.0.0`;
+const githubNova = (versao = VERSAO_NOVA) => async (pg) => { pg.github.resposta = githubFalso({ versao }); await copiasFalsas(pg); };
+/** Servidor com versaoServidor controlável: sem `versaoServida` devolve a real; conta as consultas. */
+function servidorComVersao() {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const original = a.ponte;
+  a.consultas = 0; a.versaoServida = null;
+  a.ponte = async (fn, args) => {
+    if (fn === 'versaoServidor') { a.consultas++; await sleep(25); if (a.versaoServida) return a.versaoServida; }
+    return original(fn, args);
+  };
+  return a;
+}
+const ficarNoInicio = async (p) => { await irPara(p, 'ajustes'); await irPara(p, 'inicio'); await sleep(150); };
+
+await caso('Atualiza: faixa na Visão geral aparece, fecha, não volta ao recarregar e volta para uma versão maior', async () => {
+  const ctx = await browser.createBrowserContext();
+  const p = await abrir(amb, PC, url, { contexto: ctx, antes: githubNova() });
+  await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
+  await p.waitForSelector('.faixa-versao');
+  assert.equal(await p.$eval('.faixa-versao p', (e) => e.textContent.replace(/\s+/g, ' ').trim()), `Versão ${VERSAO_NOVA} disponível · Ver novidades`);
+  assert.equal(await p.$eval('.faixa-versao [data-acao="faixa-versao-fechar"]', (e) => e.getAttribute('aria-label')), `Fechar o aviso da versão ${VERSAO_NOVA}`);
+  await p.click('.faixa-versao [data-foco="faixa-versao-ver"]');
+  await p.waitForSelector('#atu-estado');
+  await ficarNoInicio(p);
+  await p.click('[data-acao="faixa-versao-fechar"]');
+  await p.waitForFunction(() => !document.querySelector('.faixa-versao'));
+  assert.equal(await p.evaluate((k) => localStorage.getItem(k), chaveLS('versao-fechada')), JSON.stringify(VERSAO_NOVA), 'gravou a versão fechada');
+  await p.reload({ waitUntil: 'domcontentloaded' }); await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
+  await ficarNoInicio(p);
+  assert.equal(await p.$('.faixa-versao'), null, 'recarregar não mostra de novo');
+  assert.ok(await p.$('.lat-item[data-tela="ajustes"] .ponto-novo'), 'o ponto em Ajustes continua (a nova versão segue disponível)');
+  p.github.resposta = githubFalso({ versao: MAIOR_NOVA });
+  await verificarJa(p); await ficarNoInicio(p);
+  await p.waitForSelector('.faixa-versao');
+  assert.match(await p.$eval('.faixa-versao p', (e) => e.textContent), new RegExp(`Versão ${MAIOR_NOVA.replace(/\./g, '\\.')} disponível`));
+});
+
+await caso('Atualiza: sem versão nova não há faixa na Visão geral', async () => {
+  const p = await abrir(amb, PC, url, { antes: async (pg) => { pg.github.resposta = githubFalso({ versao: instalada }); } });
+  await pronto(p); await verificarJa(p); await estadoAtu(p, 'atual'); await ficarNoInicio(p);
+  assert.equal(await p.$('.faixa-versao'), null);
+});
+
+await caso('Atualiza: ao voltar à aba depois de “Atualizar para X” o app avisa “Atualizado para X” com Recarregar', async () => {
+  const a = servidorComVersao();
+  const u = montarPagina(a, 'atu-em-curso');
+  const volta = (p) => p.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')); });
+  const p = await abrir(a, PC, u, { antes: githubNova() });
+  await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
+  await volta(p); await sleep(300);
+  assert.equal(a.consultas, 0, 'sem clicar em Atualizar, voltar à aba não consulta o servidor');
+  await irPara(p, 'ajustes', 'atualizacoes');
+  // O link abre outra aba (aqui, impedida): só interessa o clique que marca a atualização em curso.
+  await p.$eval('a[data-foco="atu-instalador"]', (e) => e.addEventListener('click', (ev) => ev.preventDefault()));
+  await p.click('a[data-foco="atu-instalador"]');
+  assert.equal(await p.evaluate(() => Boolean(S.atuEmCurso)), true, 'atualização em curso marcada');
+  await volta(p); await esperar(() => a.consultas === 1);
+  await sleep(200);
+  assert.equal(await p.$('.aviso'), null, 'servidor ainda na versão antiga: nenhum aviso');
+  await volta(p); await sleep(300);
+  assert.equal(a.consultas, 1, 'no máximo uma consulta a cada 10 s');
+  a.versaoServida = VERSAO_NOVA;
+  await p.evaluate(() => { S.atuEmCurso.ultima = 0; });
+  await volta(p);
+  await p.waitForSelector('.aviso');
+  assert.equal(await p.$eval('.aviso .aviso-txt', (e) => e.textContent), `Atualizado para ${VERSAO_NOVA}`);
+  assert.equal(await p.$eval('.aviso .aviso-acao', (e) => e.textContent), 'Recarregar');
+  assert.equal(a.consultas, 2);
+  assert.equal(await p.evaluate(() => S.atuEmCurso), null, 'a atualização em curso termina');
+  await sleep(300);
+  assert.ok(await p.$('.aviso .aviso-acao'), 'aviso fixo: segue na tela');
+});
+
+await caso('Atualiza: “O que mudou” abre uma vez quando a versão vista é menor; navegador novo só grava', async () => {
+  const ctx = await browser.createBrowserContext();
+  const p = await abrir(amb, PC, url, { contexto: ctx, antes: async (pg) => {
+    pg.github.resposta = githubFalso({ versao: instalada });
+    await pg.evaluateOnNewDocument((k) => { if (localStorage.getItem(k) === null) localStorage.setItem(k, JSON.stringify('1.0.0')); }, chaveLS('versao-vista'));
+  } });
+  await pronto(p); await folhaAberta(p);
+  assert.equal(await p.$eval('.folha h2', (e) => e.textContent), `O que mudou na ${instalada}`);
+  assert.equal(await p.$eval('.folha a.link', (e) => e.href), 'https://github.com/bsdesenv/bsdesenv-financas/blob/main/CHANGELOG.md');
+  assert.equal(await p.evaluate((k) => localStorage.getItem(k), chaveLS('versao-vista')), JSON.stringify(instalada), 'grava a versão vista ao abrir');
+  await p.click('.folha [data-f="fechar"]'); await semFolha(p);
+  await p.reload({ waitUntil: 'domcontentloaded' }); await pronto(p); await sleep(500);
+  assert.equal(await p.$('.folha'), null, 'recarregar não mostra de novo');
+  const q = await abrir(amb, PC, url);
+  await pronto(q); await sleep(500);
+  assert.equal(await q.$('.folha'), null, 'navegador sem versão vista: não abre');
+  assert.equal(await q.evaluate((k) => localStorage.getItem(k), chaveLS('versao-vista')), JSON.stringify(instalada), 'só grava a versão atual');
+});
+
+await caso('Atualiza: folha à mão no celular avisa que precisa de computador, copia o link do editor e conta os arquivos', async () => {
+  const p = await abrir(amb, CEL, url, { tema: 'light', antes: githubNova() });
+  await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
+  assert.equal(await p.evaluate(() => matchMedia('(pointer: coarse)').matches), true, 'celular emulado é de toque');
+  await irPara(p, 'ajustes', 'atualizacoes');
+  await p.tap('#atu-outras summary'); await sleep(100);
+  await p.tap('[data-acao="atualizar"]'); await folhaAberta(p);
+  await p.waitForFunction(() => document.querySelectorAll('.atu-arq').length === 5);
+  assert.match(await p.$eval('.atu-aviso', (e) => e.textContent), /Precisa de um computador/);
+  assert.equal(await p.$eval('.atu-contador', (e) => e.textContent), '0 de 5 copiados');
+  await p.tap('[data-f="copiar-editor"]');
+  await p.waitForFunction(() => window.__copiado.length === 1);
+  assert.equal(await p.evaluate(() => window.__copiado[0]), 'https://script.google.com/home/projects/ID_DO_PROJETO_DE_TESTE/edit');
+  await p.tap('[data-f="copiar"][data-i="0"]');
+  await p.waitForFunction(() => window.__copiado.length === 2);
+  assert.equal(await p.$eval('.atu-contador', (e) => e.textContent), '1 de 5 copiados');
+});
+
+await caso('Atualiza: folha à mão no computador não tem o aviso de celular e mostra o contador', async () => {
+  const p = await abrir(amb, PC, url, { antes: githubNova() });
+  await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
+  await irPara(p, 'ajustes', 'atualizacoes'); await atualizarAMao(p);
+  await p.waitForFunction(() => document.querySelectorAll('.atu-arq').length === 5);
+  assert.equal(await p.$('.atu-aviso'), null, 'sem aviso no computador');
+  assert.equal(await p.$eval('.atu-contador', (e) => e.textContent), '0 de 5 copiados');
+  await p.click('[data-f="copiar"][data-i="0"]');
+  await p.waitForFunction(() => document.querySelectorAll('.atu-arq.feito').length === 1);
+  assert.equal(await p.$eval('.atu-contador', (e) => e.textContent), '1 de 5 copiados');
 });
 
 /* ---------- 2.8.0: quitar, encerrar, estorno, lançamento rápido, valores ---------- */

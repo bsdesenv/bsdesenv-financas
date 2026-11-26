@@ -117,7 +117,7 @@ for (const [i, s] of slides.entries()) {
   const clip = join(CLIPES, `clip-${String(i + 1).padStart(3, '0')}.mp4`)
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-loop', '1', '-i', png, '-i', mp3,
     '-t', s.dur.toFixed(3), '-r', '30', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
-    '-af', 'apad=pad_dur=0.3', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2', clip], { stdio: 'inherit' })
+    '-af', 'apad=pad_dur=0.3,volume=3.2dB', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2', clip], { stdio: 'inherit' })
   s.clip = clip
   console.log(`${s.id} ${s.dur.toFixed(2)}s ${s.texto.slice(0, 52)}`)
 }

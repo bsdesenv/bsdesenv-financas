@@ -47,6 +47,12 @@ A página `docs/index.html` (Antes de começar) está no repositório, mas só v
 
 ---
 
+## Achados de tela (gravação dos vídeos de 26/11/2026)
+
+- **Planilha, gráfico "Sobra mês a mês":** as barras não aparecem no Chrome; o cartão fica branco entre o título e o resumo. Medido no app servido pelo `servidor.mjs`: `.ga-col` fica com altura 0 px, e as barras `.ga-pos`/`.ga-neg` usam altura percentual sem referência. A gravação usou um ajuste só do navegador (`.ga-col{height:100%}` em `auxiliar.mjs`) para o gráfico aparecer no vídeo; o app publicado continua sem as barras. Entra na tarefa que tocar a Planilha.
+
+---
+
 ## Restrições de processo
 
 - O repositório é público: nenhum dado pessoal, de cliente ou de máquina entra em commit.

@@ -8,18 +8,23 @@ projeto é o `config.mjs`, o `cenario.sh`, o `servidor.mjs`, o `base-simulada.mj
 
 Perfil `web`, no layout de computador (gaveta lateral, lançamento rápido e a planilha do ano), em 1920 × 1080:
 
+A base simulada tem planos em todos os meses, recorrências pagas e em aberto, dois cartões (um ativo e um arquivado), um notebook parcelado em 6 vezes, agosto e setembro fechados e outubro com pendências para o fechamento.
+
 | Vídeo | Assunto |
 |---|---|
-| `00-instalacao` | Instalação: baixar do GitHub, criar a planilha, colar no Apps Script, publicar e abrir pela primeira vez |
-| `01-primeiros-passos` | Início: o disponível, a composição, os números do mês, um mês fechado, ritmo, meta e avisos |
-| `02-lancar-e-corrigir` | Lançamento rápido, formulário completo, editar, apagar e desfazer |
-| `03-planejar-o-mes` | Mês: acompanhar, definir planos, sugestão e a meta de economia |
-| `04-extrato-e-planilha` | Extrato com busca e filtros, planilha do ano, mapa de calor, célula e CSV |
-| `05-ajustes-e-backup` | Nome, tema, categorias, backup JSON e importação |
+| `00-instalacao` | Instalação: a página Antes de começar, o instalador em quatro passos (autorizar, API, nome, instalar), o QR code e o primeiro acesso |
+| `01-primeiros-passos` | Início: o disponível e a composição, o que falta pagar, o plano do mês, onde foi o dinheiro e o seletor de mês |
+| `02-lancar-e-corrigir` | Lançamento rápido, formulário completo, parcelar no cartão, a fatura, editar, apagar e desfazer |
+| `03-todo-mes-e-contas` | Recorrências (o bloco Todo mês), vencimentos, Confirmar, Liberar, Guardar e Recebi |
+| `04-planejar-o-mes` | Tela Planejar: planos por categoria, sugestões, copiar/médias, a meta de economia e liberar a sobra |
+| `05-extrato-e-importar` | Extrato com busca, escopo e filtros; abrir um lançamento; importar CSV/OFX do banco |
+| `06-planilha-e-fechamento` | Planilha do ano (mapa de calor, célula, CSV), impressão do mês e o fechamento com a sobra levada |
+| `07-ajustes-cartoes-backup` | Ajustes: nome e tema, categorias, cartões de crédito, backup JSON e CSVs, atualizações e diagnósticos |
 
-O conteúdo vem de `docs/USAR.md`, do README do projeto e de `docs/INSTALAR.md` (não há `spec/`), e os rótulos e seletores vêm de
-`explorar-financas.mjs`. A série foi publicada em 19/11/2026 na playlist **Finanças · Tutoriais** do canal @bsdesenvmidia
-(https://www.youtube.com/playlist?list=PLOrq0JTHxh_A), com os seis vídeos e a playlist não listados (como a série do SIG); o manifesto e os links estão em `envio.md`.
+O conteúdo vem de `spec/produto.md`, `spec/glossario.md`, `docs/USAR.md`, do README do projeto e de `docs/INSTALAR.md`, e os
+rótulos e seletores vêm da exploração (`explorar-financas.mjs`). A série foi refeita em 26/11/2026 na playlist
+**Finanças · Tutoriais** do canal @bsdesenvmidia (https://www.youtube.com/playlist?list=PLOrq0JTHxh_A), com os oito vídeos e
+a playlist não listados (como a série do SIG); o manifesto e os links estão em `envio.md`.
 
 ## O cenário
 
@@ -45,11 +50,15 @@ npm run video:servidor                     # http://localhost:8787, em primeiro 
 O `ensaiar.sh` e o `produzir.sh` conferem `http://localhost:8787/` antes de começar: o servidor tem de estar no ar. Para
 parar: `kill "$(cat docs/video-tutorial/base/servidor.pid)"` (se subiu com o pid gravado) ou Ctrl-C.
 
-O vídeo 00 (instalação) é especial: a tela é a UI real do GitHub, do Sheets e do Apps Script, e não passa pelo
-`cenario.sh`. As capturas ficam em `video/00-instalacao/capturas` (fora do git) e já saem com as contas mascaradas; a
-montagem é `instalacao/montar.mjs` (slides, voz e MP4). Para refazer:
+O vídeo 00 (instalação) é especial: a tela é a UI real da página Antes de começar, do instalador e do primeiro acesso,
+e não passa pelo `cenario.sh`. As capturas ficam em `video/00-instalacao/capturas` (fora do git) e saem de
+`instalacao/capturar-instalador.mjs`, que renderiza o instalador com o `google.script.run` imitado; a montagem é
+`instalacao/montar.mjs` (slides, voz e MP4). Para refazer:
+
+O servidor de vídeo precisa estar no ar (ele serve a base vazia do primeiro acesso).
 
 ```sh
+node instalacao/capturar-instalador.mjs
 ROTEIRO=roteiros/00-instalacao.mjs node gerar-falas.mjs
 ROTEIRO=roteiros/00-instalacao.mjs node instalacao/montar.mjs
 sh folha.sh roteiros/00-instalacao.mjs saida/00-instalacao.mp4

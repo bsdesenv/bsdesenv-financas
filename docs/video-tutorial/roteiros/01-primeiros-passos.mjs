@@ -1,20 +1,20 @@
-// Vídeo 1: a tela Início. O que é o disponível, como a renda se divide, os números do mês, um mês fechado e o que
-// planejar. Rótulos e seletores vêm de docs/USAR.md e da exploração (explorar/01-inicio.png).
+// Vídeo 1: a tela Início na versão 3.x. O disponível, a composição, o que falta pagar, o plano do mês, onde foi o
+// dinheiro e o seletor de mês. Rótulos e seletores vêm de docs/USAR.md e da exploração (explorar/ui-01-inicio.png).
 import { capas } from '../comum.mjs'
-import { ajustarTela, cardCom, acao, fecharFolha } from '../auxiliar.mjs'
+import { ajustarTela, acao, fecharFolha, moverAviso, fecharAviso, cardCom } from '../auxiliar.mjs'
 
 export const VIDEO_INFO = {
   titulo: 'Primeiros<br>passos',
-  subtitulo: 'Entender o disponível, os números do mês e o que planejar.',
-  encerramento: 'Próximo vídeo: Lançar e corrigir um gasto.',
+  subtitulo: 'Ler o disponível, o que falta pagar e o plano do mês.',
+  encerramento: 'Próximo vídeo: lançar e corrigir um gasto.',
   login: { modo: 'publico', rota: '/' },
 }
 
 export const PARTES = [
-  { titulo: 'O disponível', topicos: ['O número grande', 'A composição'] },
-  { titulo: 'Os números do mês', topicos: ['Os quatro cartões', 'Variáveis do mês', 'Últimos lançamentos'] },
-  { titulo: 'O mês fechado', topicos: ['Outubro', 'Sobra realizada', 'Voltar para hoje'] },
-  { titulo: 'Planejar e guardar', topicos: ['Ritmo do plano', 'Meta de economia', 'A vencer e avisos'] },
+  { titulo: 'O disponível', topicos: ['O número grande', 'A composição', 'Revisar sobras'] },
+  { titulo: 'O que falta pagar', topicos: ['Contas e vencimentos', 'Guardar', 'A receber'] },
+  { titulo: 'O plano do mês', topicos: ['O ritmo', 'Meta de economia', 'Avisos'] },
+  { titulo: 'Onde foi o dinheiro', topicos: ['As barras', 'Últimos lançamentos', 'Escolher o mês'] },
 ]
 const capaDoPasso = capas(PARTES)
 
@@ -26,7 +26,7 @@ export const ROTEIRO = [
       acao: async () => {} },
   ] },
   { falas: [
-    { texto: 'O vídeo tem quatro passos: o disponível; os números do mês; o mês fechado; e, por fim, planejar e guardar.',
+    { texto: 'O vídeo tem quatro passos: o disponível; o que falta pagar; o plano do mês; e, por fim, onde foi o dinheiro.',
       acao: async (h) => { await h.indice() } },
   ] },
 
@@ -39,169 +39,167 @@ export const ROTEIRO = [
         await h.mover(h.page.locator('#h-livre'))
         await h.mover(h.page.locator('.numero-heroi'))
       } },
-    { texto: 'Ele sai da renda menos o que já saiu e menos os planos das categorias que ainda não têm lançamento.',
+    { texto: 'Abaixo dele, o app estima quanto isso dá por dia, já descontando as contas e os planos que ainda faltam.',
       acao: async (h) => {
-        await h.mover(h.page.locator('.heroi-bridge'))
+        await h.mover(h.page.locator('.heroi-principal > .sub'))
         await h.mover(h.page.locator('.heroi-nota'))
       } },
-    { texto: 'A linha do meio mostra a renda recebida e o que ainda está na conta; abaixo, o limite por dia até o fim do mês.',
+    { texto: 'A lista explica a conta: renda do mês, o que já saiu, as contas a pagar, o que falta guardar e o que ainda está nos planos.',
       acao: async (h) => {
-        await h.mover(h.page.locator('.heroi-bridge'))
-        await h.mover(h.page.locator('.heroi-principal > .sub'))
+        await h.mover(h.page.locator('.heroi-composicao'), { parcial: true })
+        await h.mover(h.page.locator('.heroi-composicao > div').filter({ hasText: 'Ainda nos planos' }))
       } },
   ] },
   { capitulo: 'A composição', falas: [
-    { texto: 'O anel ao lado divide a renda do mês em três partes: já saiu, planos sem lançamento e disponível.',
+    { texto: 'O anel ao lado mostra a mesma divisão em porcentagem. Quanto maior a fatia verde, mais sobra para gastar.',
       acao: async (h) => {
         await h.mover(h.page.locator('.anel'))
-        await h.mover(h.page.locator('.heroi-legenda'))
       } },
-    { texto: 'Planos sem lançamento são categorias com plano e nenhum gasto ainda; elas entram como previsto.',
-      acao: async (h) => {
-        await h.mover(h.page.locator('.heroi-legenda > div').filter({ hasText: 'Planos sem lançamento' }))
-      } },
-    { texto: 'Ver composição abre a conta inteira, com as categorias que ainda não têm lançamento.',
+    { texto: 'Ver composição abre a conta inteira. Embaixo, cada plano que ainda reserva dinheiro aparece com o botão Liberar.',
       acao: async (h) => {
         await h.clicar(acao(h, 'detalhe-reserva'))
         await h.esperar(600)
         await h.mover(h.page.locator('.folha h2'))
         await h.mover(h.page.locator('.folha .conta-heroi .total'))
-        await h.mover(h.page.locator('.folha .conta-heroi .subtotal'))
+        await h.mover(h.page.locator('.folha').getByText('Ainda nos planos').first())
+        await h.mover(h.page.locator('.folha [data-f="liberar"]').first())
       } },
-    { texto: 'Embaixo, o app lista os planos sem lançamento e o plano que serve só para comparar o ritmo.',
+  ] },
+  { capitulo: 'Revisar sobras', falas: [
+    { texto: 'Perto do fim do mês, o Início lembra de revisar o que ainda está reservado: algum plano já acabou?',
       acao: async (h) => {
-        await h.mover(h.page.locator('.folha .reserva-linha').first())
-        await h.mover(h.page.locator('.folha h3').filter({ hasText: 'Plano usado no ritmo' }))
+        await fecharFolha(h)
+        await h.mover(h.page.locator('.heroi-revisar'))
+        await h.mover(acao(h, 'revisar-sobras'))
+      } },
+    { texto: 'Revisar sobras abre a composição já nos planos restantes, pronta para liberar o que você não vai mais gastar.',
+      acao: async (h) => {
+        await h.clicar(acao(h, 'revisar-sobras'))
+        await h.esperar(700)
+        await h.mover(h.page.locator('.folha').getByText('Ainda nos planos').first())
+        await h.mover(h.page.locator('.folha [data-f="liberar-todos"]'))
       } },
   ] },
 
-  // ── Passo 2: os números do mês
+  // ── Passo 2: o que falta pagar
   capaDoPasso(1, async (h) => { await fecharFolha(h) }),
-  { capitulo: 'Os quatro cartões', falas: [
-    { texto: 'Os quatro cartões resumem o mês: renda, o que já saiu, planos sem lançamento e o guardado.',
+  { capitulo: 'Contas e vencimentos', falas: [
+    { texto: 'O cartão O que falta pagar reúne as contas fixas e a meta de guardar que ainda não foram lançadas.',
       acao: async (h) => {
         await h.semCapa()
-        await h.mover(h.page.locator('.kpi').nth(0), { parcial: true })
-        await h.mover(h.page.locator('.kpi').nth(1), { parcial: true })
+        await h.mover(cardCom(h, 'h-vencer'), { parcial: true })
+        await h.mover(h.page.locator('.g-pagar .grupo-titulo').first())
       } },
-    { texto: 'A renda mostra o que foi recebido; o guardado mostra a meta e quanto dela já foi transferido.',
+    { texto: 'Cada conta mostra a situação: vence dia 28, vence hoje ou atrasada desde o dia 20. Confirmar lança o que falta.',
       acao: async (h) => {
-        await h.mover(h.page.locator('.kpi').nth(2), { parcial: true })
-        await h.mover(h.page.locator('.kpi').nth(3), { parcial: true })
-        await h.mover(h.page.locator('.kpi').nth(3).locator('.kpi-anel'))
+        await h.mover(h.page.locator('.item-vencer').filter({ hasText: 'Plano de saúde' }).first())
+        await h.mover(h.page.locator('[data-acao="confirmar"][data-foco="conf-plano-saude"]'))
+        await h.mover(h.page.locator('.item-vencer').filter({ hasText: 'Contas da casa' }).first())
       } },
-  ] },
-  { capitulo: 'Variáveis do mês', falas: [
-    { texto: 'Variáveis do mês junta as categorias que mudam de valor, como mercado, transporte e restaurantes.',
+    { texto: 'Se uma conta veio mais barata e você não vai gastar o resto, Liberar devolve ao disponível o que faltava.',
       acao: async (h) => {
-        await h.mover(cardCom(h, 'h-cats'), { parcial: true })
-        await h.mover(h.page.locator('.g-cats .cats-resumo'))
-      } },
-    { texto: 'As barras comparam o gasto com o plano. A marca é o dia de hoje, então dá para ver o que está acima do ritmo.',
-      acao: async (h) => {
-        const mercado = h.page.locator('.g-cats .linha-cat').filter({ hasText: 'Mercado' }).first()
-        await h.mover(mercado)
-        await h.mover(mercado.locator('.barra'))
-        await h.mover(h.page.locator('.g-cats .linha-cat').filter({ hasText: 'Transporte' }).first())
-      } },
-    { texto: 'O gráfico Para onde foi mostra as cinco maiores categorias variáveis do mês e a fatia de Outras.',
-      acao: async (h) => {
-        await h.mover(h.page.locator('.g-cats .grafico-variaveis'), { parcial: true })
+        await h.mover(h.page.locator('[data-acao="encerrar"][data-foco="quit-contas-casa"]'))
       } },
   ] },
-  { capitulo: 'Últimos lançamentos', falas: [
-    { texto: 'Abaixo ficam os últimos lançamentos, com a descrição, a categoria e o valor.',
+  { capitulo: 'Guardar', falas: [
+    { texto: 'Guardar tem um bloco próprio: é a sua meta de economia, e o botão Guardar lança a transferência.',
       acao: async (h) => {
-        await h.mover(cardCom(h, 'h-ult'), { parcial: true })
-        await h.mover(h.page.locator('.g-ultimos .linha-lanc').first())
+        await h.mover(h.page.locator('.item-vencer').filter({ hasText: 'Guardar' }).first())
+        await h.mover(h.page.locator('[data-acao="confirmar"][data-foco="conf-guardar"]'))
       } },
-    { texto: 'Ver extrato abre a lista completa, que tem um vídeo só dela.',
+  ] },
+  { capitulo: 'A receber', falas: [
+    { texto: 'A receber mostra as rendas que ainda não entraram. Recebi lança o que chegou; Não vem tira o que não vai entrar.',
       acao: async (h) => {
-        await h.mover(h.page.locator('[data-foco="ver-extrato"]'))
+        await h.mover(h.page.locator('.g-pagar').getByText('A receber').first())
+        await h.mover(h.page.locator('.item-vencer').filter({ hasText: 'Renda extra' }).first())
+        await h.mover(h.page.locator('[data-acao="confirmar"][data-foco="conf-renda-extra"]'))
       } },
   ] },
 
-  // ── Passo 3: o mês fechado
+  // ── Passo 3: o plano do mês
   capaDoPasso(2),
-  { capitulo: 'Outubro', falas: [
-    { texto: 'Para ver um mês fechado, clique em Outubro no gráfico Sobra mês a mês.',
+  { capitulo: 'O ritmo', falas: [
+    { texto: 'O Plano do mês mostra se o gasto está no ritmo do plano. A barra é só comparação: gastar dentro do plano não tira o disponível.',
       acao: async (h) => {
         await h.semCapa()
-        await h.mover(cardCom(h, 'h-ano'), { parcial: true })
-        await h.mover(h.page.locator('.g-ano .legenda'))
-        await h.clicar(h.page.locator('[data-acao="ir-mes"][data-mes="10"]'))
-        await h.esperar(700)
-        await h.mover(h.page.locator('.navmes-txt h1'))
-      } },
-  ] },
-  { capitulo: 'Sobra realizada', falas: [
-    { texto: 'O topo muda para outubro, e o número grande vira a sobra realizada: a renda recebida menos os gastos lançados.',
-      acao: async (h) => {
-        await h.mover(h.page.locator('#h-fecho'))
-        await h.mover(h.page.locator('.numero-heroi'))
-      } },
-    { texto: 'Nos meses fechados, os cartões usam o realizado e a legenda do gráfico diz quais meses já fecharam.',
-      acao: async (h) => {
-        await h.mover(h.page.locator('.kpi').nth(2), { parcial: true })
-        await h.mover(h.page.locator('.g-ano .legenda'))
-        await h.mover(h.page.locator('[data-acao="ir-mes"][data-mes="10"]'))
-      } },
-  ] },
-  { capitulo: 'Voltar para hoje', falas: [
-    { texto: 'Quando você está em outro mês, o botão Hoje aparece no alto, ao lado do nome do mês.',
-      acao: async (h) => {
-        await h.mover(h.page.locator('[data-acao="mes-hoje"]'))
-      } },
-    { texto: 'Clique em Hoje para voltar ao mês atual.',
-      acao: async (h) => {
-        await h.clicar(h.page.locator('[data-acao="mes-hoje"]'))
-        await h.esperar(700)
-        await h.mover(h.page.locator('.navmes-txt h1'))
-      } },
-  ] },
-
-  // ── Passo 4: planejar e guardar
-  capaDoPasso(3),
-  { capitulo: 'Ritmo do plano', falas: [
-    { texto: 'O Ritmo do plano compara o gasto das categorias de consumo com o plano delas.',
-      acao: async (h) => {
-        await h.semCapa()
-        await h.mover(cardCom(h, 'h-ritmo'), { parcial: true })
-        await h.mover(cardCom(h, 'h-ritmo').locator('.barra'))
-      } },
-    { texto: 'A barra é só ritmo: depois do primeiro lançamento, o plano não desconta o disponível; o que conta é o realizado.',
-      acao: async (h) => {
-        await h.mover(cardCom(h, 'h-ritmo').locator('.sub').last())
+        await h.mover(cardCom(h, 'h-planos'), { parcial: true })
+        await h.mover(h.page.locator('.plano-ritmo .barra'))
+        await h.mover(h.page.locator('.plano-ritmo .legenda-barra'))
       } },
   ] },
   { capitulo: 'Meta de economia', falas: [
-    { texto: 'Na Meta de economia, o plano de Guardar é a meta do mês; aqui ela ainda não foi transferida.',
+    { texto: 'Na Meta de economia, digite quanto quer guardar neste mês. A palavra salvo aparece ao gravar.',
       acao: async (h) => {
-        await h.mover(h.page.locator('#h-meta'))
-        await h.mover(h.page.locator('[data-foco="meta-confirmar"]'))
+        await h.mover(h.page.locator('[data-foco="meta-guardar"]'))
+        await h.mover(h.page.locator('[data-foco="meta-sugestao"]'))
+        await h.mover(h.page.locator('[data-foco="meta-limpar"]'))
       } },
-    { texto: 'O botão Usar sugestão aplica oitenta por cento da sobra média dos últimos três meses fechados.',
+    { texto: 'Usar sugestão aplica oitenta por cento da sua sobra média dos três meses fechados anteriores.',
       acao: async (h) => {
         await h.mover(h.page.locator('[data-foco="meta-sugestao"]'))
-        await h.mover(h.page.locator('[data-foco="meta-guardar"]'))
       } },
   ] },
-  { capitulo: 'A vencer e avisos', falas: [
-    { texto: 'As contas fixas com plano e sem lançamento aparecem em A vencer este mês, cada uma com o botão Confirmar.',
+  { capitulo: 'Avisos', falas: [
+    { texto: 'Embaixo, as categorias variáveis comparam gasto e plano. Mercado, Lazer e Compras passaram do plano neste mês.',
       acao: async (h) => {
-        await h.mover(cardCom(h, 'h-vencer'), { parcial: true })
-        await h.mover(cardCom(h, 'h-vencer').locator('[data-acao="confirmar"]').first())
+        await h.mover(h.page.locator('.g-planos .linha-cat').filter({ hasText: 'Mercado' }).first())
+        await h.mover(h.page.locator('.g-planos .linha-cat').filter({ hasText: 'Lazer' }).first())
       } },
-    { texto: 'A Cobertura do plano mostra o que ficou fora do plano; os Avisos mostram o que passou do plano ou está acelerado.',
+    { texto: 'Os avisos apontam o que passou do plano; Ver lançamentos abre as contas que somaram a categoria.',
       acao: async (h) => {
-        await h.mover(cardCom(h, 'h-cobertura'), { parcial: true })
-        await h.mover(cardCom(h, 'h-avisos'), { parcial: true })
-        await h.mover(h.page.locator('.aviso-item').first())
+        await h.mover(h.page.locator('.g-planos .aviso-item').first())
+        const det = h.page.locator('.g-planos .aviso-detalhe summary').first()
+        if (await det.count()) { await h.clicar(det); await h.esperar(500); await h.mover(h.page.locator('.g-planos .aviso-contas').first()) }
+        await h.mover(h.page.locator('.g-planos [data-foco="ver-todas"]'))
+      } },
+  ] },
+
+  // ── Passo 4: onde foi o dinheiro
+  capaDoPasso(3),
+  { capitulo: 'As barras', falas: [
+    { texto: 'Onde foi mostra as maiores saídas do mês, com valor e porcentagem. Moradia e Mercado puxam a lista.',
+      acao: async (h) => {
+        await h.semCapa()
+        await h.mover(cardCom(h, 'h-onde'), { parcial: true })
+        await h.mover(h.page.locator('.g-onde .onde-linha').first())
+        await h.mover(h.page.locator('.g-onde .onde-linha').nth(1))
+      } },
+  ] },
+  { capitulo: 'Últimos lançamentos', falas: [
+    { texto: 'Os últimos lançamentos ficam à mão. Ver extrato abre a lista completa, que tem um vídeo só dela.',
+      acao: async (h) => {
+        await h.mover(cardCom(h, 'h-ult'), { parcial: true })
+        await h.mover(h.page.locator('.g-ultimos .linha-lanc').first())
+        await h.mover(h.page.locator('[data-foco="ver-extrato"]'))
+      } },
+  ] },
+  { capitulo: 'Escolher o mês', falas: [
+    { texto: 'No topo, as setas andam mês a mês. Tocar no nome do mês abre a grade do ano, com Hoje e Copiar link deste mês.',
+      acao: async (h) => {
+        await h.clicar(h.page.locator('[data-foco="seletor-mes"]'))
+        await h.esperar(600)
+        await h.mover(h.page.locator('.folha .mes-opcao').first(), { parcial: true })
+        await h.mover(h.page.locator('.folha [data-f="link"]'))
+      } },
+    { texto: 'Setembro já está fechado: tocar nele mostra a sobra realizada daquele mês, não mais o previsto.',
+      acao: async (h) => {
+        await h.clicar(h.page.locator('.folha .mes-opcao[data-m="9"]'))
+        await h.esperar(800)
+        await h.mover(h.page.locator('#h-fecho'))
+        await h.mover(h.page.locator('.numero-heroi'))
+        await h.mover(h.page.locator('.chip-fechado'))
+      } },
+    { texto: 'Hoje volta para o mês atual, e o endereço do app acompanha o mês que você está vendo.',
+      acao: async (h) => {
+        await h.clicar(h.page.locator('[data-foco="mes-hoje"]'))
+        await h.esperar(800)
+        await h.mover(h.page.locator('.navmes-txt h1, [data-foco="seletor-mes"]').first())
       } },
   ] },
 
   { falas: [
-    { texto: 'Pronto! Agora você sabe ler o Início. No próximo vídeo, você vai lançar e corrigir um gasto.',
+    { texto: 'Pronto! Agora você já sabe ler o Início. No próximo vídeo, você vai lançar um gasto e corrigir quando errar.',
       acao: async (h) => { await h.esperar(1200); await h.capaEncerramento() } },
   ] },
 ]

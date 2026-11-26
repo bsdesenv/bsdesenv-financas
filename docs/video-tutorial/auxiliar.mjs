@@ -13,6 +13,8 @@ export const CSS_TELA = `
     .lateral{padding-bottom:160px !important}
   }
   .planilha-caixa{max-height:calc(100vh - 330px) !important}
+  body{padding-bottom:210px !important}
+  .ga-col{height:100% !important}
 `
 
 export async function ajustarTela(h) {
@@ -21,7 +23,7 @@ export async function ajustarTela(h) {
   // 20 s (o roteiro fecha com fecharAviso quando quer tirá-lo). Nada mais do app muda.
   await h.page.evaluate(() => {
     const st = window.setTimeout.bind(window)
-    window.setTimeout = (fn, ms, ...a) => st(fn, ms === 6500 ? 20000 : ms, ...a)
+    window.setTimeout = (fn, ms, ...a) => st(fn, ms === 6500 ? 20000 : ms === 2550 ? 60000 : ms, ...a)
   })
   await h.esperar(250)
 }
@@ -53,4 +55,20 @@ export async function fecharAviso(h) {
   const x = h.page.locator('#avisos .aviso-fechar').last()
   if (await x.count()) await h.clicar(x)
   await h.esperar(250)
+}
+
+/** Mostra a prévia de impressão do app sem abrir o diálogo: aplica as regras @media print do próprio app como estilo comum.
+ *  É ajuste só de gravação (o navegador não deixa ver a mídia print dentro do iframe da moldura). */
+export async function modoImpressao(h, ligado) {
+  await h.page.evaluate((ligado) => {
+    const id = 'gv-print-preview'
+    document.getElementById(id)?.remove()
+    if (!ligado) return
+    const regras = [...document.styleSheets].flatMap((s) => { try { return [...s.cssRules] } catch { return [] } })
+      .filter((r) => r.type === CSSRule.MEDIA_RULE && String(r.conditionText || '').includes('print'))
+      .map((r) => r.cssText.replace(/^@media print\s*\{/, '').replace(/\}\s*$/, '')).join('\n')
+    const st = document.createElement('style'); st.id = id; st.textContent = regras
+    document.head.appendChild(st)
+  }, ligado)
+  await h.esperar(400)
 }

@@ -5,34 +5,32 @@ Manifesto do envio, versionado: a coluna Situação é o estado entre sessões. 
 
 Arquivos: `docs/video-tutorial/saida/<NN-assunto>.mp4`.
 Canal: @bsdesenvmidia (UCthghR94q4MwDLQFCC8YkuA).
-Playlist nova: **Finanças · Tutoriais** (uma só, com a série inteira na ordem de uso) — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A (criada em 19/11/2026, não listada, descrição já gravada).
+Playlist: **Finanças · Tutoriais** (uma só, com a série inteira na ordem de uso) — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A (criada em 19/11/2026, não listada).
 Perfil: Computador (o layout de desktop do app; a série usa o perfil `web` do kit, 1920 × 1080).
 
 Fim fixo de toda descrição: " Os nomes e dados que aparecem na tela são fictícios."
 
 | # | Arquivo | Título | Descrição (sem o fim fixo) | Situação |
 |---|---|---|---|---|
-| C00 | 00-instalacao | Computador 00 · Instalação \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 00 de 05: baixar o projeto do GitHub, criar a planilha no Google Sheets, colar os arquivos no Apps Script, publicar o app da Web e fazer o primeiro acesso. Próximo vídeo: Computador 01 · Primeiros passos. Os nomes e dados que aparecem na tela são fictícios. | OK I78ytTdo4aU |
-| C01 | 01-primeiros-passos | Computador 01 · Primeiros passos \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 01 de 05: ler o disponível, a composição da renda, os números do mês, um mês fechado, o ritmo e a meta. Próximo vídeo: Computador 02 · Lançar e corrigir. | OK 11nPu0ZDp4g |
-| C02 | 02-lancar-e-corrigir | Computador 02 · Lançar e corrigir \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 02 de 05: lançar pela barra do topo, usar o formulário completo e editar, apagar ou desfazer no extrato. Próximo vídeo: Computador 03 · Planejar o mês. | OK 5UYYrb-6CU8 |
-| C03 | 03-planejar-o-mes | Computador 03 · Planejar o mês \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 03 de 05: acompanhar o mês, definir os planos das categorias e confirmar a meta de economia. Próximo vídeo: Computador 04 · Extrato e planilha. | OK ns72v7ebopU |
-| C04 | 04-extrato-e-planilha | Computador 04 · Extrato e planilha \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 04 de 05: buscar e filtrar o extrato, ler o mapa de calor do ano e lançar direto numa célula. Próximo vídeo: Computador 05 · Ajustes e backup. | OK FuKypZEwhTE |
-| C05 | 05-ajustes-e-backup | Computador 05 · Ajustes e backup \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 05 de 05: mudar o nome e o tema, organizar as categorias e baixar ou importar o backup JSON. Último vídeo da série. | OK -QWyw5jzQwg |
-
-Playlist de cada vídeo: **Finanças · Tutoriais**.
+| C00 | 00-instalacao | Computador 00 · Instalação \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 00 de 07: a página Antes de começar, o instalador em quatro passos, o QR code e o primeiro acesso. Próximo vídeo: Computador 01 · Primeiros passos. | OK CjSQiuXjh84 |
+| C01 | 01-primeiros-passos | Computador 01 · Primeiros passos \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 01 de 07: ler o disponível, o que falta pagar, o plano do mês e onde foi o dinheiro. Próximo vídeo: Computador 02 · Lançar e corrigir. | OK tz8DB_zRKrY |
+| C02 | 02-lancar-e-corrigir | Computador 02 · Lançar e corrigir \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 02 de 07: lançar pela barra do topo, usar o formulário, parcelar no cartão e corrigir no extrato. Próximo vídeo: Computador 03 · Todo mês e contas. | OK F4-Pjf03Z20 |
+| C03 | 03-todo-mes-e-contas | Computador 03 · Todo mês e contas \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 03 de 07: contas que se repetem, vencimentos, Confirmar, Liberar, Guardar e Recebi. Próximo vídeo: Computador 04 · Planejar o mês. | OK p-zdWHquPxA |
+| C04 | 04-planejar-o-mes | Computador 04 · Planejar o mês \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 04 de 07: definir os planos, usar sugestões e médias, a meta de economia e liberar a sobra. Próximo vídeo: Computador 05 · Extrato e importação. | OK ycPbu1EZuqY |
+| C05 | 05-extrato-e-importar | Computador 05 · Extrato e importação \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 05 de 07: buscar e filtrar o extrato, abrir um lançamento e importar CSV ou OFX do banco. Próximo vídeo: Computador 06 · Planilha e fechamento. | OK VjuU0qjCZCY |
+| C06 | 06-planilha-e-fechamento | Computador 06 · Planilha e fechamento \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 06 de 07: o ano na Planilha, lançar na célula, imprimir o mês e fechar outubro levando a sobra. Próximo vídeo: Computador 07 · Ajustes, cartões e backup. | OK U9YyhOVMAUo |
+| C07 | 07-ajustes-cartoes-backup | Computador 07 · Ajustes, cartões e backup \| Finanças | Tutorial do Finanças para o perfil Computador, vídeo 07 de 07: nome e tema, categorias, cartões, backup JSON e CSVs, atualizações e diagnósticos. Último vídeo da série. | OK e28yNqUUkrs |
 
 Ordem final da playlist (de cima para baixo):
-- Finanças · Tutoriais: C00 C01 C02 C03 C04 C05 — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A
+- Finanças · Tutoriais: C00 C01 C02 C03 C04 C05 C06 C07 — https://www.youtube.com/playlist?list=PLOrq0JTHxh_A
 
 Descrição da playlist:
 "Tutoriais do Finanças para o perfil Computador, na ordem de uso. Os nomes e dados que aparecem na tela são fictícios."
 
-Visibilidade: todo vídeo sobe **privado**, com "Não é conteúdo para crianças". Público ou não listado é decisão de quem
-administra o canal. Em 19/11/2026, a pedido, a playlist e os seis vídeos passaram para **Não listado**, como a série do SIG.
+Visibilidade: os oito vídeos de 26/11/2026 subiram **não listados**, com "Não é conteúdo para crianças", como a série
+anterior. Público é decisão de quem administra o canal; a playlist também está não listada.
 
-Enviado em 19/11/2026: os seis vídeos ficaram **não listados**, marcados "Não é conteúdo para crianças", e entraram na playlist
-**Finanças · Tutoriais** (**não listada**, como a do SIG) na ordem C00..C05. Os vídeos também foram para não listado, senão o
-link da playlist não os abriria. Links:
+Série anterior (19/11/2026), substituída em 26/11/2026: os seis vídeos continuam no canal, **não listados**, fora da playlist.
 - C00 https://youtu.be/I78ytTdo4aU
 - C01 https://youtu.be/11nPu0ZDp4g
 - C02 https://youtu.be/5UYYrb-6CU8
@@ -40,9 +38,15 @@ link da playlist não os abriria. Links:
 - C04 https://youtu.be/FuKypZEwhTE
 - C05 https://youtu.be/-QWyw5jzQwg
 
-A playlist e os vídeos estão não listados; a descrição da playlist já está gravada.
 
-O vídeo C00 é o especial de instalação: as capturas da UI do Google saíram com a conta mascarada, e a montagem é
-`instalacao/montar.mjs` (fora do fluxo do `cenario.sh`). A planilha e o projeto de demonstração usados na gravação são
-"Finanças (vídeo)" (a planilha `12dxwb24VAmH9boKXkDrSUHLyTdR-UbWJmCBYkodXm7k` e o projeto Apps Script
-`15y-ETO0QT7cZBClS4ovpacY2_ElJk_TI9sA2E1yi6V3ksFYvPEUbYrwm`); o dono pode apagá-los quando quiser.
+Enviado em 26/11/2026: os oito vídeos subiram **não listados** (como a série anterior), marcados "Não é conteúdo para crianças",
+e entraram na playlist **Finanças · Tutoriais** (não listada) na ordem C00..C07. Os seis vídeos da série de 19/11/2026
+continuam no canal, não listados, e saíram da playlist. Links novos:
+- C00 https://youtu.be/CjSQiuXjh84
+- C01 https://youtu.be/tz8DB_zRKrY
+- C02 https://youtu.be/F4-Pjf03Z20
+- C03 https://youtu.be/p-zdWHquPxA
+- C04 https://youtu.be/ycPbu1EZuqY
+- C05 https://youtu.be/VjuU0qjCZCY
+- C06 https://youtu.be/U9YyhOVMAUo
+- C07 https://youtu.be/e28yNqUUkrs

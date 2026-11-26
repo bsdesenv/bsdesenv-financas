@@ -18,7 +18,7 @@
       item.click()
       return (await esperar(() => visivel(document.querySelector('ytcp-uploads-file-picker')))) ? 'OK: faça upload_file no botão Selecionar arquivos' : 'FALHA: seletor não abriu'
     },
-    async preencher(titulo, descricao, playlists) {
+    async preencher(titulo, descricao, playlists, visibilidade = 'PRIVATE') {
       const d = document.querySelector('ytcp-uploads-dialog')
       const caixa = await esperar(() => d.querySelector('#title-textarea #textbox'), 90000)
       if (!caixa) return 'FALHA: campo de título não apareceu'
@@ -31,7 +31,7 @@
       escrever(d.querySelector('#description-textarea #textbox'), descricao); await sleep(500)
       const marcadas = await window.__yt.playlists(playlists)
       if (typeof marcadas === 'string') return marcadas
-      return window.__yt.finalizar(marcadas)
+      return window.__yt.finalizar(marcadas, visibilidade)
     },
     async playlists(nomes) {
       const d = document.querySelector('ytcp-uploads-dialog')
@@ -57,14 +57,14 @@
       concluido.click(); await sleep(800)
       return marcadas
     },
-    async finalizar(marcadas) {
+    async finalizar(marcadas, visibilidade = 'PRIVATE') {
       const d = document.querySelector('ytcp-uploads-dialog')
       d.querySelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]').click(); await sleep(400)
       const link = d.querySelector('ytcp-video-info a')?.href || ''
       for (let i = 0; i < 3; i++) { d.querySelector('#next-button').click(); await sleep(1200) }
-      const priv = await esperar(() => d.querySelector('tp-yt-paper-radio-button[name="PRIVATE"]'))
-      if (!priv) return 'FALHA: passo Visibilidade não abriu'
-      priv.click(); await sleep(500)
+      const alvo = await esperar(() => d.querySelector(`tp-yt-paper-radio-button[name="${visibilidade}"]`))
+      if (!alvo) return 'FALHA: passo Visibilidade não abriu'
+      alvo.click(); await sleep(500)
       if (!(await esperar(() => !/\d+\s?%/.test(progresso()), 170000))) return 'AINDA ENVIANDO: chame window.__yt.salvar() depois. ' + progresso()
       return window.__yt.salvar(link, marcadas)
     },

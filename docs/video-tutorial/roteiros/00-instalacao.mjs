@@ -1,111 +1,127 @@
-// Vídeo 00: instalação do Finanças, do GitHub à primeira abertura. É um vídeo especial: a tela é a UI real do Google
-// (GitHub, Sheets e Apps Script), capturada com as contas mascaradas; a montagem é a de `instalacao/montar.mjs`.
+// Vídeo 00: a instalação pelo instalador da bsdesenv, da página "Antes de começar" ao primeiro acesso no computador
+// e no celular. É um vídeo especial: a tela é a UI real do instalador e do app, capturada por capturar-instalador.mjs;
+// a montagem é a de `instalacao/montar.mjs`.
 import { capas } from '../comum.mjs'
 
 export const VIDEO_INFO = {
   titulo: 'Instalar o<br>Finanças',
-  subtitulo: 'Do GitHub à primeira abertura, em cinco passos.',
+  subtitulo: 'Do primeiro clique ao app no celular, em cinco passos.',
   encerramento: 'Pronto! O app está instalado. Siga a série para usar.',
   login: { modo: 'publico', rota: '/' },
 }
 
 export const PARTES = [
-  { titulo: 'Baixar o projeto', topicos: ['O GitHub', 'Download ou clone', 'Os arquivos'] },
-  { titulo: 'Criar a planilha', topicos: ['A planilha nova', 'O nome', 'Extensões'] },
-  { titulo: 'Colar no Apps Script', topicos: ['O editor', 'Os quatro arquivos', 'Salvar'] },
-  { titulo: 'Publicar', topicos: ['Nova implantação', 'App da Web', 'Autorizar'] },
-  { titulo: 'Primeiro acesso', topicos: ['Abrir o endereço', 'Nome e modelo', 'A tela inicial'] },
+  { titulo: 'Antes de começar', topicos: ['O que vai acontecer', 'O aviso do Google', 'O que é criado'] },
+  { titulo: 'Autorizar', topicos: ['O instalador', 'As permissões', 'A volta sozinha'] },
+  { titulo: 'Ligar a API', topicos: ['A chave', 'Uma vez só', 'Conferir sozinho'] },
+  { titulo: 'Nome e instalar', topicos: ['O nome da planilha', 'O progresso', 'O QR code'] },
+  { titulo: 'Primeiro acesso', topicos: ['Nome e modelo', 'Seu mês', 'No celular'] },
 ]
 const capaDoPasso = capas(PARTES)
 
 export const ROTEIRO = [
   { abertura: true, falas: [
-    { texto: 'Olá! Neste vídeo você vai instalar o Finanças do zero, direto do GitHub, e abrir o app pela primeira vez.',
+    { texto: 'Olá! Neste vídeo você vai instalar o Finanças na sua conta Google, do primeiro clique ao primeiro acesso.',
       slide: 'abertura', acao: async () => {} },
-    { texto: 'O Finanças roda na sua conta Google, numa planilha sua. A instalação é feita uma vez, no computador.',
+    { texto: 'O Finanças é um controle financeiro que roda numa planilha sua. A instalação é feita uma vez, no computador, e leva uns três minutos.',
       slide: 'abertura', acao: async () => {} },
   ] },
   { falas: [
-    { texto: 'São cinco passos: baixar o projeto; criar a planilha; colar no Apps Script; publicar; e, por fim, o primeiro acesso.',
+    { texto: 'São cinco passos: antes de começar; autorizar; ligar a API; escolher o nome e instalar; e, por fim, o primeiro acesso.',
       slide: 'indice', acao: async () => {} },
   ] },
 
-  // ── Passo 1: baixar o projeto
+  // ── Passo 1: antes de começar
   capaDoPasso(0),
-  { capitulo: 'O GitHub', falas: [
-    { texto: 'O projeto fica no GitHub. Você não precisa de conta: o repositório é público.',
-      slide: 'github-repo', acao: async () => {} },
-    { texto: 'Clique em Code. Para clonar, copie o endereço HTTPS; para baixar, use Download ZIP.',
-      fala: 'Clique em Code. Para clonar, copie o endereço agá tê tê pê ésse; para baixar, use Download ZIP.',
-      slide: 'github-code', acao: async () => {} },
+  { capitulo: 'O que vai acontecer', falas: [
+    { texto: 'A página Antes de começar explica a instalação antes de abrir o instalador.',
+      slide: 'antes-topo', acao: async () => {} },
+    { texto: 'São quatro passos: autorizar o instalador, ligar a API uma vez, escolher o nome da planilha e instalar.',
+      slide: 'antes-passos', acao: async () => {} },
   ] },
-  { capitulo: 'Os arquivos', falas: [
-    { texto: 'Tudo o que vai para o Apps Script está na pasta src: Codigo.gs e três arquivos HTML.',
-      slide: 'github-src', acao: async () => {} },
-    { texto: 'Abra Codigo.gs e clique no ícone de copiar. Repita com Index, Estilos e App.',
-      slide: 'github-codigo', acao: async () => {} },
+  { capitulo: 'O aviso do Google', falas: [
+    { texto: 'O Google vai avisar que o app não foi verificado. É esperado: o código é aberto e o desenvolvedor é você mesmo.',
+      slide: 'antes-aviso', acao: async () => {} },
+    { texto: 'Você pode conferir o código no GitHub antes de autorizar. O instalador não lê seus dados nem outras planilhas.',
+      slide: 'antes-aviso', acao: async () => {} },
+  ] },
+  { capitulo: 'O que é criado', falas: [
+    { texto: 'Ele cria uma planilha no seu Drive, um projeto Apps Script vinculado a ela e um app da Web só seu.',
+      slide: 'instalador-nome', acao: async () => {} },
   ] },
 
-  // ── Passo 2: criar a planilha
+  // ── Passo 2: autorizar
   capaDoPasso(1),
-  { capitulo: 'A planilha nova', falas: [
-    { texto: 'Abra sheets.new. O Google cria uma planilha nova, vazia.',
-      slide: 'planilha-limpa', acao: async () => {} },
-    { texto: 'Dê um nome no topo, como Finanças. Não precisa digitar nada na planilha.',
-      slide: 'planilha-limpa', acao: async () => {} },
+  { capitulo: 'O instalador', falas: [
+    { texto: 'Clique em Começar a instalação. O instalador abre no navegador e mostra o Passo 1 de 4.',
+      slide: 'instalador-autorizar', acao: async () => {} },
+    { texto: 'Na tela do Google, clique em Revisar permissões e escolha a sua conta.',
+      slide: 'instalador-autorizar', acao: async () => {} },
   ] },
-  { capitulo: 'Extensões', falas: [
-    { texto: 'No menu Extensões, escolha Apps Script. O editor abre numa aba nova.',
-      slide: 'planilha-extensoes', acao: async () => {} },
+  { capitulo: 'As permissões', falas: [
+    { texto: 'Marque todas as permissões, ou Selecionar tudo, e continue. Sem todas, o instalador não consegue criar o Finanças.',
+      slide: 'instalador-autorizar', acao: async () => {} },
+    { texto: 'Se aparecer o aviso de app não verificado, escolha Avançado e depois Acessar Finanças · instalador.',
+      slide: 'antes-aviso', acao: async () => {} },
+  ] },
+  { capitulo: 'A volta sozinha', falas: [
+    { texto: 'Ao voltar para a aba, o instalador confere sozinho e avança. Se não avançar, clique em Já autorizei.',
+      slide: 'instalador-autorizar', acao: async () => {} },
   ] },
 
-  // ── Passo 3: colar no Apps Script
+  // ── Passo 3: ligar a API
   capaDoPasso(2),
-  { capitulo: 'O editor', falas: [
-    { texto: 'O editor já tem o arquivo Código.gs. Apague o exemplo e cole o Codigo.gs do projeto.',
-      slide: 'apps-script-codigo', acao: async () => {} },
-    { texto: 'Crie os arquivos HTML com o sinal de mais: Index, Estilos e App. Cole o conteúdo de cada um.',
-      slide: 'apps-script-final', acao: async () => {} },
-    { texto: 'Salve com Ctrl+S. A lista deve ficar com os quatro arquivos.',
-      slide: 'apps-script-final', acao: async () => {} },
+  { capitulo: 'A chave', falas: [
+    { texto: 'Se o instalador pedir, ligue uma vez a chave API Google Apps Script nas configurações da conta.',
+      slide: 'instalador-api', acao: async () => {} },
+    { texto: 'Abra as configurações pelo botão, ligue a chave e volte. O instalador espera você e avança para o passo 3.',
+      slide: 'instalador-api', acao: async () => {} },
   ] },
 
-  // ── Passo 4: publicar
+  // ── Passo 4: nome e instalar
   capaDoPasso(3),
-  { capitulo: 'Nova implantação', falas: [
-    { texto: 'Clique em Implantar e escolha Nova implantação.',
-      slide: 'apps-script-implantacao', acao: async () => {} },
-    { texto: 'Na engrenagem, selecione App da Web. Execute como Eu e Quem pode acessar Somente eu.',
-      slide: 'apps-script-implantacao', acao: async () => {} },
+  { capitulo: 'O nome da planilha', falas: [
+    { texto: 'Escolha o nome da planilha. É o nome que aparece no seu Drive e onde os seus dados ficam.',
+      slide: 'instalador-nome', acao: async () => {} },
+    { texto: 'Confira O que será criado e clique em Continuar.',
+      slide: 'instalador-nome', acao: async () => {} },
   ] },
-  { capitulo: 'Autorizar', falas: [
-    { texto: 'Clique em Implantar. Na primeira vez, o Google pede a autorização.',
-      slide: 'autorizar-consent2', acao: async () => {} },
-    { texto: 'Confira a permissão, que é só para esta planilha, e clique em Continuar.',
-      slide: 'autorizar-consent2', acao: async () => {} },
+  { capitulo: 'O progresso', falas: [
+    { texto: 'Clique em Instalar o Finanças. Leva uns vinte segundos e cada etapa ganha um certo quando termina.',
+      slide: 'instalador-instalar', acao: async () => {} },
+    { texto: 'Conferir o código, criar a planilha, enviar o código e publicar. Se algo falhar, a tela diz em que etapa parou.',
+      slide: 'instalador-progresso', acao: async () => {} },
   ] },
-  { capitulo: 'O endereço', falas: [
-    { texto: 'Copie o endereço do app da Web, que termina em exec, e guarde. É por ele que você abre o app.',
-      slide: 'apps-script-deploy-url', acao: async () => {} },
+  { capitulo: 'O QR code', falas: [
+    { texto: 'No fim, o instalador mostra o endereço do app e um QR code. Aponte a câmera do celular para abrir no aparelho.',
+      slide: 'instalador-sucesso', acao: async () => {} },
+    { texto: 'Guarde o endereço. No celular, use Adicionar à Tela de Início para ficar com o ícone do Finanças.',
+      slide: 'instalador-sucesso', acao: async () => {} },
   ] },
 
   // ── Passo 5: primeiro acesso
   capaDoPasso(4),
-  { capitulo: 'Abrir o endereço', falas: [
-    { texto: 'Abra o endereço. No primeiro acesso, escolha um nome para o controle e o modelo de categorias.',
-      slide: 'primeiro-acesso', acao: async () => {} },
-    { texto: 'Eu escolho Essencial; ele já vem com Guardar, as contas da casa e as rendas. Clique em Começar.',
-      slide: 'primeiro-acesso', acao: async () => {} },
+  { capitulo: 'Nome e modelo', falas: [
+    { texto: 'Abra o Finanças. No primeiro acesso, dê um nome ao controle e escolha um modelo de categorias.',
+      slide: 'app-boasvindas', acao: async () => {} },
+    { texto: 'O Essencial já vem com Guardar, as contas da casa, o mercado e o básico de rendas. Dá para mudar tudo depois.',
+      slide: 'app-modelos', acao: async () => {} },
   ] },
-  { capitulo: 'A tela inicial', falas: [
-    { texto: 'O app abre no Início. No começo, os números ficam zerados; você lança os gastos e o app calcula o disponível.',
-      slide: 'app-inicio2', acao: async () => {} },
-    { texto: 'No celular, abra o mesmo endereço com a mesma conta e use Adicionar à tela inicial.',
+  { capitulo: 'Seu mês', falas: [
+    { texto: 'O passo Seu mês é opcional: você já deixa a renda, a moradia, a meta e um gasto antes de começar.',
+      slide: 'app-seu-mes', acao: async () => {} },
+    { texto: 'Se preferir, pule. O app abre no Início, com os números zerados, prontos para o primeiro lançamento.',
+      slide: 'app-inicio', acao: async () => {} },
+  ] },
+  { capitulo: 'No celular', falas: [
+    { texto: 'No celular, abra o mesmo endereço com a mesma conta Google. O aviso de app não verificado é o mesmo.',
+      slide: 'celular-inicio', acao: async () => {} },
+    { texto: 'No iPhone, use Safari, Compartilhar, Adicionar à Tela de Início. No Android, use o menu do Chrome, Adicionar à tela inicial.',
       slide: 'celular-inicio', acao: async () => {} },
   ] },
 
   { falas: [
-    { texto: 'Pronto! O app está instalado. Agora siga a série para conhecer as telas e começar a usar.',
+    { texto: 'Pronto! O Finanças está instalado. No próximo vídeo, você vai conhecer a tela Início e ler o seu dinheiro no mês.',
       slide: 'encerramento', acao: async () => {} },
   ] },
 ]

@@ -9,6 +9,7 @@ Entra aqui o termo que um recém-chegado entenderia errado, e principalmente **o
 | **disponível** | Renda do mês − o que já saiu − o que ainda está reservado (contas a pagar + planos restantes). Gastar dentro de um plano não muda o disponível. |
 | **liberar** | Encerrar uma despesa no mês (marca `encerrada:AAAA-MM:<id>`): o que faltava do plano deixa de ser reservado e volta ao **disponível**; o plano continua gravado e o mês fecha no que foi gasto. Na renda, a mesma marca se chama **Não vem mais**. |
 | **renda** | Entrada de dinheiro do mês. Pode ser prevista e recebida parcialmente; receber parte de uma renda prevista não altera o disponível. |
+| **cópia antes de atualizar** | Versão do projeto Apps Script que o instalador cria antes de trocar o código, com descrição "Cópia antes de atualizar para X". É o único alvo aceito por "Voltar para a versão anterior". Não é backup dos dados: os dados ficam na planilha e não mudam. |
 | **fixo** | Categoria de despesa que se repete todo mês (ex.: aluguel, internet). Um dos valores de `GRUPOS`. |
 | **variável** | Categoria de despesa que varia de mês a mês (ex.: mercado, lazer). Um dos valores de `GRUPOS`. |
 | **economia** | Categoria de despesa negativa/sobra guardada no mês. Fechamento do mês guarda a sobra realizada aqui. |

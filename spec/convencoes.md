@@ -108,6 +108,7 @@ Construir o novo em paralelo, sem tocar no atual. Só quando estiver bom, repont
 |---|---|
 | Servidor / domínio | `npm test` (filtrado quando possível) |
 | Fluxo de tela (e2e) | `npm run test:e2e` |
+| Tela do instalador | `npm run test:e2e-instalador` (sobe `testes/preview-instalador.mjs`; para olhar à mão, `node testes/preview-instalador.mjs` com `?cenario=`) |
 | Fim de toda tarefa | `sh spec/_fontes/verificar-entrega.sh`: encadeia lint, formatador, inventário e documentação, imprimindo só o que falhar; os testes (`npm test`, `npm run test:e2e`) rodam à parte |
 
 Ao debugar bug reportado, checar o console do navegador **primeiro**, antes de assumir causa.

@@ -31,6 +31,22 @@ Sabe-se que a direção é "Revisão de plano financeiro e UX", mas não está d
 
 ---
 
+### Q-002 — Ligar o GitHub Pages na pasta `docs/`?
+
+**Status:** aberta.
+
+A página `docs/index.html` (Antes de começar) está no repositório, mas só vira endereço público com o Pages ligado. Os guias citam o caminho sem link até lá.
+
+### Q-003 — Pendências menores do instalador e do e2e
+
+**Status:** aberta.
+
+- `escolherImplantacoes_` (instalador): se o `implantacaoId` informado não existir, aponta todas as implantações web do projeto, como antes da 3.6.0. Avaliar recusar com "Implantação não encontrada".
+- e2e "3.1.0 parcelas … Duplicar" falhou uma vez na suíte completa rodando junto com outro e2e; passou 5 de 5 sozinho, antes e depois da 3.6.0. Suspeita de instabilidade sob carga.
+- Publicar o instalador central (conta do instalador) com as etapas novas; testar antes com `REF_TESTE`.
+
+---
+
 ## Restrições de processo
 
 - O repositório é público: nenhum dado pessoal, de cliente ou de máquina entra em commit.
@@ -56,3 +72,6 @@ Uma suposição é uma lacuna que foi preenchida com um palpite razoável para n
 | ASM-001 | A revisão de UX não muda a regra do `disponível` nem a estrutura das abas existentes. | fechada | A regra do `disponível` não mudou. A 3.1.0 acrescentou só a aba opcional `recorrencias`, sem colunas novas nas abas antigas (R-004). |
 | ASM-002 | A data real da compra no cartão não é guardada: a compra conta no mês de pagamento da fatura, no dia do vencimento. | aberta | Guardar a data exigiria coluna ou aba de detalhe (R-004). Fica suposição até decisão sobre isso. |
 | ASM-003 | CSP não implementada: a política de conteúdo por meta tag dentro do iframe do HtmlService não foi verificada. | aberta | `docs/SEGURANCA.md` diz que não é prometida; o teste fixa só as origens externas. |
+| ASM-012 | Depois do PUT na implantação, `google.script.run` de uma página aberta antes já roda o código novo (base do "Atualizado para X"). | aberta | Conferir na instalação de teste depois de publicar o instalador central. |
+| ASM-013 | `script.google.com/home/usersettings` abre no navegador do celular. | aberta | Conferir no celular; se não abrir, o passo pede computador. |
+| ASM-014 | Baixar e conferir os arquivos de novo em cada etapa de escrita cabe no tempo das chamadas do Apps Script. | aberta | Medir na instalação de teste. |

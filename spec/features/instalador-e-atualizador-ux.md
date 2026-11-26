@@ -1,6 +1,7 @@
 # Feature: Instalador e atualizador modernos
 
 > status: em-implementacao
+> nota: T-012 a T-021 concluídas; fica em implementação até confirmar ASM-012, ASM-013 e ASM-014 na instalação de teste (ver `spec/estado.md`).
 > Plano de origem: `docs/plans/261126-instalador-e-atualizador-ux.md`. Decisões tomadas na execução: Q1 progresso real, Q2 com QR code, Q3 com "voltar atrás", Q4 com página "Antes de começar" (ligar o GitHub Pages fica com o usuário).
 
 ## Contexto
@@ -177,7 +178,7 @@ Como `pessoa` que ainda não instalou, quero saber o que vai aparecer antes de c
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| QF-001 | Ligar o GitHub Pages (pasta `docs/`) para publicar a página de entrada? | aberta | |
+| QF-001 | Ligar o GitHub Pages (pasta `docs/`) para publicar a página de entrada? | aberta | Levada a `spec/estado.md` como Q-002 |
 
 ---
 

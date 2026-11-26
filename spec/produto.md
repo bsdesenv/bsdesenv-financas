@@ -62,7 +62,9 @@ Parcela e transporte de sobra não têm aba: são lançamentos comuns com id de 
 Layout do repositório:
 
 - `src/` — arquivos que vão para o projeto Apps Script (`.gs`, `.html`, `appsscript.json`).
-- `instalador/` — projeto Apps Script separado que cria a planilha e publica o app.
+- `instalador/` — projeto Apps Script separado que cria a planilha e publica o app. Instalar e atualizar são divididos em etapas que a página chama uma a uma e mostra como progresso (`prepararInstalacao`, `criarPlanilha`, `criarProjeto`, `publicarApp`, `desfazerInstalacao`; `prepararAtualizacao`, `guardarCopia`, `trocarCodigo`, `publicarAtualizacao`, `voltarVersao`); `instalar` e `atualizar` continuam e encadeiam as mesmas etapas. `estado()` informa `alvo.copia`, a cópia antes de atualizar mais recente. A página tem a trilha "Passo n de 4", QR code do endereço do app gerado por `instalador/Qr.html` (adaptado da qrcodegen, MIT) e voltar para a versão anterior com confirmação.
+- `docs/index.html` — página estática "Antes de começar", sem JS nem recurso externo, que explica a instalação antes de abrir o instalador. Publicada pelo GitHub Pages quando ligado (QF-001).
+- Atualizações no app — `versaoServidor()` devolve a `VERSAO_APP` do código implantado; o app a consulta ao voltar à aba depois de "Atualizar para X" e mostra "Atualizado para X · Recarregar". A faixa de versão nova na Visão geral e a folha "O que mudou" usam as chaves locais `versao-fechada` e `versao-vista`.
 - `testes/` — testes de domínio, servidor, HTML service, versão e e2e.
 - `exemplos/` — dados fictícios para testes e primeiro acesso.
 - `docs/` — guias de instalação, uso, arquitetura, segurança e atualização.
@@ -70,7 +72,7 @@ Layout do repositório:
 
 ## Autenticação
 
-O usuário entra pela conta Google que criou a planilha. O app pede escopo `https://www.googleapis.com/auth/spreadsheets.currentonly` (`@OnlyCurrentDoc`), restringido à planilha aberta. O instalador tem permissões próprias para criar a planilha e o projeto; ele não lê dados do usuário.
+O usuário entra pela conta Google que criou a planilha. O app pede escopo `https://www.googleapis.com/auth/spreadsheets.currentonly` (`@OnlyCurrentDoc`), restringido à planilha aberta. O instalador tem permissões próprias para criar a planilha e o projeto; ele não lê dados do usuário. A planilha que ele cria leva o marcador `appProperties.financasInstalador`, e a lixeira em caso de falha só alcança planilha com esse marcador criada há no máximo 60 minutos. Toda escrita de código baixado é precedida da conferência SHA-256; `voltarVersao` é a exceção, porque só repõe a cópia que o próprio projeto guardou.
 
 ## Inventário detalhado
 

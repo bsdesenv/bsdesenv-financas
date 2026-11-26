@@ -1,0 +1,356 @@
+<script>
+/*
+ * Gerador de QR code (modo byte, correção M, versões 1 a 40).
+ *
+ * Adaptado, à mão e reduzido, da biblioteca "QR Code generator" (TypeScript)
+ * de Project Nayuki. Origem: github.com/nayuki/QR-Code-generator
+ * (arquivo typescript-javascript/qrcodegen.ts) e www.nayuki.io/page/qr-code-generator-library
+ * Mudanças: JavaScript simples sem tipos; só o modo byte (UTF-8) e só a correção M;
+ * sem segmentos numéricos, alfanuméricos ou ECI; uma única função pública, window.qrMatriz.
+ * Os comentários usam só bloco e os endereços vão sem as duas barras, por causa do
+ * HtmlService do Apps Script (veja testes/htmlservice.test.mjs).
+ *
+ * Copyright (c) Project Nayuki. (MIT License)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ * - The above copyright notice and this permission notice shall be included in
+ *   all copies or substantial portions of the Software.
+ * - The Software is provided "as is", without warranty of any kind, express or
+ *   implied, including but not limited to the warranties of merchantability,
+ *   fitness for a particular purpose and noninfringement. In no event shall the
+ *   authors or copyright holders be liable for any claim, damages or other
+ *   liability, whether in an action of contract, tort or otherwise, arising from,
+ *   out of or in connection with the Software or the use or other dealings in the
+ *   Software.
+ */
+(function () {
+  'use strict';
+
+  /* Correção M: palavras de correção por bloco e número de blocos, por versão (índice 0 não usado). */
+  var ECC_POR_BLOCO = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28];
+  var NUM_BLOCOS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49];
+  /* Bits de formato da correção M (00). */
+  var FORMATO_M = 0;
+
+  function bitDe(x, i) {
+    return ((x >>> i) & 1) !== 0;
+  }
+
+  function paraUtf8(texto) {
+    var s = encodeURI(texto);
+    var r = [];
+    for (var i = 0; i < s.length; i++) {
+      if (s.charAt(i) !== '%') r.push(s.charCodeAt(i));
+      else { r.push(parseInt(s.substring(i + 1, i + 3), 16)); i += 2; }
+    }
+    return r;
+  }
+
+  function anexarBits(valor, qtd, bits) {
+    for (var i = qtd - 1; i >= 0; i--) bits.push((valor >>> i) & 1);
+  }
+
+  function modulosDeDados(ver) {
+    var r = (16 * ver + 128) * ver + 64;
+    if (ver >= 2) {
+      var a = Math.floor(ver / 7) + 2;
+      r -= (25 * a - 10) * a - 55;
+      if (ver >= 7) r -= 36;
+    }
+    return r;
+  }
+
+  function palavrasDeDados(ver) {
+    return Math.floor(modulosDeDados(ver) / 8) - ECC_POR_BLOCO[ver] * NUM_BLOCOS[ver];
+  }
+
+  function multiplicarGf(x, y) {
+    var z = 0;
+    for (var i = 7; i >= 0; i--) {
+      z = (z << 1) ^ ((z >>> 7) * 0x11D);
+      z ^= ((y >>> i) & 1) * x;
+    }
+    return z;
+  }
+
+  function divisorRs(grau) {
+    var r = [];
+    for (var i = 0; i < grau - 1; i++) r.push(0);
+    r.push(1);
+    var raiz = 1;
+    for (var k = 0; k < grau; k++) {
+      for (var j = 0; j < r.length; j++) {
+        r[j] = multiplicarGf(r[j], raiz);
+        if (j + 1 < r.length) r[j] ^= r[j + 1];
+      }
+      raiz = multiplicarGf(raiz, 2);
+    }
+    return r;
+  }
+
+  function restoRs(dados, divisor) {
+    var r = divisor.map(function () { return 0; });
+    dados.forEach(function (b) {
+      var fator = b ^ r.shift();
+      r.push(0);
+      divisor.forEach(function (coef, i) { r[i] ^= multiplicarGf(coef, fator); });
+    });
+    return r;
+  }
+
+  function entrelacar(dados, ver) {
+    var nBlocos = NUM_BLOCOS[ver];
+    var eccLen = ECC_POR_BLOCO[ver];
+    var brutas = Math.floor(modulosDeDados(ver) / 8);
+    var curtos = nBlocos - brutas % nBlocos;
+    var lenCurto = Math.floor(brutas / nBlocos);
+    var blocos = [];
+    var div = divisorRs(eccLen);
+    for (var i = 0, k = 0; i < nBlocos; i++) {
+      var dat = dados.slice(k, k + lenCurto - eccLen + (i < curtos ? 0 : 1));
+      k += dat.length;
+      var ecc = restoRs(dat, div);
+      if (i < curtos) dat.push(0);
+      blocos.push(dat.concat(ecc));
+    }
+    var r = [];
+    for (var p = 0; p < blocos[0].length; p++) {
+      for (var j = 0; j < blocos.length; j++) {
+        if (p !== lenCurto - eccLen || j >= curtos) r.push(blocos[j][p]);
+      }
+    }
+    return r;
+  }
+
+  function posicoesAlinhamento(ver, tam) {
+    if (ver === 1) return [];
+    var n = Math.floor(ver / 7) + 2;
+    var passo = Math.floor((ver * 8 + n * 3 + 5) / (n * 4 - 4)) * 2;
+    var r = [6];
+    for (var pos = tam - 7; r.length < n; pos -= passo) r.splice(1, 0, pos);
+    return r;
+  }
+
+  /* Penalidade da máscara (regras N1 a N4 do padrão). */
+  function historicoAdd(comp, hist, tam) {
+    if (hist[0] === 0) comp += tam;
+    hist.pop();
+    hist.unshift(comp);
+  }
+
+  function contarPadroes(h, tam) {
+    var n = h[1];
+    var nucleo = n > 0 && h[2] === n && h[3] === n * 3 && h[4] === n && h[5] === n;
+    return (nucleo && h[0] >= n * 4 && h[6] >= n ? 1 : 0) + (nucleo && h[6] >= n * 4 && h[0] >= n ? 1 : 0);
+  }
+
+  function terminarEContar(cor, comp, hist, tam) {
+    if (cor) { historicoAdd(comp, hist, tam); comp = 0; }
+    comp += tam;
+    historicoAdd(comp, hist, tam);
+    return contarPadroes(hist, tam);
+  }
+
+  function penalidade(m, tam) {
+    var r = 0;
+    var x, y, eixo, cor, corCorrida, corrida, hist;
+    for (eixo = 0; eixo < 2; eixo++) {
+      for (var a = 0; a < tam; a++) {
+        corCorrida = false;
+        corrida = 0;
+        hist = [0, 0, 0, 0, 0, 0, 0];
+        for (var b = 0; b < tam; b++) {
+          cor = eixo === 0 ? m[a][b] : m[b][a];
+          if (cor === corCorrida) {
+            corrida++;
+            if (corrida === 5) r += 3;
+            else if (corrida > 5) r++;
+          } else {
+            historicoAdd(corrida, hist, tam);
+            if (!corCorrida) r += contarPadroes(hist, tam) * 40;
+            corCorrida = cor;
+            corrida = 1;
+          }
+        }
+        r += terminarEContar(corCorrida, corrida, hist, tam) * 40;
+      }
+    }
+    for (y = 0; y < tam - 1; y++) {
+      for (x = 0; x < tam - 1; x++) {
+        cor = m[y][x];
+        if (cor === m[y][x + 1] && cor === m[y + 1][x] && cor === m[y + 1][x + 1]) r += 3;
+      }
+    }
+    var escuros = 0;
+    for (y = 0; y < tam; y++) for (x = 0; x < tam; x++) if (m[y][x]) escuros++;
+    var total = tam * tam;
+    var k = Math.ceil(Math.abs(escuros * 20 - total * 10) / total) - 1;
+    return r + k * 10;
+  }
+
+  function inverter(mascara, x, y) {
+    switch (mascara) {
+      case 0: return (x + y) % 2 === 0;
+      case 1: return y % 2 === 0;
+      case 2: return x % 3 === 0;
+      case 3: return (x + y) % 3 === 0;
+      case 4: return (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0;
+      case 5: return x * y % 2 + x * y % 3 === 0;
+      case 6: return (x * y % 2 + x * y % 3) % 2 === 0;
+      default: return ((x + y) % 2 + x * y % 3) % 2 === 0;
+    }
+  }
+
+  function montar(ver, dados) {
+    var tam = ver * 4 + 17;
+    var m = [];
+    var fn = [];
+    var i, j, x, y;
+    for (i = 0; i < tam; i++) {
+      m.push([]);
+      fn.push([]);
+      for (j = 0; j < tam; j++) { m[i].push(false); fn[i].push(false); }
+    }
+
+    function funcao(x2, y2, escuro) {
+      m[y2][x2] = escuro;
+      fn[y2][x2] = true;
+    }
+
+    function localizador(cx, cy) {
+      for (var dy = -4; dy <= 4; dy++) {
+        for (var dx = -4; dx <= 4; dx++) {
+          var dist = Math.max(Math.abs(dx), Math.abs(dy));
+          var xx = cx + dx;
+          var yy = cy + dy;
+          if (xx >= 0 && xx < tam && yy >= 0 && yy < tam) funcao(xx, yy, dist !== 2 && dist !== 4);
+        }
+      }
+    }
+
+    function alinhamento(cx, cy) {
+      for (var dy = -2; dy <= 2; dy++) {
+        for (var dx = -2; dx <= 2; dx++) funcao(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }
+    }
+
+    function formato(mascara) {
+      var d = FORMATO_M << 3 | mascara;
+      var resto = d;
+      for (var q = 0; q < 10; q++) resto = (resto << 1) ^ ((resto >>> 9) * 0x537);
+      var bits = (d << 10 | resto) ^ 0x5412;
+      var n;
+      for (n = 0; n <= 5; n++) funcao(8, n, bitDe(bits, n));
+      funcao(8, 7, bitDe(bits, 6));
+      funcao(8, 8, bitDe(bits, 7));
+      funcao(7, 8, bitDe(bits, 8));
+      for (n = 9; n < 15; n++) funcao(14 - n, 8, bitDe(bits, n));
+      for (n = 0; n < 8; n++) funcao(tam - 1 - n, 8, bitDe(bits, n));
+      for (n = 8; n < 15; n++) funcao(8, tam - 15 + n, bitDe(bits, n));
+      funcao(8, tam - 8, true);
+    }
+
+    function versaoBits() {
+      if (ver < 7) return;
+      var resto = ver;
+      for (var q = 0; q < 12; q++) resto = (resto << 1) ^ ((resto >>> 11) * 0x1F25);
+      var bits = ver << 12 | resto;
+      for (var n = 0; n < 18; n++) {
+        var cor = bitDe(bits, n);
+        var a = tam - 11 + n % 3;
+        var b = Math.floor(n / 3);
+        funcao(a, b, cor);
+        funcao(b, a, cor);
+      }
+    }
+
+    function aplicarMascara(mascara) {
+      for (var yy = 0; yy < tam; yy++) {
+        for (var xx = 0; xx < tam; xx++) {
+          if (!fn[yy][xx] && inverter(mascara, xx, yy)) m[yy][xx] = !m[yy][xx];
+        }
+      }
+    }
+
+    for (i = 0; i < tam; i++) {
+      funcao(6, i, i % 2 === 0);
+      funcao(i, 6, i % 2 === 0);
+    }
+    localizador(3, 3);
+    localizador(tam - 4, 3);
+    localizador(3, tam - 4);
+    var pos = posicoesAlinhamento(ver, tam);
+    pos.forEach(function (px, a) {
+      pos.forEach(function (py, b) {
+        var canto = (a === 0 && b === 0) || (a === 0 && b === pos.length - 1) || (a === pos.length - 1 && b === 0);
+        if (!canto) alinhamento(px, py);
+      });
+    });
+    formato(0);
+    versaoBits();
+
+    /* Zigue-zague dos dados e da correção. */
+    var todas = entrelacar(dados, ver);
+    var k = 0;
+    for (var direita = tam - 1; direita >= 1; direita -= 2) {
+      if (direita === 6) direita = 5;
+      for (var vert = 0; vert < tam; vert++) {
+        for (j = 0; j < 2; j++) {
+          x = direita - j;
+          y = ((direita + 1) & 2) === 0 ? tam - 1 - vert : vert;
+          if (!fn[y][x] && k < todas.length * 8) {
+            m[y][x] = bitDe(todas[k >>> 3], 7 - (k & 7));
+            k++;
+          }
+        }
+      }
+    }
+
+    /* Escolhe a máscara de menor penalidade. */
+    var melhor = 0;
+    var menor = 1000000000;
+    for (i = 0; i < 8; i++) {
+      aplicarMascara(i);
+      formato(i);
+      var p = penalidade(m, tam);
+      if (p < menor) { melhor = i; menor = p; }
+      aplicarMascara(i);
+    }
+    aplicarMascara(melhor);
+    formato(melhor);
+    return m;
+  }
+
+  /* Texto em UTF-8, modo byte, correção M, menor versão que caiba. Matriz de linhas; true = módulo escuro. */
+  window.qrMatriz = function (texto) {
+    var bytes = paraUtf8(String(texto));
+    var ver;
+    var usados = 0;
+    for (ver = 1; ; ver++) {
+      var cc = ver < 10 ? 8 : 16;
+      usados = bytes.length === 0 ? 0 : (bytes.length >= (1 << cc) ? Infinity : 4 + cc + bytes.length * 8);
+      if (usados <= palavrasDeDados(ver) * 8) break;
+      if (ver >= 40) throw new RangeError('Texto longo demais para um QR code');
+    }
+    var bits = [];
+    if (bytes.length > 0) {
+      anexarBits(4, 4, bits);
+      anexarBits(bytes.length, ver < 10 ? 8 : 16, bits);
+      bytes.forEach(function (b) { anexarBits(b, 8, bits); });
+    }
+    var capacidade = palavrasDeDados(ver) * 8;
+    anexarBits(0, Math.min(4, capacidade - bits.length), bits);
+    anexarBits(0, (8 - bits.length % 8) % 8, bits);
+    for (var pad = 0xEC; bits.length < capacidade; pad ^= 0xEC ^ 0x11) anexarBits(pad, 8, bits);
+    var dados = [];
+    while (dados.length * 8 < bits.length) dados.push(0);
+    bits.forEach(function (b, i) { dados[i >>> 3] |= b << (7 - (i & 7)); });
+    return montar(ver, dados);
+  };
+})();
+</script>

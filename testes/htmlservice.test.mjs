@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RAIZ } from './gerar-versao.mjs';
 
-const PAGINAS = ['src/Index.html', 'src/App.html', 'src/Estilos.html', 'instalador/Index.html'];
+const PAGINAS = ['src/Index.html', 'src/App.html', 'src/Estilos.html', 'instalador/Index.html', 'instalador/Qr.html'];
 const PERIGO = /\/\/|\/\*/;
 const COMENTARIO_EM_CATCH = /\{ \/\*[^*/]*\*\/ \}/g;
 

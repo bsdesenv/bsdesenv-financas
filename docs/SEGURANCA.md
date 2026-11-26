@@ -64,8 +64,11 @@ O instalador é um **projeto Apps Script separado**, publicado pela bsdesenv, pa
   - `script.external_request` — baixar os arquivos do GitHub;
   - `drive.file` — criar e mexer apenas nos arquivos que ele mesmo criou.
 - **Não lê seus dados.** Não usa `SpreadsheetApp`, `DriveApp` nem `Session`. O `drive.file` não dá acesso às suas outras planilhas ou arquivos; ele cria a planilha do Finanças e mantém o projeto vinculado a ela.
-- **Link do "Atualizar agora".** O app abre o instalador com só dois IDs no endereço: o do projeto e o da implantação. Nenhum dado da planilha vai no link.
+- **Link do "Atualizar para X".** O app abre o instalador com só dois IDs no endereço: o do projeto e o da implantação. Nenhum dado da planilha vai no link.
 - **Conferência antes de criar.** Antes de criar qualquer coisa, o instalador confere a autorização, a chave da API e os hashes dos arquivos.
+- **QR code no navegador.** O QR do endereço do app é gerado na própria página do instalador, sem serviço externo.
+- **Voltar à versão anterior.** Só aceita cópias chamadas **Cópia antes de atualizar**, de um projeto Finanças.
+- **Sem permissão nova.** Esta versão não pede nenhuma autorização além das listadas acima.
 - **Falha no meio.** Se a instalação falhar mesmo assim, a planilha que ele criou vai para a lixeira sozinha.
 - **Só mexe no Finanças.** Antes de atualizar, lê o projeto e confere se existe um arquivo de servidor com a marca `bsdesenv-financas` e um `VERSAO_APP` válido. Se não for o Finanças, recusa sem alterar nada. Isso vale também para quem instalou à mão.
 - **Cópia antes de atualizar.** Uma versão do projeto é guardada antes da troca; o número aparece no fim da atualização para você voltar atrás em **Gerenciar implantações**.

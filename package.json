@@ -9,8 +9,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test testes/servidor.test.mjs testes/dominio.test.mjs testes/versao.test.mjs testes/instalador.test.mjs testes/htmlservice.test.mjs",
+    "test": "node --test testes/servidor.test.mjs testes/dominio.test.mjs testes/versao.test.mjs testes/instalador.test.mjs testes/htmlservice.test.mjs testes/qr.test.mjs",
     "test:e2e": "node testes/e2e.mjs",
+    "test:e2e-instalador": "node testes/e2e-instalador.mjs",
     "preview": "node testes/preview.mjs",
     "preview:prints": "node testes/preview.mjs --prints",
     "prints": "node testes/e2e.mjs --prints",

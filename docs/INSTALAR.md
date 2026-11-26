@@ -14,18 +14,34 @@ Faça a instalação **no computador**. Depois é só abrir o endereço no celul
 
 O instalador é um projeto separado da bsdesenv. Ele cria a planilha, o projeto e a publicação no seu Drive, com o código conferido por SHA-256. Não lê seus dados. Veja as permissões em [SEGURANCA.md](SEGURANCA.md#instalador-opcional).
 
-1. Abra o [instalador do Finanças](https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec).
+Antes, se quiser ver o que vai acontecer, leia a página `docs/index.html` ("Antes de começar", publicada pelo GitHub Pages quando ligado). Ela mostra o aviso do Google com ilustrações.
+
+**O que será criado.** O painel **O que será criado** mostra o que vai para a sua conta: uma planilha no seu Drive, um projeto Apps Script vinculado a ela e um app da Web só seu.
+
+A trilha **Passo n de 4** mostra onde você está: **Autorizar**, **Ligar a API**, **Escolher o nome** e **Instalar**. No computador ela fica à esquerda; no celular, uma barra no topo e um botão fixo embaixo.
+
+1. **Autorizar.** Abra o [instalador do Finanças](https://script.google.com/macros/s/AKfycbwjAGEw8zZ_ju1NImYSjU539npZRQPM48cl-tgJLugXVe0gxE0lkx_gKmEi3DIL6wFzZA/exec).
 2. O Google pede autorização. Clique em **Revisar permissões** e escolha a sua conta.
 3. Aparece *"O Google não verificou este app"*. Clique em **Avançado › Acessar Finanças · instalador (não seguro)**. O aviso aparece porque o instalador ainda não passou pela verificação do Google.
 4. Marque **todas** as permissões (**Selecionar tudo**) e clique em **Continuar**. Sem todas, o instalador não funciona.
-5. Se o instalador pedir, ligue **uma vez** a chave **API Google Apps Script** em <https://script.google.com/home/usersettings> e volte para clicar em **Já liguei**.
-6. Escolha o **nome da planilha** e clique em **Instalar**. Leva uns 20 segundos.
-7. Clique em **Abrir o Finanças**. Na primeira vez o Google pede para autorizar o app. A permissão é só para a planilha dele, e o aviso de app não verificado aparece porque o desenvolvedor é você mesmo.
-8. No primeiro acesso do app, escolha um nome e um modelo de categorias, ou importe um backup.
+5. **Ligar a API.** Se o instalador pedir, ligue **uma vez** a chave **API Google Apps Script** em <https://script.google.com/home/usersettings>. Ao voltar para esta aba, o instalador confere sozinho e avança. Se não avançar, clique em **Já liguei**.
+6. **Escolher o nome.** Escolha o **nome da planilha**.
+7. **Instalar.** Clique em **Instalar**. Leva uns 20 segundos. O progresso aparece em 4 etapas, descritas abaixo.
+8. Clique em **Abrir o Finanças**. Na primeira vez o Google pede para autorizar o app. A permissão é só para a planilha dele, e o aviso de app não verificado aparece porque o desenvolvedor é você mesmo.
+9. No primeiro acesso do app, escolha um nome e um modelo de categorias, ou importe um backup.
 
-Se a instalação falhar no meio, a planilha criada vai para a lixeira sozinha e nada fica pela metade. Basta tentar de novo.
+**Progresso.** Ao instalar, a tela mostra quatro etapas: **Conferir o código**, **Criar a planilha**, **Enviar o código** e **Publicar**.
 
-Guarde o endereço do app: é ele que você vai abrir sempre. No celular, abra o mesmo endereço, entre com a mesma conta e use **Adicionar à tela inicial**.
+**Se der erro.** A tela diz em que etapa parou e o que foi desfeito: a planilha criada vai para a lixeira, e nada fica pela metade. Ela oferece **Tentar de novo**, **Instalar à mão** (o passo a passo mais abaixo) e o detalhe técnico, para copiar se precisar pedir ajuda.
+
+Guarde o endereço do app: é ele que você vai abrir sempre.
+
+**Tela de sucesso.** No computador, aparecem o QR code do endereço do app e o botão **Copiar endereço**. Para levar o app ao celular, leia o QR com a câmera ou copie o endereço. No celular, ponha o app na tela inicial:
+
+- **iPhone:** Safari › **Compartilhar** › **Adicionar à Tela de Início**.
+- **Android:** Chrome › **⋮** › **Adicionar à tela inicial**.
+
+No celular, abra o mesmo endereço e entre com a mesma conta Google. O aviso *"O Google não verificou este app"* é esperado: o desenvolvedor é você.
 
 **Limite atual:** enquanto o instalador não for verificado pelo Google, no máximo 100 pessoas no total conseguem autorizá-lo. Se não funcionar para você, use a instalação à mão, que não tem esse limite.
 
@@ -123,9 +139,9 @@ Para voltar ao seu estado: **Ajustes › Seus dados › Importar backup**, escol
 
 ## Atualizar o código depois
 
-O app avisa quando há versão nova (um ponto em **Ajustes**). Em **Ajustes › Atualizações**:
+O app avisa quando há versão nova (uma faixa na **Visão geral**). Em **Ajustes › Atualizações**:
 
-- **Atualizar agora** abre o instalador, que guarda uma cópia de segurança e troca o código em um clique, no mesmo endereço.
+- **Atualizar para X** abre o instalador, que guarda uma cópia de segurança e troca o código em um clique, no mesmo endereço.
 - **Atualizar à mão…** mostra o passo a passo para colar cada arquivo no editor.
 
 Os dois valem para quem instalou pelo instalador e para quem instalou à mão. Os dados não são tocados. Detalhes e como voltar atrás em [ATUALIZAR.md](ATUALIZAR.md).
@@ -136,7 +152,7 @@ Os dois valem para quem instalou pelo instalador e para quem instalou à mão. O
 
 **"Este app está bloqueado" ou não aparece a opção "Avançado".** A conta é de empresa ou de escola, e o administrador bloqueia scripts pessoais. Use uma conta Gmail pessoal.
 
-**A página do instalador diz para ligar a API.** Abra <https://script.google.com/home/usersettings>, ligue a chave **API Google Apps Script**, volte à página do instalador e clique em **Já liguei**.
+**A página do instalador diz para ligar a API.** Abra <https://script.google.com/home/usersettings>, ligue a chave **API Google Apps Script**, volte à página do instalador. Ela confere sozinha ao voltar para a aba; se não avançar, clique em **Já liguei**.
 
 **Tela branca ou "função não encontrada".** Algum arquivo HTML está com nome diferente de `Index`, `Estilos` ou `App`.
 

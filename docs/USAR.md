@@ -251,7 +251,9 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas. No topo, o 
 
 ### Ajustes
 
-Ajustes abre num índice: **Geral**, **Categorias**, **Cartões**, **Seus dados**, **Atualizações** e **Diagnósticos**. No celular, toque num item para abrir a seção, e **‹ Ajustes** volta ao índice (o voltar do navegador também). No computador, o índice fica à esquerda e a seção à direita, começando em **Geral**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
+Ajustes abre num índice: **Geral**, **Categorias**, **Cartões**, **Seus dados**, **Atualizações** e **Diagnósticos**. No celular, toque num item para abrir a seção, e **‹ Ajustes** volta ao índice (o voltar do navegador também). No computador, o índice fica à esquerda e a seção à direita, começando em **Geral**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que traz a ação **Atualizar para X** quando há versão nova.
+
+Quando há versão nova, a **Visão geral** mostra a faixa **Versão X disponível**, com **Ver novidades** e ✕. Depois de atualizar, ao voltar ao app, ele avisa **Atualizado para X** com o botão **Recarregar**. Na primeira abertura da versão nova, mostra uma vez **O que mudou na X**.
 
 A cor de cada categoria segue a posição dela na lista, então ela muda quando você reordena. O texto usa a fonte DM Sans, que já vem com o app.
 

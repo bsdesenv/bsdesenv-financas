@@ -54,6 +54,8 @@ Quer só olhar antes? No primeiro acesso, use os **dados de exemplo**: explore �
 
 O Google pode mostrar um aviso de "app não verificado". É esperado em apps pessoais; o [passo a passo](docs/INSTALAR.md#instalar-com-o-instalador-recomendado) mostra o que clicar.
 
+Antes de começar, a página `docs/index.html` (publicada pelo GitHub Pages quando ligado) mostra o que vai acontecer. No fim da instalação, um QR code leva o endereço do app ao celular.
+
 ## Seus dados são seus
 
 - Tudo fica numa planilha no seu Google Drive. Você abre, copia ou apaga quando quiser.

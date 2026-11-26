@@ -3,16 +3,26 @@
 
 ## Da versão 2 em diante
 
-Na 2.7.0 o próprio app avisa quando há versão nova. Uma vez por dia ele consulta o arquivo público de versões no GitHub (só esse arquivo, sem enviar dados) e acende um ponto em **Ajustes**. Dá para desligar a consulta no mesmo cartão.
+Na 2.7.0 o próprio app avisa quando há versão nova. Uma vez por dia ele consulta o arquivo público de versões no GitHub (só esse arquivo, sem enviar dados) e mostra uma faixa na **Visão geral** quando há versão nova. Dá para desligar a consulta em **Ajustes › Atualizações › Sobre e privacidade**.
 
-Em **Ajustes › Atualizações** você tem duas opções:
+Em **Ajustes › Atualizações**, a ação principal é **Atualizar para X**. Em **Outras formas** ficam **Atualizar à mão…** e **Verificar agora**. **Sobre e privacidade** fica recolhido.
 
-- **Atualizar agora:** abre o instalador já apontando para o seu projeto. Em um clique ele guarda uma cópia de segurança (uma versão do projeto) e troca o código, mantendo o mesmo endereço. O link leva só o ID do projeto e da implantação, nenhum dado seu. Na primeira vez o Google pede para autorizar o instalador, como em [INSTALAR.md](INSTALAR.md#instalar-com-o-instalador-recomendado).
+Quando há versão nova, a **Visão geral** mostra a faixa **Versão X disponível**, com **Ver novidades** e ✕. Fechar a faixa não a traz de volta para essa versão.
+
+As duas formas de atualizar são estas:
+
+- **Atualizar para X:** abre o instalador já apontando para o seu projeto. Em um clique ele guarda uma cópia de segurança (uma versão do projeto) e troca o código, mantendo o mesmo endereço. O link leva só o ID do projeto e da implantação, nenhum dado seu. Na primeira vez o Google pede para autorizar o instalador, como em [INSTALAR.md](INSTALAR.md#instalar-com-o-instalador-recomendado).
 - **Atualizar à mão…:** abre um passo a passo que copia cada arquivo da versão nova, conferido por SHA-256, para você colar no editor, salvar e publicar uma **Nova versão** na implantação existente. Não pede permissão nova.
 
 As duas valem para quem instalou pelo instalador e para quem instalou à mão (o instalador reconhece o arquivo `Código.gs` do guia manual). O endereço e os dados não mudam. Se a sua versão já for a mais nova, o instalador avisa e não escreve nada.
 
-**Voltar atrás.** Em **Implantar › Gerenciar implantações › ✏️**, escolha a versão anterior e implante. Depois do **Atualizar agora**, o instalador informa o número da cópia de segurança; é a versão que você escolhe ali.
+**Pelo instalador.** A tela mostra o nome do projeto, a versão atual → nova, as novidades e o que fica: seus dados, o endereço e os arquivos seus. O progresso tem 4 etapas: **Conferir o código**, **Guardar a cópia**, **Trocar o código** e **Publicar**.
+
+**Voltar atrás.** Depois de atualizar, ou ao abrir o instalador num projeto que tem cópia, **Voltar para a versão anterior** pede confirmação na própria tela e volta para a cópia guardada antes de atualizar. Depois, a tela oferece **Atualizar de novo**. Também dá para voltar pela implantação: em **Implantar › Gerenciar implantações › ✏️**, escolha a versão anterior e implante.
+
+**Depois de atualizar.** Ao voltar ao app, ele avisa **Atualizado para X**, com o botão **Recarregar**. Na primeira abertura da versão nova, mostra uma vez **O que mudou na X**.
+
+**Atualizar à mão no celular.** A folha avisa que o passo a passo precisa de computador. O contador mostra **n de m copiados**.
 
 Para atualizar sem o aviso, cole os arquivos novos por cima dos antigos em **Extensões › Apps Script**, salve com `Ctrl+S` e publique em **Implantar › Gerenciar implantações › ✏️ › Versão: Nova versão › Implantar**. Não use *Nova implantação*: ela gera outro endereço.
 

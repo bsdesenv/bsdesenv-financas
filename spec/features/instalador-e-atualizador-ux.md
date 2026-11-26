@@ -260,7 +260,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: onde guardar versão vista e faixa fechada (localStorage por planilha) e quando consultar versaoServidor
 
-### T-018 — Progresso, sucesso e atualizar no instalador [em-andamento]
+### T-018 — Progresso, sucesso e atualizar no instalador [concluida]
 - refs: AC-028, AC-029, AC-030, AC-031, AC-032, AC-033
 - depende: T-016
 - escreve: instalador/Index.html, testes/e2e-instalador.mjs
@@ -285,7 +285,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: como simular versão nova, faixa fechada e versaoServidor maior no mock do e2e
 
-### T-020 — Documentação e scripts de teste [pendente]
+### T-020 — Documentação e scripts de teste [em-andamento]
 - refs: AC-025, AC-034, AC-039
 - depende: T-015, T-018, T-019
 - escreve: docs/INSTALAR.md, docs/ATUALIZAR.md, docs/USAR.md, docs/ARQUITETURA.md, docs/SEGURANCA.md, README.md, package.json

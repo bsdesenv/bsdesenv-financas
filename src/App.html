@@ -1372,7 +1372,7 @@ function telaInicio() {
     : r.fase === 'passado'
       ? [cartaoHeroi(r), cartaoOndeFoi(r), cartaoUltimos()]
       : [cartaoHeroi(r), cartaoCategorias(r), cartaoUltimos()];
-  return `<div class="grade-inicio fase-${r.fase}">${blocos.join('')}</div>`
+  return faixaVersaoHtml() + `<div class="grade-inicio fase-${r.fase}">${blocos.join('')}</div>`
     + `<p class="ver-ano"><button type="button" class="link" data-acao="tela" data-tela="planilha" data-foco="ver-ano">${ic('planilha', 16)}Ver ${S.ano} na Planilha</button></p>`;
 }
 /** Aviso único da 2.8.0, para quem já usava o app: a regra mudou e o número também. */
@@ -3985,6 +3985,81 @@ function pintarAtualizacao(redesenhar) {
   if (foco) { const n = document.querySelector(`[data-foco="${CSS.escape(foco)}"]`); if (n && n !== document.activeElement) n.focus({ preventScroll: true }); }
 }
 
+/* ---------- Faixa de versão nova, atualização em curso e "O que mudou" ----------
+   Guardado no navegador, por implantação (LS): 'versao-fechada' (a maior versão cuja faixa a
+   pessoa fechou) e 'versao-vista' (a última versão que este navegador abriu). A atualização em
+   curso fica só na memória da aba: se a aba for descartada, o recarregamento já traz a versão nova. */
+const versaoGuardada = (k) => { const v = LS.ler(k); return VERSAO_OK.test(String(v)) ? String(v) : ''; };
+const TEMPO_CONFERIR = 10000;
+function faixaVersaoHtml() {
+  const nova = atualizacaoNova();
+  if (!nova) return '';
+  const fechada = S.versaoFechada || versaoGuardada('versao-fechada');
+  if (fechada && compararVersoes(nova.versao, fechada) <= 0) return '';
+  return `<div class="faixa-versao" role="region" aria-label="Versão nova disponível"><p>Versão ${esc(nova.versao)} disponível · `
+    + '<button type="button" class="link" data-acao="tela" data-tela="ajustes" data-secao="atualizacoes" data-foco="faixa-versao-ver">Ver novidades</button></p>'
+    + `<button type="button" class="icone" data-acao="faixa-versao-fechar" data-foco="faixa-versao-fechar" aria-label="Fechar o aviso da versão ${esc(nova.versao)}">${ic('fechar', 16)}</button></div>`;
+}
+function fecharFaixaVersao() {
+  const nova = atualizacaoNova();
+  if (!nova) return;
+  S.versaoFechada = nova.versao; LS.gravar('versao-fechada', nova.versao);
+  render();
+  $('#tela').focus({ preventScroll: true });
+}
+/** A pessoa clicou em "Atualizar para X": daqui em diante, ao voltar para a aba, o app confere o servidor. */
+function marcarAtualizacaoEmCurso() {
+  const nova = atualizacaoNova();
+  if (nova) S.atuEmCurso = { versao: nova.versao, ultima: 0, consultando: false };
+}
+function recarregarApp() {
+  const url = String((S.dados && S.dados.urlApp) || '');
+  if (url.startsWith('https:\/\/script.google.com/')) window.open(url, '_top'); else location.reload();
+}
+/** Ao voltar para a aba com atualização em curso: se o servidor já tem versão maior, avisa e espera a pessoa recarregar. */
+async function conferirAtualizacaoEmCurso() {
+  const c = S.atuEmCurso;
+  if (!c || c.consultando || !S.dados || S.exemplo || Date.now() - c.ultima < TEMPO_CONFERIR) return;
+  c.consultando = true; c.ultima = Date.now();
+  try {
+    const v = String(await chamar('versaoServidor'));
+    if (S.atuEmCurso === c && VERSAO_OK.test(v) && compararVersoes(v, S.dados.versaoApp || '0.0.0') > 0) {
+      S.atuEmCurso = null;
+      aviso(`Atualizado para ${v}`, { acao: 'Recarregar', fn: recarregarApp, fixo: true });
+    }
+  } catch (e) { /* sem rede: tenta na próxima volta */ } finally { c.consultando = false; }
+}
+/** Novidades da versão aberta, se o versao.json guardado for dela; senão, lista vazia. */
+function novidadesDaVersao(versao) {
+  const g = S.atualizacao && S.atualizacao.versao ? S.atualizacao : LS.ler('atualizacao');
+  return g && g.versao === versao && Array.isArray(g.novidades) ? g.novidades.filter((n) => typeof n === 'string' && n.trim()).slice(0, 5) : [];
+}
+function abrirFolhaOQueMudou(versao) {
+  const lista = novidadesDaVersao(versao);
+  abrirFolha({
+    tipo: 'o-que-mudou',
+    montar(el) {
+      el.innerHTML = topoFolha(`O que mudou na ${versao}`, 'Atualização')
+        + '<div class="folha-corpo">'
+        + (lista.length ? `<ul class="atu-novidades">${lista.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '')
+        + `<p><a class="link" href="${URL_CHANGELOG}" target="_blank" rel="noopener">Ver tudo o que mudou ${ic('externo', 14)}</a></p></div>`
+        + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="fechar" data-autofoco>Entendi</button></footer>';
+      el.addEventListener('click', (e) => { if (e.target.closest('[data-f="fechar"]')) fecharFolha(); });
+    },
+  });
+}
+/** Uma vez por versão: a folha só abre se este navegador já tinha visto uma versão menor; sem versão vista (primeira vez), só grava. */
+function mostrarOQueMudou() {
+  if (S.exemplo || !S.dados || !VERSAO_OK.test(String(S.dados.versaoApp))) return;
+  const atual = S.dados.versaoApp; const vista = versaoGuardada('versao-vista');
+  if (!vista) { LS.gravar('versao-vista', atual); return; }
+  if (compararVersoes(atual, vista) <= 0) return;
+  // Não abre por cima de outra folha: tenta na próxima abertura.
+  if (pilha.length) return;
+  LS.gravar('versao-vista', atual);
+  abrirFolhaOQueMudou(atual);
+}
+
 /* ---------- Folha "Atualizar para X" ---------- */
 function copiarTexto(texto) {
   const alternativa = () => {
@@ -4102,7 +4177,8 @@ function abrirAtualizar() {
 /* ---------- Avisos rápidos (com Desfazer) ---------- */
 /* Pilha de Desfazer da sessão: um aviso novo não apaga o Desfazer do anterior; Ctrl+Z desfaz o mais recente. */
 const desfazeres = [];
-function aviso(msg, { acao, fn, tipo = 'info', tempo } = {}) {
+let avisoFixo = null;
+function aviso(msg, { acao, fn, tipo = 'info', tempo, fixo = false } = {}) {
   const box = $('#avisos');
   const el = document.createElement('div');
   el.className = 'aviso ' + tipo;
@@ -4111,8 +4187,13 @@ function aviso(msg, { acao, fn, tipo = 'info', tempo } = {}) {
     + `<button type="button" class="aviso-fechar" aria-label="Fechar aviso">${ic('fechar', 16)}</button>`;
   const duracao = tempo || (acao ? 10000 : 6500);
   let fechado = false; let timer = 0;
-  const fechar = () => { if (fechado) return; fechado = true; clearTimeout(timer); el.classList.add('saindo'); setTimeout(() => el.remove(), 200); };
-  const armar = () => { clearTimeout(timer); timer = setTimeout(fechar, duracao); };
+  // Aviso fixo (fixo: true) só some quando a pessoa age; outro aviso o cobre e ele volta quando o outro sai.
+  const fechar = () => {
+    if (fechado) return; fechado = true; clearTimeout(timer); el.classList.add('saindo'); setTimeout(() => el.remove(), 200);
+    if (fixo) avisoFixo = null;
+    else if (avisoFixo && el.isConnected) { const a = avisoFixo; aviso(a.msg, a.opc); }
+  };
+  const armar = () => { clearTimeout(timer); if (!fixo) timer = setTimeout(fechar, duracao); };
   el.addEventListener('mouseenter', () => clearTimeout(timer));
   el.addEventListener('mouseleave', armar);
   el.addEventListener('focusin', () => clearTimeout(timer));
@@ -4126,6 +4207,7 @@ function aviso(msg, { acao, fn, tipo = 'info', tempo } = {}) {
       fechar(); if (fn) fn();
     });
   }
+  if (fixo) avisoFixo = { msg, opc: { acao, fn, tipo, tempo, fixo } };
   // Um aviso visível por vez; os Desfazer anteriores continuam na pilha (Ctrl+Z).
   box.replaceChildren(el);
   armar();
@@ -4778,6 +4860,7 @@ const ACOES = {
   'cartao-reativar': (el) => { const c = cartaoPorId(el.dataset.id); if (c) mudarAtivoCartao(c, true); },
   'fatura-abrir': (el) => abrirFatura({ cartaoId: el.dataset.cartao, ano: Number(el.dataset.ano), mes: Number(el.dataset.mes) }),
   recarregar: () => location.reload(),
+  'faixa-versao-fechar': () => fecharFaixaVersao(),
 };
 const MUDAR = {
   'atualizacao-auto': (el) => { LS.gravar('atualizacao-auto', el.checked); if (el.checked) verificarAtualizacao(); },
@@ -4967,6 +5050,7 @@ async function iniciar() {
   hist.replace(estadoHist(0));
   await carregarDoServidor({ inicial: true, filaSalva, filaAntiga });
   lerAtalhosDaUrl();
+  if (S.montado) mostrarOQueMudou();
 }
 function acompanharVirada() {
   const h = hoje(); const agora = chaveMes(h.ano, h.mes);
@@ -4976,8 +5060,10 @@ function acompanharVirada() {
   }
   S.mesDeHoje = agora;
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { acompanharVirada(); verificarNovidades(); } });
-window.addEventListener('focus', () => verificarNovidades());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { acompanharVirada(); verificarNovidades(); conferirAtualizacaoEmCurso(); } });
+window.addEventListener('focus', () => { verificarNovidades(); conferirAtualizacaoEmCurso(); });
+// O link "Atualizar para X" abre em outra aba e não passa pelas ACOES: marca a atualização em curso sem impedir a navegação.
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[data-foco="atu-instalador"]')) marcarAtualizacaoEmCurso(); });
 window.addEventListener('online', () => { S.offline = false; enviar(); verificarNovidades(true); });
 window.addEventListener('beforeunload', (e) => { if (S.fila.length) { e.preventDefault(); e.returnValue = ''; } });
 setInterval(() => { if (document.visibilityState === 'visible') verificarNovidades(); }, 180000);

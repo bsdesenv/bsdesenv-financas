@@ -13,8 +13,8 @@
       "tipo": "SERVER_JS",
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
-      "bytes": 35919,
-      "sha256": "4e07ac629f50a3af45da0b88c1902b3e98c56692c8dbf3a10e391e5a249aed4b"
+      "bytes": 36079,
+      "sha256": "5d5c2b4ea33afc96f88d0bc841d11ce6b4e20f0337d515a6925bcfe866c58f0d"
     },
     {
       "nome": "Index",
@@ -29,16 +29,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 167847,
-      "sha256": "477ec9937693bf6275817eaa6a123f367dfe12279135f12320c749e381710d0c"
+      "bytes": 170392,
+      "sha256": "4a94c3e72cc66ff7be5a190cb8f53b0416ea741b440afa99e00f9ad00fa51abc"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 330159,
-      "sha256": "74199100afb405cc2346e139414ff99800335ba99c235c92c9546a81423d9a37"
+      "bytes": 337211,
+      "sha256": "ac8cb9ff8e79946a03e0de0205806be5bf3aa0c2d8bb80ff1e18758e6f339404"
     },
     {
       "nome": "appsscript",

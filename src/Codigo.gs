@@ -53,6 +53,9 @@ function carregar() {
   return JSON.stringify(paraCliente_(lerModelo_()));
 }
 
+/** Versão do código publicado agora: o app aberto compara com a que carregou e percebe a atualização. */
+function versaoServidor() { return VERSAO_APP; }
+
 /** Consulta barata: só a revisão atual, para o app saber se há novidade. */
 function estado() {
   return { revisao: Number(lerConfig_().revisao) || 0 };

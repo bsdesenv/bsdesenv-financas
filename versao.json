@@ -1,14 +1,14 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.1.0",
-  "ref": "v3.1.0",
+  "versao": "3.2.0",
+  "ref": "v3.2.0",
   "data": "2026-11-25",
   "novidades": [
-    "Contas e rendas que se repetem",
-    "Vencimentos em \"O que falta pagar\"",
-    "Não vem em {mês}",
-    "Mudar o valor de uma recorrência",
-    "Parcelar"
+    "Cartão de crédito",
+    "Compra no cartão",
+    "Diagnósticos",
+    "Imprimir o mês",
+    "Qualidade contínua"
   ],
   "arquivos": [
     {
@@ -16,8 +16,8 @@
       "tipo": "SERVER_JS",
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
-      "bytes": 32662,
-      "sha256": "a22ba0ed5b8db967bf28df8fb27e3782ba2f92c6866d87cd45e56f972be597d3"
+      "bytes": 35919,
+      "sha256": "ec700aaee4626cf62c9a7aea0e328736380f1eb8d60e8d25f905d0040ccac904"
     },
     {
       "nome": "Index",
@@ -32,16 +32,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 156831,
-      "sha256": "b9af9ed085a8bb7def99761f26693766be2f84dd775ec1b6d1ba83ffd3916988"
+      "bytes": 163275,
+      "sha256": "a5d775c13434137d47d9f72b62f73ad492fd7f639b2ea0759996b8d490042680"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 283823,
-      "sha256": "f86ccf05b105f396bdfe7a3a15835437769cdd9b2e7bcf07fce173a7dea54174"
+      "bytes": 315179,
+      "sha256": "6141d59161720a74e5beeeab0af1b067d1141b5d12710d2449facfcf171211f1"
     },
     {
       "nome": "appsscript",

@@ -16,7 +16,7 @@
 
 ## Dados
 
-A planilha é a fonte da verdade. São cinco abas: as quatro da versão 1, no mesmo formato, e a `recorrencias`, opcional, que só nasce na primeira gravação (3.1.0):
+A planilha é a fonte da verdade. São cinco abas: as quatro da versão 1, no mesmo formato, e a `recorrencias`, opcional, que só nasce na primeira gravação (3.1.0). A `cartoes`, também opcional, segue a mesma regra desde a 3.2.0:
 
 ```
 lancamentos  id | ano | mes | dia | categoriaId | descricao | valor
@@ -24,9 +24,10 @@ categorias   id | nome | grupo (fixo|variavel|renda) | ordem
 orcamento    ano | categoriaId | mes | valor              ← o "plano"
 config       chave | valor   (nome, tema, revisao, atualizadoEm…)
 recorrencias id | categoriaId | descricao | valor | dia | inicio | fim | ativa | automatico   ← opcional
+cartoes      id | nome | fechamento | vencimento | limite | ativo   ← opcional (3.2.0)
 ```
 
-`inicio` e `fim` são números aaaamm (202611), porque o texto "2026-11" viraria data no Sheets; `fim` e `dia` podem ficar vazios; `ativa` e `automatico` são 1 ou 0. Uma planilha sem a aba abre sem criá-la: `linhasOpcionais_()` lê com `getSheetByName`, e `gravarModelo_()` só cria a aba quando `m.sujo.recorrencias`. Está no mapa `CABECALHOS`, então editar a aba à mão também sobe a revisão (`onEdit`).
+`inicio` e `fim` são números aaaamm (202611), porque o texto "2026-11" viraria data no Sheets; `fim` e `dia` podem ficar vazios; `ativa` e `automatico` são 1 ou 0. Uma planilha sem a aba abre sem criá-la: `linhasOpcionais_()` lê com `getSheetByName`, e `gravarModelo_()` só cria a aba quando `m.sujo.recorrencias` (ou `m.sujo.cartoes`). Está no mapa `CABECALHOS`, então editar a aba à mão também sobe a revisão (`onEdit`).
 
 Chaves da `config` além das básicas, todas preservadas pelas versões anteriores: `categoriaGuardar` (2.8.1), `encerrada:AAAA-MM:<categoriaId>` (2.8.0), `fechado:AAAA-MM` (3.0.0), `pular:AAAA-MM:<recId>` e `categoriaSobra` (3.1.0).
 
@@ -60,6 +61,27 @@ Na versão 2:
 6. **Recusa sem perda.** Uma operação inválida é recusada sozinha. As outras do lote seguem, e o app avisa.
 
 A gravação de cada aba é uma escrita única. As linhas que sobram são limpas depois, então a aba nunca fica vazia no meio de uma gravação.
+
+## Limite do sincronizar (3.2.0)
+
+`npm run medir:sincronizar` roda o `sincronizar` contra a planilha falsa de `testes/gas-mock.mjs` e conta o trabalho (leituras, linhas e gravações), não o tempo. Medição desta versão:
+
+N | operações | leituras | linhas lidas | gravações | linhas gravadas
+--- | --- | --- | --- | --- | ---
+1.000 | 1 | 3 | 1.004 | 2 | 1.005
+1.000 | 200 | 3 | 1.004 | 2 | 1.204
+5.000 | 1 | 3 | 5.004 | 2 | 5.005
+5.000 | 200 | 3 | 5.004 | 2 | 5.204
+20.000 | 1 | 3 | 20.004 | 2 | 20.005
+20.000 | 200 | 3 | 20.004 | 2 | 20.204
+50.000 | 1 | 3 | 50.004 | 2 | 50.005
+50.000 | 200 | 3 | 50.004 | 2 | 50.204
+
+- Cada lote lê todas as abas e regrava por inteiro cada aba que mudou. O custo cresce com o número de linhas, não com o número de operações.
+- Aba que não mudou não é regravada.
+- Lote acima de `MAX_OPS` (500 operações) é recusado com a mensagem de limite.
+
+O tempo real depende do Google e não foi medido aqui: a tabela são contagens do mock, não tempo de resposta. No aparelho, **Ajustes › Diagnósticos** mostra a "Duração do último envio", que é o número para conferir quanto a sincronização leva com a sua planilha.
 
 ## Atualização e canal de versões
 
@@ -218,6 +240,28 @@ Tudo no domínio puro (`<dominio>` de `src/App.html`), testado em `testes/domini
 
 **Transporte de sobra.** `levarSobra()` e `planoSobra()`, no fechamento. A categoria da sobra é uma categoria de renda técnica ("Sobra do mês anterior") guardada em `config.categoriaSobra`. O lançamento tem id determinístico `sAAAAMM` (do mês de origem), cai no dia 1 do mês seguinte, e fechar de novo atualiza o mesmo id. `salvarCat_` recusa tirá-la de renda, e `apagarCat_` recusa apagá-la. Em `contasDoMes`, `p.sid` separa o valor transportado: a saída ganha `transporte` e `resultado = sobraRealizada − transporte`. O disponível e a sobra do mês incluem o transporte, porque o dinheiro veio junto. Os totais do ano (gráfico, rodapé da Planilha, CSV da tabela), a média, o melhor e o pior mês, `sugestaoMeta()` e `media3()` usam `resultado` e `rendaReal − transporte`.
 
+## Cartões de crédito (3.2.0)
+
+A aba opcional `cartoes` (`id | nome | fechamento | vencimento | limite | ativo`) nasce na primeira gravação de um cartão. Nenhuma aba existente ganha coluna (R-004).
+
+- **Operações.** `{t:'cartao', c:{…}}` insere ou substitui pelo `id` (`salvarCartao_`, com `validarCartao_`). `{t:'cartao-', id}` apaga (`apagarCartao_`), e só sem lançamentos: com lançamentos, o servidor recusa, e a tela oferece **Arquivar**, que só põe `ativo` em 0. Validação: id no padrão `^k[a-z0-9]{10}$`; nome obrigatório, até 60 caracteres; fechamento e vencimento de 1 a 31; limite vazio ou entre zero e 1e10, sem zero; `ativo` 1 ou 0.
+- **Id de lançamento.** O lançamento do cartão tem id `k<cartao>_<id>` (`idNoCartao`); `cartaoDoId` lê o prefixo. Não há coluna nova para ligar o lançamento ao cartão: o `RE_ID` já aceita o `_`, então `validarLanc_` não muda. As parcelas seguem o mesmo prefixo (`ehIdParcela`).
+- **Mês de pagamento.** `mesDaFatura(cartao, ano, mes, dia)` devolve o mês em que a compra é paga. Compra até o dia do fechamento (`dia <= fechamento`) entra na fatura que fecha naquele mês; depois, na seguinte. Se o vencimento é maior que o fechamento, a fatura é paga no mês do fechamento; se não, no mês seguinte. `diaDoVencimento` limita o dia ao último dia do mês.
+- **Regime de caixa.** O lançamento é um lançamento comum, com categoria, no mês de pagamento e no dia do vencimento (R-010). `contasDoMes`, `planoExp` e `resultado` não mudam. A fatura é só agrupamento (`lancamentosDoCartao`, `blocoFaturas`, `abrirFatura`): o total aparece na folha e nunca entra em soma. A data real da compra não é guardada, suposição aberta em `spec/estado.md`.
+- **Limite.** `limiteUsado(dados, cartao, ref)` soma as compras do cartão do mês de referência em diante (faturas por pagar e parcelas futuras), com o mês de referência inteiro. Sem limite, a conta não se aplica. Não há pagamento de fatura modelado.
+- Importar extrato não escolhe cartão, e recorrência não é de cartão.
+
+## Diagnósticos (3.2.0)
+
+- `S.recusadas` guarda as 20 últimas operações recusadas desta sessão, só na memória: nada vai para `localStorage`.
+- `S.duracaoEnvio` e `S.operacoesUltimoEnvio` medem o último envio ao `sincronizar`. A folha mostra "Duração do último envio".
+- `sinaisDaPlanilha(dados, ref, pendenciasDoMes)` é domínio puro: conta lançamentos sem descrição e meses com plano, e recebe a contagem de pendências por parâmetro.
+- `dadosDiagnostico()` monta os números que a folha mostra e que **Copiar diagnóstico** leva. O texto copiado tem só contagens e datas (R-005): nunca nome, descrição ou valor.
+
+## Impressão (3.2.0)
+
+`@media print` em `src/Estilos.html` deixa o Mês em cores claras e esconde a navegação, os avisos, a folha e os botões (`.mes .acoes`, `.mes .botao`, `.mes .icone`, `.mes-cab .segmentado`). O botão **Imprimir este mês** (ação `imprimir`) chama `window.print()` e só aparece no Acompanhar. Não há tela nova nem PDF próprio.
+
 ## Importar extrato
 
 Folha `abrirImportarExtrato()`, aberta em Ajustes e no Extrato. O arquivo nunca sai do navegador. Limites: 2 MB (`LIMITE_EXTRATO`) e 2.000 linhas (`MAX_LINHAS_EXTRATO`). A decodificação usa `decodificarTexto()`: UTF-8 estrito e, se falhar, windows-1252 (também quando o OFX declara `CHARSET:1252`).
@@ -268,10 +312,14 @@ Com `S.exemplo` definido:
 ## Testes
 
 - `testes/gas-mock.mjs` imita `SpreadsheetApp`, `LockService` e `HtmlService`, inclusive o que a planilha faz com texto que parece número ou fórmula. O `Codigo.gs` de verdade roda dentro do Node.
-- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema, as marcas e as recorrências), data inválida, `onEdit` a página, as marcas `encerrada:`, `pular:` e os fechamentos `fechado:` na `config`, a aba `recorrencias` (que não é criada ao ler e nasce na primeira gravação), `categoriaSobra` e a compatibilidade com o `Codigo.gs` da versão anterior.
-- `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões; da 3.1.0, as recorrências e o plano efetivo, os vencimentos, a divisão de parcelas, o transporte de sobra e a leitura de extrato (CSV, OFX, datas, valores, ids e duplicados).
+- `testes/servidor.test.mjs` cobre leitura do formato da v1, operações, dois aparelhos, recusas, fórmulas, importação (inclusive o tema, as marcas e as recorrências), data inválida, `onEdit` a página, as marcas `encerrada:`, `pular:` e os fechamentos `fechado:` na `config`, a aba `recorrencias` (que não é criada ao ler e nasce na primeira gravação), `categoriaSobra` e a compatibilidade com o `Codigo.gs` da versão anterior. Da 3.2.0, cobre a aba `cartoes`, as operações `cartao` e `cartao-` e a recusa de apagar cartão com lançamentos.
+- `testes/dominio.test.mjs` roda a seção 1 de `src/App.html` (entre os marcadores `<dominio>`) num `vm`: as regras do disponível, de renda, Guardar, estornos e encerramento, a propriedade "nenhum gasto aumenta o disponível", centavos, pendências, o leitor de valores e a média das sugestões; da 3.1.0, as recorrências e o plano efetivo, os vencimentos, a divisão de parcelas, o transporte de sobra e a leitura de extrato (CSV, OFX, datas, valores, ids e duplicados); da 3.2.0, a fatura (`mesDaFatura`, vencimento, ids `k<cartao>_<id>`, total em centavos), o limite (`limiteUsado`) e os sinais de Diagnósticos (`sinaisDaPlanilha`).
 - `testes/e2e.mjs` abre o app de verdade num Chrome sem janela, ligado ao servidor de verdade. A data é fixa (18/11/2026) para os testes não dependerem do dia. Cobre lançar, editar, apagar e desfazer, dois aparelhos, queda de conexão com recarga, plano, planilha, primeiro acesso, disponível para gastar, meta de economia, cobertura do plano, foco do teclado, transbordo no celular e o aviso de versão nova com a folha de atualização assistida (GitHub simulado). Cobre também os recursos da 2.8.0 (quitar, encerrar no mês, não vem mais, estorno, lançamento rápido em outro mês, `1200x10`, valor fora do normal, aviso único) e da 2.8.1 (avisos fora da folha, repetir até dezembro com confirmação, proteção de grupo e de Guardar, importação com prévia, Desfazer em pilha e acessibilidade). Os cenários da 3.1.0 cobrem recorrências e vencimentos, parcelas, duplicar e repetir, transporte de sobra, importação de extrato (CSV e OFX) e o backup com CSVs.
 - Para rodar o e2e é preciso o `puppeteer` (`npm i -D puppeteer`, ou `PUPPETEER_MODULE` com o caminho do módulo) e um Chrome, indicado por `CHROME_PATH`. `node testes/e2e.mjs` roda os cenários; `--prints` também regrava os prints de `docs/img/`; `E2E_SO="3.1.0"` roda só os cenários com esse texto no nome.
+- Os cenários da 3.2.0 cobrem o cartão e a fatura (inclusive em 320 px), a compra no cartão, a importação e o backup com cartões, Diagnósticos, a impressão do Mês, o Novo lançamento no celular, a recorrência com fim, o teclado sem mouse e a acessibilidade.
+- **Acessibilidade (3.2.0).** O cenário de axe usa o `axe-core` por `AXE_PATH` (caminho do `axe.min.js`, relativo à pasta atual ou à raiz) ou por `import('axe-core')`. O projeto não tem essa dependência; para rodar localmente, `npm i --no-save --no-package-lock axe-core` e depois `AXE_PATH=node_modules/axe-core/axe.min.js`. Sem axe, o cenário pula com aviso. Com `E2E_EXIGE_AXE=1`, a falta do axe reprova, e qualquer violação `critical` ou `serious` também reprova. As mesmas telas passam em 200% de zoom (640 px, com `deviceScaleFactor` 2) e no limite de reflow de 320 px, medindo rolagem lateral e texto cortado. O teclado sem mouse é testado no PC.
+- `node testes/e2e.mjs --capturas` grava PNG em `testes/saida/capturas` (320, 390 e 1440 px, claro e escuro), pasta fora do git. Exemplo com o Chrome do sistema: `CHROME_PATH=/usr/bin/google-chrome AXE_PATH=node_modules/axe-core/axe.min.js E2E_EXIGE_AXE=1 node testes/e2e.mjs --capturas`.
+- `testes/htmlservice.test.mjs` confere que nenhum `<script>` servido pelo HtmlService tem `//` ou `/*` fora de comentário, e que as origens externas do app são as fixadas em [SEGURANCA.md](SEGURANCA.md).
 - `testes/versao.test.mjs` confere o `versao.json` contra o `package.json`, o `VERSAO_APP`, o changelog e os hashes dos arquivos.
 - `testes/instalador.test.mjs` roda o `instalador/Codigo.gs` num `vm` com as APIs do Google e do GitHub simuladas: canal, hashes, instalação e atualização (cópia de segurança, arquivo `Código` removido, extras mantidos, só a implantação pedida).
-- `npm run versao -- --conferir` falha se o `versao.json` estiver desatualizado; o workflow de publicação roda os testes antes de criar a tag.
+- `npm run versao -- --conferir` falha se o `versao.json` estiver desatualizado.

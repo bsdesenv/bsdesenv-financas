@@ -50,6 +50,10 @@ A 3.1 traz contas que se repetem todo mês, parcelas, o transporte da sobra e a 
 
 **Voltar para a 3.0:** reimplante o código dela no mesmo endereço. A 3.0 não lê nem regrava a aba `recorrencias` e preserva as linhas novas da `config`: os dados continuam válidos, mas as contas que se repetem deixam de contar enquanto você estiver nela. As parcelas e a sobra levada continuam, porque são lançamentos comuns.
 
+## Da 3.1 para a 3.2
+
+Nada a fazer. A aba `cartoes` aparece sozinha quando você cadastrar o primeiro cartão.
+
 ## Da 2.7 para a 2.8
 
 A 2.8.0 muda as contas do mês, não os dados. Nenhuma aba nem coluna nova.

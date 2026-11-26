@@ -19,6 +19,7 @@ const D = vm.runInNewContext(`${fonte.slice(ini, fim)}
 ;({ paraNumero, paraNumeros, pareceVezes, indexarAno, contasDoMes, mediaRealizada, chaveMes, faseDe, moedaRedonda,
   recorrenciasDoMes, situacaoContas, dividirParcelas, lerOFX, lerCSV, lerDataBr, lerValorBr, hash53, idImportado,
   classificarExtrato, sugerirCategoria, lerVezes, montarDescParcela, baseParcela, ehIdParcela, planoParcelas, diaQuitado,
+  mesMais, mesDaFatura, diaDoVencimento, idNoCartao, cartaoDoId, lancamentosDoCartao, faturaDoCartao, limiteUsado, novoIdCartao, sinaisDaPlanilha,
   decodificarTexto, adivinharColunasCSV, extratoDeCSV, inverterSinal, valorDoExtrato })`, { TextDecoder });
 
 /** Objetos de outro contexto: compara pelo conteúdo. */
@@ -527,4 +528,170 @@ test('3.1.0 sugerirCategoria: o histórico normalizado é refeito quando o array
   assert.equal(D.sugerirCategoria('padaria  pao quente!', h), 'mercado');
   h.push({ descricao: 'Padaria Pão Quente', categoriaId: 'lazer' }, { descricao: 'padaria pao quente', categoriaId: 'lazer' });
   assert.equal(D.sugerirCategoria('Padaria Pão Quente', h), 'lazer');
+});
+
+// ---- Cartão de crédito e diagnóstico (funções puras da seção de domínio) ----
+
+const CARTAO_AZUL = { id: 'kab12cd34ef', nome: 'Cartão Azul', fechamento: 5, vencimento: 15, limite: 1000, ativo: true };
+const CID_A = 'kab12cd34ef';
+const CID_B = 'kzz99yy88xx';
+/** Lançamento de cartão de exemplo: id = id do cartão + "_" + sufixo. */
+const lc = (cartao, n, mes, dia, valor, categoriaId = 'mercado') => ({ id: `${cartao}_l00000000${n}`, mes, dia, categoriaId, descricao: 'Compra fictícia', valor });
+
+test('cartão mesMais: soma meses e cruza a virada do ano', () => {
+  assert.deepEqual(js(D.mesMais(2026, 12, 1)), { ano: 2027, mes: 1 });
+  assert.deepEqual(js(D.mesMais(2027, 1, -1)), { ano: 2026, mes: 12 });
+  assert.deepEqual(js(D.mesMais(2026, 11, 0)), { ano: 2026, mes: 11 });
+});
+
+test('cartão mesDaFatura: fechamento 5 e vencimento 15 paga no próprio mês do fechamento', () => {
+  const c = { fechamento: 5, vencimento: 15 };
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 3)), { ano: 2026, mes: 11 });
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 6)), { ano: 2026, mes: 12 });
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 12, 31)), { ano: 2027, mes: 1 });
+});
+
+test('cartão mesDaFatura: fechamento 25 e vencimento 5 paga no mês seguinte ao fechamento', () => {
+  const c = { fechamento: 25, vencimento: 5 };
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 20)), { ano: 2026, mes: 12 });
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 26)), { ano: 2027, mes: 1 });
+});
+
+test('cartão mesDaFatura: vencimento igual ao fechamento vai para o mês seguinte', () => {
+  const c = { fechamento: 10, vencimento: 10 };
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 10)), { ano: 2026, mes: 12 });
+  assert.deepEqual(js(D.mesDaFatura(c, 2026, 11, 11)), { ano: 2027, mes: 1 });
+});
+
+test('cartão mesDaFatura: fechamento 30 em fevereiro usa o fechamento como está', () => {
+  const c = { fechamento: 30, vencimento: 10 };
+  assert.deepEqual(js(D.mesDaFatura(c, 2027, 2, 28)), { ano: 2027, mes: 3 }, 'dia 28 fecha em fevereiro e vence em março');
+});
+
+test('cartão diaDoVencimento: vencimento 31 é limitado ao último dia do mês', () => {
+  const c = { vencimento: 31 };
+  assert.equal(D.diaDoVencimento(c, 2027, 2), 28);
+  assert.equal(D.diaDoVencimento(c, 2028, 2), 29);
+  assert.equal(D.diaDoVencimento(c, 2026, 11), 30);
+});
+
+test('cartão idNoCartao e cartaoDoId: ida e volta; ids comuns dão null', () => {
+  const id = D.idNoCartao(CID_A, 'p1234567890-01');
+  assert.equal(id, 'kab12cd34ef_p1234567890-01');
+  assert.equal(D.cartaoDoId(id), CID_A);
+  assert.equal(D.cartaoDoId(D.idNoCartao(CID_B, 'l0000000001')), CID_B);
+  for (const comum of ['l0000000001', 'r0000000001', 'i0000000001', 'p1234567890-01', '']) {
+    assert.equal(D.cartaoDoId(comum), null, comum);
+  }
+});
+
+test('cartão novoIdCartao: "k" + 10 caracteres de [a-z0-9], sempre', () => {
+  for (let i = 0; i < 200; i++) assert.match(D.novoIdCartao(), /^k[a-z0-9]{10}$/);
+});
+
+test('cartão ehIdParcela: aceita o prefixo do cartão e mantém os casos antigos', () => {
+  assert.equal(D.ehIdParcela('kab12cd34ef_p1234567890-03'), true);
+  assert.equal(D.ehIdParcela('p1234567890-03'), true);
+  assert.equal(D.ehIdParcela('p1234567890'), false);
+  assert.equal(D.ehIdParcela('kab12cd34ef_l0000000001'), false);
+  assert.equal(D.ehIdParcela('xab12cd34ef_p1234567890-03'), false);
+  assert.equal(D.ehIdParcela('p123-03'), false);
+});
+
+/** Dados com dois cartões: A tem 0,10 e 0,20 em nov/2026 e 50 em dez/2026; B tem 70 em nov/2026. `extra` entra no ano de 2026. */
+const dadosCartao = (extra = []) => ({
+  anos: { 2026: { lancamentos: [lc(CID_A, 1, 11, 3, 0.1), lc(CID_A, 2, 11, 5, 0.2), lc(CID_A, 3, 12, 2, 50), lc(CID_B, 4, 11, 4, 70), ...extra], orcamento: {} } },
+});
+
+test('cartão lancamentosDoCartao: só os do cartão, de todos os anos, em ordem', () => {
+  const dados = dadosCartao([lc(CID_A, 9, 3, 1, 5)]);
+  dados.anos[2027] = { lancamentos: [lc(CID_A, 7, 1, 2, 9)], orcamento: {} };
+  const itens = D.lancamentosDoCartao(dados, CID_A).map((l) => [l.ano, l.mes, l.dia]);
+  assert.deepEqual(js(itens), [[2026, 3, 1], [2026, 11, 3], [2026, 11, 5], [2026, 12, 2], [2027, 1, 2]]);
+});
+
+test('cartão faturaDoCartao: total exato em centavos (0,10 + 0,20 = 30) e estorno diminui', () => {
+  const f = js(D.faturaDoCartao(dadosCartao(), CID_A, 2026, 11));
+  assert.equal(f.totalCent, 30);
+  assert.deepEqual(f.itens.map((l) => l.id), [`${CID_A}_l000000001`, `${CID_A}_l000000002`]);
+  const comEstorno = js(D.faturaDoCartao(dadosCartao([lc(CID_A, 5, 11, 8, -0.2)]), CID_A, 2026, 11));
+  assert.equal(comEstorno.totalCent, 10);
+  assert.equal(comEstorno.itens.length, 3);
+});
+
+test('cartão faturaDoCartao: não mistura outro cartão; mês sem lançamento dá zero', () => {
+  assert.equal(D.faturaDoCartao(dadosCartao(), CID_B, 2026, 11).totalCent, 7000);
+  assert.equal(D.faturaDoCartao(dadosCartao(), CID_A, 2026, 12).totalCent, 5000);
+  assert.deepEqual(js(D.faturaDoCartao(dadosCartao(), CID_A, 2027, 1)), { itens: [], totalCent: 0 });
+});
+
+test('cartão limiteUsado: sem limite dá disponível null; limite com aberto desconta; mês anterior não conta', () => {
+  const dados = { anos: { 2026: { lancamentos: [lc(CID_A, 1, 11, 3, 300), lc(CID_A, 2, 12, 2, 100), lc(CID_A, 3, 10, 20, 50)], orcamento: {} } } };
+  const nov = { ano: 2026, mes: 11 };
+  assert.deepEqual(js(D.limiteUsado(dados, { id: CID_A, limite: null }, nov)), { usadoCent: 40000, disponivelCent: null });
+  assert.equal(D.limiteUsado(dados, { id: CID_A, limite: 1000 }, nov).disponivelCent, 60000);
+  assert.equal(D.limiteUsado(dados, { id: CID_A, limite: 1000 }, nov).usadoCent, 40000);
+  assert.equal(D.limiteUsado(dados, { id: CID_A, limite: 1000 }, { ano: 2026, mes: 12 }).usadoCent, 10000);
+});
+
+test('cartão limiteUsado: estourado dá disponível negativo', () => {
+  const dados = { anos: { 2026: { lancamentos: [lc(CID_A, 1, 11, 3, 1200)], orcamento: {} } } };
+  assert.equal(D.limiteUsado(dados, CARTAO_AZUL, { ano: 2026, mes: 11 }).disponivelCent, -20000);
+});
+
+/** Conta de um mês com os lançamentos [id, categoria, valor]; sem depender do id, que o cálculo não lê. */
+function mesComIds(lanc) {
+  const bloco = { lancamentos: lanc.map(([id, categoriaId, valor]) => ({ id, mes: 11, dia: 1, categoriaId, descricao: '', valor })), orcamento: {} };
+  for (const [cid, v] of Object.entries(PLANOS)) bloco.orcamento[cid] = { 11: v };
+  return D.contasDoMes({ cats: CATS, idx: D.indexarAno(bloco), ano: 2026, mes: 11, hoje: HOJE, gid: 'guardar', encerrada: () => false });
+}
+
+test('cartão regressão R-010: id de cartão não muda a conta; parcelas do cartão somam o total sem dupla contagem', () => {
+  const parcelas = js(D.dividirParcelas(10000, 3));
+  assert.deepEqual(parcelas, [3334, 3333, 3333]);
+  assert.equal(parcelas.reduce((s, c) => s + c, 0), 10000);
+  const sem = mesComIds([['l0', 'mercado', 400], ['l1', 'salario', 7900]]);
+  const comCartao = mesComIds([[`${CID_A}_l0`, 'mercado', 400], [`${CID_A}_l1`, 'salario', 7900]]);
+  assert.deepEqual(js(comCartao), js(sem));
+  const pars = parcelas.map((c, i) => [`${CID_A}_p1234567890-0${i + 1}`, 'lazer', c / 100]);
+  const comParcelas = mesComIds([['l0', 'mercado', 400], ['l1', 'salario', 7900], ...pars]);
+  assert.equal(delta(sem, comParcelas, 'jaSaiu'), 100);
+  assert.equal(delta(sem, comParcelas), 0);
+});
+
+test('cartão sinaisDaPlanilha: contagens, descrição só de espaço conta como vazia, só meses passados', () => {
+  const dados = {
+    categorias: CATS, recorrencias: [{ id: 'r1' }, { id: 'r2' }], cartoes: [CARTAO_AZUL],
+    anos: {
+      2025: { lancamentos: [{ id: 'l1', mes: 12, dia: 1, categoriaId: 'mercado', descricao: 'Feira', valor: 10 }], orcamento: { mercado: { 12: 500 } } },
+      2026: {
+        lancamentos: [
+          { id: 'l2', mes: 9, dia: 1, categoriaId: 'mercado', descricao: '   ', valor: 5 },
+          { id: 'l3', mes: 10, dia: 2, categoriaId: 'lazer', descricao: '', valor: 7 },
+          { id: 'l4', mes: 11, dia: 3, categoriaId: 'lazer', descricao: 'Cinema', valor: 8 },
+        ],
+        orcamento: { mercado: { 9: 0, 10: 300 }, lazer: { 11: 100 } },
+      },
+    },
+  };
+  const chamadas = [];
+  const pend = (a, m) => { chamadas.push([a, m]); return (a === 2025 && m === 12) ? 2 : (a === 2026 && m === 10) ? 1 : 0; };
+  const r = js(D.sinaisDaPlanilha(dados, { ano: 2026, mes: 11 }, pend));
+  assert.deepEqual(r, {
+    lancamentos: 4, semDescricao: 2, categorias: 9, recorrencias: 2, cartoes: 1, mesesComPlano: 3,
+    mesesPassadosComPendencia: [{ ano: 2025, mes: 12, qtd: 2 }, { ano: 2026, mes: 10, qtd: 1 }],
+  });
+  assert.equal(chamadas.length, 22, 'todos os meses de 2025 e os meses de 2026 antes de novembro');
+  assert.ok(Object.values(r).every((v) => typeof v === 'number' || Array.isArray(v)), 'só números e listas de números');
+});
+
+test('cartão sinaisDaPlanilha: sem ano anterior, pendenciasDoMes só para meses de 2026 antes de ref', () => {
+  const dados = { anos: { 2026: { lancamentos: [], orcamento: {} } } };
+  const chamadas = [];
+  const r = D.sinaisDaPlanilha(dados, { ano: 2026, mes: 11 }, (a, m) => { chamadas.push([a, m]); return 0; });
+  assert.equal(chamadas.length, 10);
+  assert.ok(chamadas.every(([a]) => a === 2026));
+  assert.equal(r.recorrencias, 0);
+  assert.equal(r.cartoes, 0);
+  assert.deepEqual(js(r.mesesPassadosComPendencia), []);
 });

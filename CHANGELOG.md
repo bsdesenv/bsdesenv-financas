@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.0 — 2026-11-25
+
+### Novo
+- **Cartão de crédito.** Em Ajustes, **Cartões de crédito** cadastra o cartão com dia de fechamento, dia de vencimento e limite (opcional). Cada compra entra na fatura do mês em que ela é paga, e a fatura aparece no Mês, com o total e os lançamentos. Cartão com lançamentos não se apaga: arquive-o, e a fatura continua no Mês.
+- **Compra no cartão.** No **Novo lançamento** de um gasto, **Pago com** escolhe o cartão, e **Parcelar** divide a compra em parcelas nas faturas dos meses seguintes. A data real da compra não fica guardada: vale o mês em que a fatura é paga.
+- **Diagnósticos.** Em Ajustes, mostra a versão, a revisão, a fila de envio, a última sincronização, as operações recusadas e os sinais da planilha. O texto copiado traz só contagens e datas, sem nomes, descrições ou valores.
+- **Imprimir o mês.** A tela Mês sai na impressão em cores claras, sem menus nem botões.
+- **Qualidade contínua.** Testes de acessibilidade com axe, zoom de 200%, navegação só com teclado e capturas de tela em 320, 390 e 1440 px rodam junto com os demais testes do projeto.
+- **Limites medidos.** O custo do `sincronizar` foi medido por tamanho de planilha e está documentado em `docs/ARQUITETURA.md`. O tempo real depende do Google; em Diagnósticos, "Duração do último envio" mostra o do seu aparelho.
+
+### Mudou
+- **Novo lançamento no celular cabe inteiro na tela.** Hoje, Ontem, Outra data, Parcelar e Cartão ficam numa linha de opções, o teclado se ajusta à altura do aparelho e a tela de trás não rola enquanto a folha está aberta.
+- **Foco visível no lançamento rápido.** No computador, o campo da barra do topo ganha o mesmo anel de foco dos outros controles quando você chega nele pelo teclado.
+
 ## 3.1.0 — 2026-11-25
 
 ### Novo

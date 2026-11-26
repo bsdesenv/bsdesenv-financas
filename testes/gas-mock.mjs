@@ -27,19 +27,38 @@ function comoSheets(v) {
 
 export function criarPlanilha(abasIniciais = {}) {
   const abas = new Map();
+
+  /** Contadores de custo: leituras e gravações feitas pelo servidor (não mudam o comportamento). */
+  const contagem = { leituras: 0, gravacoes: 0, linhasLidas: 0, linhasGravadas: 0, abasGravadas: {} };
+  const zerarContagem = () => {
+    contagem.leituras = contagem.gravacoes = contagem.linhasLidas = contagem.linhasGravadas = 0;
+    for (const nome of Object.keys(contagem.abasGravadas)) delete contagem.abasGravadas[nome];
+  };
+  /** Conta uma gravação de `linhas` linhas na aba `a` (setValues e clearContent). */
+  const contar = (a, linhas) => {
+    contagem.gravacoes++;
+    contagem.linhasGravadas += linhas;
+    contagem.abasGravadas[a.nome] = (contagem.abasGravadas[a.nome] || 0) + 1;
+  };
+
   for (const [nome, linhas] of Object.entries(abasIniciais)) {
     abas.set(nome, { nome, dados: linhas.map((l) => l.map(comoSheets)) });
   }
 
   function faixa(a, r, c, nr, nc) {
     const f = {
-      getValues: () => Array.from({ length: nr }, (_, i) =>
-        Array.from({ length: nc }, (_, j) => {
-          const v = (a.dados[r - 1 + i] || [])[c - 1 + j];
-          return v === undefined || v === null ? '' : v;
-        })),
+      getValues: () => {
+        contagem.leituras++;
+        contagem.linhasLidas += nr;
+        return Array.from({ length: nr }, (_, i) =>
+          Array.from({ length: nc }, (_, j) => {
+            const v = (a.dados[r - 1 + i] || [])[c - 1 + j];
+            return v === undefined || v === null ? '' : v;
+          }));
+      },
       setValues: (m) => {
         if (m.length !== nr || m.some((l) => l.length !== nc)) throw new Error(`setValues: dimensões ${m.length}x${m[0]?.length} ≠ ${nr}x${nc}`);
+        contar(a, nr);
         m.forEach((l, i) => {
           const linha = a.dados[r - 1 + i] || (a.dados[r - 1 + i] = []);
           l.forEach((v, j) => { linha[c - 1 + j] = comoSheets(v); });
@@ -47,6 +66,7 @@ export function criarPlanilha(abasIniciais = {}) {
         return f;
       },
       clearContent: () => {
+        contar(a, nr);
         for (let i = 0; i < nr; i++) {
           const linha = a.dados[r - 1 + i];
           if (linha) for (let j = 0; j < nc; j++) linha[c - 1 + j] = '';
@@ -89,7 +109,7 @@ export function criarPlanilha(abasIniciais = {}) {
     const n = folha(a).getLastRow();
     return a.dados.slice(1, n);
   };
-  return { ss, abas, ler };
+  return { ss, abas, ler, contagem, zerarContagem };
 }
 
 function avaliarTemplate(nome, incluir) {
@@ -127,7 +147,7 @@ export function criarServidor(abasIniciais = {}, opcoes = {}) {
   };
   vm.createContext(ctx);
   vm.runInContext(opcoes.codigo ?? fs.readFileSync(path.join(SRC, 'Codigo.gs'), 'utf8'), ctx, { filename: 'Codigo.gs' });
-  return { ctx, planilha, meta };
+  return { ctx, planilha, meta, contagem: planilha.contagem, zerarContagem: planilha.zerarContagem };
 }
 
 /** Converte um JSON de backup (v1 ou v2) em linhas de abas no formato da v1. */

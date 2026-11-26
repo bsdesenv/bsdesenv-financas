@@ -43,7 +43,7 @@ O formato das abas (`lancamentos`, `categorias`, `orcamento`, `config`) é o mes
 
 **Por quê:** usuários têm anos de dados na planilha. Perder ou exigir reformatar é inaceitável.
 
-**Como fazer em vez disso:** novos campos entram como novas chaves em `config` ou como aba nova e opcional (como a `recorrencias`, criada só na primeira gravação); as abas existentes não ganham colunas, e código antigo ignora o que não entende. Se migração for inevitável, ela é feita pelo instalador, com backup.
+**Como fazer em vez disso:** novos campos entram como novas chaves em `config` ou como aba nova e opcional (como a `recorrencias` e a `cartoes`, criadas só na primeira gravação); as abas existentes não ganham colunas, e código antigo ignora o que não entende. Se migração for inevitável, ela é feita pelo instalador, com backup.
 
 ---
 
@@ -111,6 +111,8 @@ Quatro regras do domínio não se negociam por tela ou conveniência:
 - **Parcelas.** A soma das parcelas é exatamente o total da compra, em centavos inteiros; a sobra do arredondamento vai para a primeira.
 - **Sobra transportada.** O lançamento de sobra levada de um mês ao seguinte entra no disponível e na sobra daquele mês, mas fica fora dos totais de renda do ano, da meta de Guardar e das médias.
 - **Categoria da sobra.** É sempre de renda e não pode ser apagada nem virar gasto (`config.categoriaSobra`, validada no servidor).
+
+**Cartão:** a fatura é um agrupamento, nunca uma conta a mais; o lançamento de cartão entra no mês de pagamento (regime de caixa).
 
 **Por quê:** contar a mesma renda ou o mesmo valor duas vezes faz o número principal mentir, e a pessoa decide com ele.
 

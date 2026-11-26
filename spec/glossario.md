@@ -25,3 +25,9 @@ Entra aqui o termo que um recém-chegado entenderia errado, e principalmente **o
 | **importar extrato** | Traz lançamentos de um CSV ou OFX do banco, lido no navegador, com prévia e Desfazer. Não é o mesmo que **importar** (backup JSON). |
 | **fatura de cartão** | Opção do importar extrato que inverte o sinal: no cartão as compras vêm positivas. |
 | **instalador** | Projeto Apps Script separado (`instalador/`) que cria a planilha, copia o código e publica o web app no Drive do usuário. |
+| **cartão de crédito** | Cadastro em Ajustes (nome, fechamento, vencimento, limite opcional), guardado na aba `cartoes`. A compra com "Pago com" é um lançamento comum da categoria. |
+| **fatura** | Agrupamento das compras de um cartão no mês de pagamento, mostrado no Mês. Mostra o total e nunca soma em dobro. Não é a **fatura de cartão** do importar extrato. |
+| **fechamento do cartão** | Dia do mês em que o cartão fecha a fatura. Compra até esse dia (inclusive) entra na fatura que fecha naquele mês. Não é o **fechamento** do mês. |
+| **vencimento do cartão** | Dia do mês em que a fatura é paga. Se cai depois do fechamento, é paga no mês do fechamento; senão, no seguinte. |
+| **mês de pagamento da fatura** | Mês em que a compra no cartão conta, em regime de caixa. A data real da compra não é guardada. |
+| **Diagnósticos** | Folha em Ajustes com versão, revisão, fila, última sincronização, operações recusadas e sinais da planilha. Só contagens e datas. |

@@ -104,3 +104,40 @@ test('o app tem script para conferir (a extração dos <script> funciona)', () =
   const instalador = scriptsDoHtml(readFileSync(join(RAIZ, 'instalador/Index.html'), 'utf8'));
   assert.ok(instalador.some((b) => /URL_CONFIG/.test(b.codigo)));
 });
+
+// Origens externas do app. Lista espelhada em docs/SEGURANCA.md (seção "Política de conteúdo (CSP)").
+const ORIGENS_PERMITIDAS = new Set([
+  'cdn.jsdelivr.net',
+  'github.com',
+  'raw.githubusercontent.com',
+  'script.google.com',
+  'www.googleapis.com',
+]);
+const ARQUIVOS_DE_ORIGEM = ['src/Index.html', 'src/App.html', 'src/Estilos.html', 'src/Codigo.gs'];
+const ORIGEM_URL = /https?:(\\?\/){2}[a-zA-Z0-9.-]+/g;
+const CARREGA_DE_FORA = [
+  /<script\b[^>]*\ssrc\s*=\s*["']?(?:https?:)?\/\//i,
+  /<link\b[^>]*\shref\s*=\s*["']?(?:https?:)?\/\//i,
+  /@import\s+url\(\s*["']?(?:https?:)?\/\//i,
+];
+
+test('origens externas do app: só os hosts fixados em docs/SEGURANCA.md', () => {
+  const hosts = new Set();
+  for (const arquivo of ARQUIVOS_DE_ORIGEM) {
+    const texto = readFileSync(join(RAIZ, arquivo), 'utf8');
+    for (const m of texto.matchAll(ORIGEM_URL)) hosts.add(m[0].replace(/^https?:(\\?\/){2}/, ''));
+  }
+  assert.ok(hosts.has('script.google.com'), 'a varredura não achou o host do Apps Script');
+  for (const host of hosts) {
+    assert.ok(ORIGENS_PERMITIDAS.has(host), `origem externa nova: ${host}; atualize docs/SEGURANCA.md e este teste`);
+  }
+});
+
+test('nenhum script, link ou @import das páginas carrega arquivo de fora', () => {
+  const problemas = [];
+  for (const arquivo of ARQUIVOS_DE_ORIGEM.filter((a) => a.endsWith('.html'))) {
+    const texto = readFileSync(join(RAIZ, arquivo), 'utf8');
+    for (const re of CARREGA_DE_FORA) if (re.test(texto)) problemas.push(`${arquivo}  ${re.source}`);
+  }
+  assert.deepEqual(problemas, [], 'o app não carrega código nem fonte de terceiros');
+});

@@ -4,6 +4,8 @@
  *
  *   node testes/e2e.mjs                   roda os cenários
  *   node testes/e2e.mjs --prints          também regrava os prints de docs/img/
+ *   node testes/e2e.mjs --capturas        também grava PNG em testes/saida/capturas (320, 390 e 1440 px, claro e escuro)
+ *   AXE_PATH=node_modules/axe-core/axe.min.js E2E_EXIGE_AXE=1   exige o axe (sem isso o axe é pulado com aviso)
  *   E2E_SO="3.1.0" node testes/e2e.mjs    só os cenários com esse texto no nome
  *
  * Pré-requisitos e detalhes: docs/ARQUITETURA.md, seção Testes.
@@ -65,9 +67,13 @@ const PC = { width: 1440, height: 900, deviceScaleFactor: 1 };
 const paginas = [];
 /** Nada vai para a rede de verdade: o GitHub e o jsDelivr são respondidos por p.github (padrão: 404). */
 const HOSTS_GITHUB = /^https:\/\/(raw\.githubusercontent\.com|cdn\.jsdelivr\.net)\//;
-async function abrir(amb, vp, url, { tema, contexto, antes } = {}) {
+/** Páginas abertas no caso em andamento: fecham ao fim dele (com o contexto próprio), salvo as abertas com `manter`. */
+let abertasNoCaso = null;
+async function abrir(amb, vp, url, { tema, contexto, antes, manter } = {}) {
   const ctx = contexto || (await browser.createBrowserContext());
   const p = await ctx.newPage();
+  if (!contexto) { const fechar = p.close.bind(p); p.close = async () => { await fechar().catch(() => {}); await ctx.close().catch(() => {}); }; }
+  if (abertasNoCaso && !manter) abertasNoCaso.push(p);
   p.erros = [];
   p.github = { resposta: () => ({ status: 404, body: 'não encontrado' }), pedidos: [] };
   await p.setRequestInterception(true);
@@ -177,8 +183,16 @@ const SO = process.env.E2E_SO || '';
 async function caso(nome, fn) {
   if (SO && !nome.includes(SO) && !nome.startsWith('nenhum erro de JavaScript')) return;
   const t0 = Date.now();
+  abertasNoCaso = [];
   try { await fn(); resultados.push(['✔', nome, Date.now() - t0]); }
-  catch (e) { resultados.push(['✖', nome, Date.now() - t0, (process.env.E2E_VERBOSE ? e.message : e.message.split('\n')[0])]); }
+  catch (e) {
+    const linha = (String(e.stack).match(/e2e\.mjs:(\d+)/) || [])[1];
+    resultados.push(['✖', nome, Date.now() - t0, (process.env.E2E_VERBOSE ? e.message : e.message.split('\n')[0]) + (linha ? ` (e2e.mjs:${linha})` : '')]);
+  } finally {
+    // Página esquecida aberta pesa no navegador e deixa os cenários seguintes lentos e instáveis.
+    for (const p of abertasNoCaso) if (!p.isClosed()) await p.close();
+    abertasNoCaso = null;
+  }
 }
 
 /* ---------- prints (dados fictícios, estado limpo) ---------- */
@@ -212,6 +226,29 @@ if (PRINTS) {
   await icone.setContent('<body style="margin:0;background:transparent"><div style="width:192px;height:192px;border-radius:44px;background:#4338CA;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding-bottom:44px;box-sizing:border-box"><i style="width:26px;height:50px;border-radius:8px;background:#A5B4FC"></i><i style="width:26px;height:88px;border-radius:8px;background:#fff"></i><i style="width:26px;height:34px;border-radius:8px;background:#A5B4FC"></i></div></body>');
   await icone.screenshot({ path: path.join(PRINTS, 'icone-192.png'), omitBackground: true });
   await icone.close();
+  /* 3.2.0: cartão de exemplo fictício. Não usa CARTAO_AZUL, que é definida mais abaixo, no bloco de cenários. */
+  const dadosCartao = JSON.parse(JSON.stringify(exemplo));
+  dadosCartao.anos['2026'].lancamentos.push({ id: 'kabcdefghij_ax1', mes: 11, dia: 15, categoriaId: 'mercado', descricao: 'Compra de exemplo', valor: 120 });
+  const abasCartao = abasDoBackup(dadosCartao);
+  abasCartao.cartoes = [['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'], ['kabcdefghij', 'Cartão Azul', 5, 15, 2000, 1]];
+  const ambCartao = criarAmbiente(abasCartao);
+  const pcCartao = await abrir(ambCartao, PC, montarPagina(ambCartao, 'prints-cartao'), { tema: 'light' });
+  await pronto(pcCartao); await fontes(pcCartao);
+  await irPara(pcCartao, 'mes'); await pcCartao.waitForSelector('.faturas');
+  await (await pcCartao.$('.faturas')).screenshot({ path: path.join(PRINTS, 'computador-mes-faturas.png') });
+  await irPara(pcCartao, 'ajustes'); await pcCartao.waitForSelector('section[aria-labelledby="h-cartoes-credito"]');
+  await (await pcCartao.$('section[aria-labelledby="h-cartoes-credito"]')).screenshot({ path: path.join(PRINTS, 'computador-ajustes-cartoes.png') });
+  const celCartao = await abrir(ambCartao, CEL, montarPagina(ambCartao, 'prints-cartao-cel'), { tema: 'light' });
+  await pronto(celCartao); await fontes(celCartao);
+  await irPara(celCartao, 'ajustes'); await celCartao.click('[data-acao="cartao-novo"]'); await folhaAberta(celCartao);
+  await celCartao.screenshot({ path: path.join(PRINTS, 'celular-cartao-novo.png') });
+  await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
+  await irPara(celCartao, 'mes'); await celCartao.click('.faturas button.linha-fatura'); await folhaAberta(celCartao);
+  await celCartao.screenshot({ path: path.join(PRINTS, 'celular-fatura.png') });
+  await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
+  await irPara(celCartao, 'ajustes'); await celCartao.click('[data-acao="diagnosticos"]'); await folhaAberta(celCartao);
+  await celCartao.screenshot({ path: path.join(PRINTS, 'celular-diagnosticos.png') });
+  await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
   console.log('prints gravados em docs/img/');
 }
 
@@ -221,7 +258,7 @@ const url = montarPagina(amb, 'app');
 let cel; let pc;
 
 await caso('celular: abre a planilha no formato da v1 e mostra o “disponível para gastar” certo', async () => {
-  cel = await abrir(amb, CEL, url);
+  cel = await abrir(amb, CEL, url, { manter: true });
   await pronto(cel);
   const heroi = await cel.$eval('.numero-heroi', (e) => e.textContent);
   assert.equal(heroi, moeda(livreEsperado(exemplo, 2026, 11)));
@@ -258,7 +295,7 @@ await caso('celular: apagar e desfazer devolve o lançamento', async () => {
 });
 
 await caso('dois aparelhos: o que um grava, o outro não apaga', async () => {
-  pc = await abrir(amb, PC, url);
+  pc = await abrir(amb, PC, url, { manter: true });
   await pronto(pc);
   await irPara(cel, 'inicio');
   await cel.tap('.inf-mais'); await folhaAberta(cel);
@@ -2328,6 +2365,695 @@ await caso('3.1.0 backup em Ajustes: último backup, JSON v3 com recorrências, 
   assert.ok(txt.includes('1 recorrência') && txt.includes('1 item fica de fora'), txt);
   await p.close();
 });
+
+/* ---------- 3.2.0: C (cartões e fatura no Mês) ---------- */
+const cartoesDe = (a) => a.servidor.planilha.ler('cartoes');
+const kpisDoMes = (p) => p.$$eval('.kpis-mes strong', (els) => els.map((e) => e.textContent).join('|'));
+const avisoDesfazer = (p) => p.$eval('.aviso .aviso-acao', (e) => e.click());
+const abrirCartaoEmAjustes = async (p, id) => {
+  await irPara(p, 'ajustes');
+  await p.$eval(`[data-acao="cartao-editar"][data-id="${id}"]`, (e) => e.click());
+  await folhaAberta(p);
+};
+
+for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
+  await caso(`3.2.0 cartão e fatura (${rotuloVp}): cadastrar, editar, apagar com Desfazer, arquivar, reativar, fatura no Mês e nome no extrato`, async () => {
+    const dados = { nome: 'Cartões', categorias: catsBase(), anos: { 2026: { lancamentos: [
+      { id: 'c1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: { salario: { 11: 5000 } } } } };
+    const a = criarAmbiente(abasDoBackup(dados));
+    const p = await abrir(a, vp, montarPagina(a, 'cartao-' + rotuloVp));
+    await pronto(p);
+    // cadastrar em Ajustes
+    await irPara(p, 'ajustes');
+    assert.ok((await p.$eval('#h-cartoes-credito', (e) => e.closest('section').textContent)).includes('Nenhum cartão cadastrado'), 'começa sem cartão');
+    await p.$eval('[data-acao="cartao-novo"]', (e) => e.click()); await folhaAberta(p);
+    assert.ok((await p.$eval('.folha.aberta', (e) => e.textContent)).includes('Compras feitas depois do fechamento entram na fatura seguinte.'), 'texto de ajuda dos dias');
+    await salvarTopo(p);
+    assert.ok((await p.$eval('#cc-erro', (e) => e.textContent)).includes('nome'), 'nome é obrigatório');
+    await p.type('#cc-nome', 'Cartão Azul'); await p.type('#cc-fecha', '5'); await p.type('#cc-vence', '15');
+    await digitarValor(p, '#cc-limite', '2000');
+    await salvarTopo(p); await semFolha(p); await sincronizado(p);
+    assert.equal(cartoesDe(a).length, 1, 'um cartão na planilha');
+    const [id, nome, fecha, vence, limite, ativo] = cartoesDe(a)[0];
+    assert.match(String(id), /^k[a-z0-9]{10}$/);
+    assert.deepEqual([nome, Number(fecha), Number(vence), Number(limite), Number(ativo)], ['Cartão Azul', 5, 15, 2000, 1]);
+    const lista = await p.$eval('#h-cartoes-credito', (e) => e.closest('section').textContent);
+    assert.ok(lista.includes('Cartão Azul') && lista.includes('fecha dia 5') && lista.includes('vence dia 15'), lista);
+    // no Mês de novembro: sem compras, vence dia 15 e limite inteiro
+    await irPara(p, 'mes');
+    const sem = await p.$eval('.faturas', (e) => e.textContent);
+    assert.ok(sem.includes('Sem compras nesta fatura') && sem.includes('vence dia 15') && /Limite disponível R\$\s2\.000,00/.test(sem), sem);
+    assert.ok(sem.includes('A fatura já está contada nos gastos do mês; este quadro só mostra quanto vence.'), 'texto fixo contra a dupla contagem');
+    // editar o nome
+    await abrirCartaoEmAjustes(p, id);
+    await substituir(p, '#cc-nome', 'Cartão Verde');
+    await salvarTopo(p); await semFolha(p); await sincronizado(p);
+    assert.equal(cartoesDe(a)[0][1], 'Cartão Verde');
+    assert.ok((await p.$eval('#h-cartoes-credito', (e) => e.closest('section').textContent)).includes('Cartão Verde'));
+    // sem lançamentos: Apagar com confirmação e Desfazer
+    await abrirCartaoEmAjustes(p, id);
+    assert.equal(await p.$('.folha.aberta [data-f="arquivar"]'), null, 'sem lançamentos não oferece Arquivar');
+    await p.$eval('.folha.aberta [data-f="apagar"]', (e) => e.click());
+    await p.waitForSelector('#cc-escolha [data-f="apagar-sim"]');
+    assert.equal(cartoesDe(a).length, 1, 'só pedir não apaga');
+    await p.$eval('#cc-escolha [data-f="apagar-sim"]', (e) => e.click()); await semFolha(p); await sincronizado(p);
+    assert.equal(cartoesDe(a).length, 0, 'apagado');
+    await avisoDesfazer(p); await sincronizado(p);
+    assert.equal(cartoesDe(a).length, 1, 'Desfazer regrava o cartão');
+    assert.equal(cartoesDe(a)[0][1], 'Cartão Verde');
+    // duas compras na fatura de novembro (ids com o prefixo do cartão)
+    await p.evaluate((cid) => {
+      registrar({ t: 'lanc', l: { id: cid + '_la1', ano: 2026, mes: 11, dia: 15, categoriaId: 'mercado', descricao: 'Compra A', valor: 150 } });
+      registrar({ t: 'lanc', l: { id: cid + '_la2', ano: 2026, mes: 11, dia: 15, categoriaId: 'mercado', descricao: 'Compra B', valor: 250 } });
+    }, id);
+    await sincronizado(p);
+    await irPara(p, 'mes');
+    const com = await p.$eval('.faturas', (e) => e.textContent);
+    assert.ok(/Fatura de novembro/.test(com) && /R\$\s400,00/.test(com) && com.includes('vence dia 15') && /Limite disponível R\$\s1\.600,00/.test(com), com);
+    assert.equal(await p.$eval('.faturas button.linha-fatura', (e) => e.getAttribute('aria-label')), null, 'o nome acessível vem do texto visível (WCAG 2.5.3)');
+    // R-010: o número principal é o mesmo com e sem o quadro, e abrir a fatura não muda nada
+    const comBloco = await kpisDoMes(p);
+    await p.evaluate(() => { window.__cartoes = S.dados.cartoes; S.dados.cartoes = []; render(); });
+    assert.equal(await p.$('.faturas'), null, 'sem cartões não há quadro');
+    assert.equal(await kpisDoMes(p), comBloco, 'o disponível não depende do quadro de faturas');
+    await p.evaluate(() => { S.dados.cartoes = window.__cartoes; render(); });
+    await p.$eval('.faturas button.linha-fatura', (e) => e.click()); await folhaAberta(p);
+    const folha = await p.$eval('.folha.aberta', (e) => e.textContent);
+    assert.ok(folha.includes('Fatura de novembro de 2026') && folha.includes('Compra A') && folha.includes('Compra B') && folha.includes('dia 15') && /Total da fatura\s*R\$\s400,00/.test(folha) && folha.includes('Lançar compra neste cartão'), folha);
+    assert.equal(await p.$$eval('.folha.aberta .linha-lanc', (e) => e.length), 2);
+    await p.$eval('.folha.aberta .linha-lanc', (e) => e.click());
+    await p.waitForFunction(() => document.querySelectorAll('.folha').length === 2); await sleep(320);
+    assert.equal(await p.$eval('.folha.aberta:last-of-type h2', (e) => e.textContent), 'Editar lançamento', 'a linha abre a edição');
+    await p.evaluate(() => fecharFolha()); await sleep(320);
+    await p.$eval('.folha.aberta [data-f="lancar"]', (e) => e.click());
+    await p.waitForFunction(() => document.querySelectorAll('.folha').length === 2); await sleep(320);
+    await p.evaluate(() => { fecharFolha(); fecharFolha(); }); await semFolha(p);
+    assert.equal(await kpisDoMes(p), comBloco, 'abrir e fechar a fatura não muda o número principal');
+    // extrato: o nome do cartão aparece na linha da compra, não na do salário
+    await irPara(p, 'extrato');
+    const linhas = await p.$$eval('#extrato-lista .linha-lanc', (els) => els.map((e) => e.textContent));
+    assert.ok(linhas.some((t) => t.includes('Compra A') && t.includes('Cartão Verde')), 'compra de cartão mostra o cartão');
+    assert.ok(!linhas.some((t) => t.includes('Salário') && t.includes('Cartão')), 'lançamento comum não mostra cartão');
+    // com lançamentos: só Arquivar; some do seletor (ativo falso), a fatura continua no Mês; Reativar
+    await abrirCartaoEmAjustes(p, id);
+    assert.equal(await p.$('.folha.aberta [data-f="apagar"]'), null, 'com lançamentos não oferece Apagar');
+    await p.$eval('.folha.aberta [data-f="arquivar"]', (e) => e.click()); await semFolha(p); await sincronizado(p);
+    assert.equal(Number(cartoesDe(a)[0][5]), 0, 'arquivado');
+    const arq = await p.$eval('#h-cartoes-credito', (e) => e.closest('section').textContent);
+    assert.ok(arq.includes('Arquivados') && arq.includes('Reativar'), arq);
+    await irPara(p, 'mes');
+    assert.ok((await p.$eval('.faturas', (e) => e.textContent)).includes('Cartão Verde'), 'a fatura continua no Mês');
+    await irPara(p, 'ajustes');
+    await p.$eval('[data-acao="cartao-reativar"]', (e) => e.click()); await sincronizado(p);
+    assert.equal(Number(cartoesDe(a)[0][5]), 1, 'reativado');
+    await avisoDesfazer(p); await sincronizado(p);
+    assert.equal(Number(cartoesDe(a)[0][5]), 0, 'Desfazer do Reativar arquiva de novo');
+    await p.close();
+  });
+}
+
+await caso('3.2.0 cartão e fatura: o quadro não passa da borda em 320 px e o nome do cartão cabe na linha do extrato', async () => {
+  const dados = { nome: 'Estreito', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'kabcdefghij_la1', mes: 11, dia: 15, categoriaId: 'mercado', descricao: 'Compra com um nome bem comprido para testar a linha', valor: 1234567.89 },
+  ], orcamento: {} } } };
+  const abas = abasDoBackup(dados);
+  abas.cartoes = [['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'], ['kabcdefghij', 'Cartão com um nome muito comprido de teste', 5, 15, 1000, 1]];
+  const a = criarAmbiente(abas);
+  const p = await abrir(a, { ...CEL, width: 320, height: 720 }, montarPagina(a, 'cartao-320'));
+  await pronto(p); await irPara(p, 'mes');
+  const txt = await p.$eval('.faturas', (e) => e.textContent);
+  assert.ok(/Acima do limite em R\$/.test(txt), 'estourou o limite: texto, não só cor ' + txt);
+  const medidas = await p.evaluate(() => {
+    const f = document.querySelector('.faturas'); const r = f.getBoundingClientRect();
+    return { doc: document.documentElement.scrollWidth - window.innerWidth, fora: [...f.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > r.right + 1).length };
+  });
+  assert.ok(medidas.doc <= 1 && medidas.fora === 0, JSON.stringify(medidas));
+  await irPara(p, 'extrato');
+  const m2 = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(m2 <= 1, 'extrato sem rolagem lateral: ' + m2);
+  await p.close();
+});
+
+await caso('3.2.0 importar backup: a prévia conta os cartões e a substituição avisa que eles são trocados', async () => {
+  const dados = { nome: 'Prévia', categorias: catsBase(), anos: { 2026: { lancamentos: [], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'cartao-importar'));
+  await pronto(p);
+  const arq = arquivoSintetico('backup-com-cartoes.json', JSON.stringify({
+    versao: 3, app: 'bsdesenv-financas', nome: 'Com cartões', categorias: [{ id: 'ia', nome: 'Alfa', grupo: 'fixo', ordem: 1 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } }, recorrencias: [],
+    cartoes: [{ id: 'kabcdefghij', nome: 'Cartão Azul', fechamento: 5, vencimento: 15, limite: 2000, ativo: true }, { id: 'ruim', nome: 'Cartão Ruim', fechamento: 5, vencimento: 15, limite: null, ativo: true }],
+  }));
+  await p.evaluate(() => abrirImportar()); await folhaAberta(p);
+  await (await p.$('#im-arquivo')).uploadFile(arq);
+  await p.waitForFunction(() => document.querySelector('#im-aceitos')?.textContent.includes('Vão entrar'));
+  let txt = await p.$eval('#im-aceitos', (e) => e.textContent);
+  assert.ok(txt.includes('1 cartão') && txt.includes('1 item fica de fora') && txt.includes('Cartão Ruim'), txt);
+  assert.ok(!txt.includes('Substituir:'), 'mesclar não avisa de troca');
+  await p.click('input[name="im-modo"][value="substituir"]');
+  await p.waitForFunction(() => document.querySelector('#im-aceitos').textContent.includes('Substituir:'));
+  txt = await p.$eval('#im-aceitos', (e) => e.textContent);
+  assert.ok(txt.includes('os cartões de crédito atuais são trocados'), txt);
+  await p.close();
+});
+
+await caso('3.2.0 backup: o JSON leva os cartões e o exemplo começa sem cartões', async () => {
+  const dados = { nome: 'Backup cartões', categorias: catsBase(), anos: { 2026: { lancamentos: [], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'cartao-backup'));
+  await pronto(p);
+  await p.evaluate(() => registrar({ t: 'cartao', c: { id: 'kabcdefghij', nome: 'Cartão Azul', fechamento: 5, vencimento: 15, limite: null, ativo: true } }));
+  await sincronizado(p);
+  await capturarDownloads(p);
+  await irPara(p, 'ajustes');
+  await p.click('[data-acao="exportar-json"]');
+  const json = JSON.parse((await p.evaluate(() => window.__baixados))[0].conteudo);
+  assert.equal(json.cartoes.length, 1, 'os cartões vão no backup');
+  assert.equal(json.cartoes[0].nome, 'Cartão Azul');
+  const ex = await p.evaluate(() => gerarDadosExemplo(hoje()));
+  assert.deepEqual(ex.cartoes, []);
+  await p.close();
+});
+
+/* ---------- 3.2.0: D (compra no cartão, parcelas, duplicar) ---------- */
+const CARTAO_AZUL = ['kabcdefghij', 'Cartão Azul', 5, 15, 2000, 1];
+const abasComCartao = (nome) => {
+  const dados = { nome, categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'd1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: { salario: { 11: 5000 } } } } };
+  const abas = abasDoBackup(dados);
+  abas.cartoes = [['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'], CARTAO_AZUL];
+  return abas;
+};
+const noCartao = (a) => a.linhas().filter((l) => String(l[0]).startsWith('kabcdefghij_'));
+
+for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
+  await caso(`3.2.0 compra no cartão (${rotuloVp}): Pago com, fatura de dezembro, parcelas em três faturas, Desfazer, limite e Duplicar`, async () => {
+    const toque = vp === CEL;
+    const dados0 = { nome: 'Sem cartão', categorias: catsBase(), anos: { 2026: { lancamentos: [
+      { id: 'd0', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    ], orcamento: {} } } };
+    const sem = criarAmbiente(abasDoBackup(dados0));
+    const ps = await abrir(sem, vp, montarPagina(sem, 'cartao-sem-' + rotuloVp));
+    await pronto(ps);
+    // regressão: sem cartão o Novo não mostra o campo
+    if (toque) await ps.tap('.inf-mais'); else await ps.click('[data-foco="novo-topo"]');
+    await folhaAberta(ps);
+    assert.equal(await ps.$('#nv-cartao'), null, 'sem cartão não aparece “Pago com”');
+    await ps.close();
+
+    const a = criarAmbiente(abasComCartao('Compra no cartão'));
+    const p = await abrir(a, vp, montarPagina(a, 'cartao-compra-' + rotuloVp));
+    await pronto(p);
+    const abrirNovoLancamento = async () => {
+      if (toque) await p.tap('.inf-mais'); else await p.click('[data-foco="novo-topo"]');
+      await folhaAberta(p);
+    };
+    const digitar = async (digitos, desc) => {
+      if (toque) { await digitarTeclado(p, digitos.split('')); await p.tap('[data-f="cat"][data-v="mercado"]'); }
+      else { await p.type('#nv-texto', digitos.replace(/(\d{2})$/, ',$1')); await p.click('[data-f="cat"][data-v="mercado"]'); }
+      await p.$eval('#nv-desc', (e) => { e.value = ''; });
+      await p.type('#nv-desc', desc);
+    };
+    const dica = () => p.$eval('#nv-fatura', (e) => e.textContent);
+    // 100 mercado no cartão em 18/11: fecha dia 5, entra na fatura de dezembro, dia 15
+    await abrirNovoLancamento();
+    assert.equal(await p.$$eval('#nv-cartao option', (o) => o.length), 2, 'Dinheiro, Pix ou débito e o Cartão Azul');
+    assert.equal(await p.$eval('#nv-cartao', (e) => e.value), '', 'o padrão é o comportamento de sempre');
+    assert.equal(await dica(), '', 'sem cartão não há dica');
+    await digitar('10000', 'mercado');
+    await p.select('#nv-cartao', 'kabcdefghij');
+    assert.equal(await dica(), 'Entra na fatura de dezembro (vence dia 15).');
+    await p.click('#nv-salvar'); await semFolha(p); await sincronizado(p);
+    const compras = noCartao(a);
+    assert.equal(compras.length, 1, 'um lançamento com o prefixo do cartão');
+    assert.deepEqual([compras[0][1], compras[0][2], compras[0][3], compras[0][4], compras[0][6]], [2026, 12, 15, 'mercado', 100]);
+    const txt = await textoAviso(p);
+    assert.ok(txt.includes('1 lançamento no cartão Cartão Azul') && txt.includes('fatura de dezembro'), txt);
+    // a escolha fica na sessão: o Novo seguinte já vem com o cartão
+    await abrirNovoLancamento();
+    assert.equal(await p.$eval('#nv-cartao', (e) => e.value), 'kabcdefghij', 'lembra o cartão na sessão');
+    // parcelar 100,00 em 3 vezes no cartão: dezembro, janeiro e fevereiro, sem escolher a primeira parcela
+    await digitar('10000', 'notebook');
+    if (toque) await p.tap('[data-f="parcelar"]'); else await p.click('[data-f="parcelar"]');
+    await p.waitForSelector('#nv-parc:not([hidden])');
+    await p.type('#nv-n', '3');
+    assert.equal(await p.$eval('#nv-p1', (e) => e.closest('label').hidden), true, 'com cartão a primeira parcela é a da fatura');
+    assert.equal(await dica(), 'A primeira parcela entra na fatura de dezembro (vence dia 15).');
+    const previa = await p.$eval('#nv-previa', (e) => e.textContent);
+    assert.ok(previa.includes('3×') && previa.includes('33,33') && previa.includes('33,34'), previa);
+    await p.click('#nv-salvar'); await semFolha(p); await sincronizado(p);
+    const reParc = /^kabcdefghij_p[a-z0-9]{10}-\d{2}$/;
+    const parcelas = () => noCartao(a).filter((l) => reParc.test(l[0])).sort((x, y) => (x[0] < y[0] ? -1 : 1));
+    assert.deepEqual(parcelas().map((l) => [l[1], l[2], l[3], l[6]]), [[2026, 12, 15, 33.34], [2027, 1, 15, 33.33], [2027, 2, 15, 33.33]]);
+    assert.ok(parcelas()[0][5].includes('notebook (1/3)'), 'descrição de parcela');
+    assert.equal(await textoAviso(p), 'Compra parcelada em 3 vezes no cartão Cartão Azul.');
+    // Desfazer remove as três
+    await avisoDesfazer(p); await sincronizado(p);
+    assert.equal(parcelas().length, 0, 'Desfazer apaga as três parcelas');
+    assert.equal(noCartao(a).length, 1, 'a compra à vista continua');
+    // parcelar de novo para conferir a fatura e o limite
+    await abrirNovoLancamento();
+    await digitar('10000', 'notebook');
+    if (toque) await p.tap('[data-f="parcelar"]'); else await p.click('[data-f="parcelar"]');
+    await p.waitForSelector('#nv-parc:not([hidden])');
+    await p.type('#nv-n', '3');
+    await p.click('#nv-salvar'); await semFolha(p); await sincronizado(p);
+    assert.equal(parcelas().length, 3);
+    await p.evaluate(() => { S.ano = 2026; S.mes = 12; });
+    await irPara(p, 'mes');
+    const fat = await p.$eval('.faturas', (e) => e.textContent.replace(/\s/g, ' '));
+    assert.ok(/Fatura de dezembro/.test(fat) && /R\$ 133,34/.test(fat) && /Limite disponível R\$ 1\.800,00/.test(fat), fat);
+    // extrato de dezembro: o mercado aparece com o nome do cartão; em novembro não aparece
+    await irPara(p, 'extrato');
+    const dez = await p.$$eval('#extrato-lista .linha-lanc', (els) => els.map((e) => e.textContent));
+    assert.ok(dez.some((t) => t.includes('mercado') && t.includes('Cartão Azul')), 'dezembro mostra a compra com o cartão: ' + dez.join(' | '));
+    await p.evaluate(() => { S.mes = 11; });
+    await irPara(p, 'mes'); await irPara(p, 'extrato');
+    const nov = await p.$$eval('#extrato-lista .linha-lanc', (els) => els.map((e) => e.textContent));
+    assert.ok(!nov.some((t) => t.includes('Cartão Azul')), 'novembro não tem a compra do cartão');
+    // editar: linha fixa com o cartão, sem “Repetir todo mês”; Duplicar mantém o cartão
+    const idCompra = compras[0][0];
+    await p.evaluate((id) => abrirEditar(id), idCompra); await folhaAberta(p);
+    const ed = await p.$eval('.folha.aberta', (e) => e.textContent);
+    assert.ok(ed.includes('No cartão Cartão Azul') && !ed.includes('Repetir todo mês'), ed);
+    await p.$eval('.folha.aberta [data-f="duplicar"]', (e) => e.click()); await semFolha(p); await sincronizado(p);
+    const aposDup = noCartao(a).filter((l) => !reParc.test(l[0]));
+    assert.equal(aposDup.length, 2, 'a cópia continua no cartão');
+    const copia = aposDup.find((l) => l[0] !== idCompra);
+    assert.deepEqual([copia[1], copia[2], copia[3]], [2026, 12, 15], 'a cópia fica na mesma fatura, sem recalcular');
+    await p.close();
+  });
+}
+
+await caso('3.2.0 compra no cartão: mês fechado pede o segundo toque pelo mês da fatura, não pelo da data', async () => {
+  const a = criarAmbiente(abasComCartao('Cartão fechado'));
+  const p = await abrir(a, PC, montarPagina(a, 'cartao-fechado'));
+  await pronto(p);
+  await p.evaluate(() => registrar({ t: 'cfg', k: 'fechado:' + chaveFechado(2026, 12), v: '0' }));
+  await sincronizado(p);
+  await p.click('[data-foco="novo-topo"]'); await folhaAberta(p);
+  await p.type('#nv-texto', '50 mercado');
+  await p.select('#nv-cartao', 'kabcdefghij');
+  await p.click('#nv-salvar');
+  assert.equal(noCartao(a).length, 0, 'o primeiro toque não grava');
+  assert.equal(await p.$eval('#nv-salvar', (e) => e.textContent), 'Confirmar em mês fechado', 'o botão pede a confirmação do mês da fatura');
+  await p.click('#nv-salvar'); await semFolha(p); await sincronizado(p);
+  assert.equal(noCartao(a).length, 1, 'o segundo toque grava');
+  await p.close();
+});
+
+await caso('3.2.0 cartão: Desfazer de “Cartão criado” com compras já lançadas arquiva em vez de pedir ao servidor para apagar', async () => {
+  const dados = { nome: 'Desfazer cartão', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'dc1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'cartao-desfazer'));
+  await pronto(p);
+  await irPara(p, 'ajustes');
+  await p.$eval('[data-acao="cartao-novo"]', (e) => e.click()); await folhaAberta(p);
+  await p.type('#cc-nome', 'Cartão Roxo'); await p.type('#cc-fecha', '10'); await p.type('#cc-vence', '20');
+  await salvarTopo(p); await semFolha(p); await sincronizado(p);
+  const id = cartoesDe(a)[0][0];
+  await p.evaluate((cid) => registrar({ t: 'lanc', l: { id: cid + '_lx1', ano: 2026, mes: 12, dia: 20, categoriaId: 'mercado', descricao: 'Compra X', valor: 80 } }), id);
+  await sincronizado(p);
+  await p.waitForSelector('.aviso .aviso-acao');
+  await avisoDesfazer(p); await sincronizado(p);
+  assert.equal(cartoesDe(a).length, 1, 'o cartão não foi apagado');
+  assert.equal(Number(cartoesDe(a)[0][5]), 0, 'ficou arquivado');
+  assert.ok(a.linhas().some((l) => l[0] === id + '_lx1'), 'a compra continua');
+  assert.ok((await textoAviso(p)).includes('já tem compras'), await textoAviso(p));
+  // sem compras, o Desfazer continua apagando
+  await p.$eval('[data-acao="cartao-novo"]', (e) => e.click()); await folhaAberta(p);
+  await p.type('#cc-nome', 'Cartão Verde'); await p.type('#cc-fecha', '10'); await p.type('#cc-vence', '20');
+  await salvarTopo(p); await semFolha(p); await sincronizado(p);
+  assert.equal(cartoesDe(a).length, 2);
+  await avisoDesfazer(p); await sincronizado(p);
+  assert.equal(cartoesDe(a).length, 1, 'sem compras o Desfazer apaga');
+  await p.close();
+});
+
+await caso('3.2.0 recorrência: mover “A partir de” para depois do “Até” mantém o fim, avisa e impede salvar', async () => {
+  const dados = { nome: 'Recorrência fim', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'rf1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'recorrencia-inicio-depois-do-fim'));
+  await pronto(p);
+  await p.evaluate(() => abrirRecorrencia({ cid: 'aluguel', ano: 2026, mes: 11, aoSalvar: () => {} }));
+  await p.waitForSelector('#rc-valor');
+  await p.type('#rc-valor', '800');
+  await p.select('#rc-fim', '202612');
+  await p.select('#rc-ini', '202701');
+  assert.equal(await p.$eval('#rc-fim', (e) => e.value), '202612', 'o fim escolhido não vira “sem fim”');
+  const msg = await p.$eval('#rc-erro', (e) => e.textContent);
+  assert.ok(msg.includes('ficou antes do começo'), msg);
+  await salvarTopo(p); await sleep(200);
+  assert.equal(recsDe(a).length, 0, 'não grava com o fim antes do começo');
+  assert.ok(await p.$('#rc-valor'), 'a folha continua aberta');
+  await p.select('#rc-ini', '202611');
+  assert.equal(await p.$eval('#rc-erro', (e) => e.textContent), '', 'voltando o começo, o aviso some');
+  assert.equal(await p.$eval('#rc-fim', (e) => e.value), '202612', 'o fim continua escolhido');
+  await salvarTopo(p); await p.waitForSelector('#rc-valor', { hidden: true }); await sincronizado(p);
+  assert.equal(recsDe(a).length, 1);
+  assert.equal(Number(recsDe(a)[0][6]), 202612, 'o fim gravado é o escolhido');
+  await p.close();
+});
+
+await caso('3.2.0 Diagnósticos: versão, fila e recusa na folha; “Copiar diagnóstico” não leva nomes, valores nem R$', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const p = await abrir(a, PC, montarPagina(a, 'diagnosticos'));
+  await pronto(p);
+  const lerDiag = (rot) => p.evaluate((r) => {
+    const l = [...document.querySelectorAll('.folha.aberta .diag-linha')].find((x) => x.querySelector('dt').textContent === r);
+    return l ? { texto: l.querySelector('dd').textContent, itens: [...l.querySelectorAll('li')].map((x) => x.textContent) } : null;
+  }, rot);
+  await irPara(p, 'ajustes');
+  await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p);
+  assert.equal((await lerDiag('Versão do app')).texto, await p.evaluate(() => S.dados.versaoApp));
+  assert.equal((await lerDiag('Fila de envio')).texto, 'Vazia');
+  assert.equal((await lerDiag('Operações recusadas')).texto, 'Nenhuma nesta sessão');
+  await p.keyboard.press('Escape'); await semFolha(p);
+  await p.evaluate(() => registrar({ t: 'cartao', c: { id: 'x' } })); await sincronizado(p);
+  await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p);
+  const recusa = await lerDiag('Operações recusadas');
+  assert.equal(recusa.itens.length, 1, 'uma recusa na lista');
+  assert.ok(recusa.itens[0].includes('id de cartão inválido'), recusa.itens[0]);
+  await p.evaluate(() => { window.__copiado = []; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (t) => { window.__copiado.push(t); } } }); });
+  await p.click('[data-f="copiar"]');
+  await p.waitForFunction(() => window.__copiado.length === 1);
+  const texto = await p.evaluate(() => window.__copiado[0]);
+  assert.ok(texto.includes('Operações recusadas: 1'), texto);
+  assert.ok(texto.includes('Fila de envio: Vazia'), texto);
+  for (const proibido of ['Mercado', 'Salário', 'R$', 'id de cartão']) assert.ok(!texto.includes(proibido), 'o texto copiado leva ' + proibido);
+  await p.close();
+});
+
+await caso('3.2.0 Novo lançamento no celular cabe inteiro na tela (sem rolagem da página nem da folha), com e sem cartão, de 412×780 a 320×568', async () => {
+  const rotuloCaptura = process.env.NV_CAPTURA || '';
+  for (const [width, height] of [[412, 780], [390, 700], [360, 640], [320, 568]]) {
+    for (const estado of ['sem cartão', 'com cartão', 'com cartão escolhido']) {
+      const a = criarAmbiente(estado === 'sem cartão' ? abasDoBackup({ nome: 'Cabe sem cartão', categorias: catsBase(), anos: { 2026: { lancamentos: [{ id: 'd1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 }], orcamento: { salario: { 11: 5000 } } } } }) : abasComCartao('Cabe com cartão'));
+      const p = await abrir(a, { ...CEL, width, height }, montarPagina(a, `cabe-${width}x${height}-${estado.replace(/\s/g, '')}`));
+      await pronto(p);
+      const paginaAntes = await p.evaluate(() => document.scrollingElement.scrollHeight);
+      await p.tap('.inf-mais'); await folhaAberta(p);
+      const onde = `${width}×${height}, ${estado}`;
+      if (estado === 'sem cartão') assert.equal(await p.$('#nv-cartao'), null, `${onde}: sem cartão não há “Pago com”`);
+      else {
+        assert.ok(await p.$eval('label[for="nv-cartao"]', (e) => e.textContent === 'Pago com'), `${onde}: rótulo ligado ao campo`);
+        { const hh = await p.$eval('#nv-cartao', (e) => e.getBoundingClientRect().height); assert.ok(hh >= 44, `${onde}: o alvo do cartão tem ${hh} px`); }
+        if (estado === 'com cartão escolhido') { await p.select('#nv-cartao', 'kabcdefghij'); await sleep(120); assert.match(await p.$eval('#nv-fatura', (e) => e.textContent), /fatura de/, `${onde}: a dica da fatura aparece`); }
+      }
+      await sleep(150);
+      const r = await p.evaluate(() => {
+        const f = document.querySelector('.folha');
+        const rect = (s) => document.querySelector(s).getBoundingClientRect();
+        const salvar = rect('#nv-salvar');
+        return {
+          pagina: document.scrollingElement.scrollHeight, travado: getComputedStyle(document.scrollingElement).overflowY === 'hidden', folhaTopo: f.getBoundingClientRect().top, folha: f.scrollHeight - f.clientHeight, salvarDentro: salvar.top >= 0 && salvar.bottom <= innerHeight + 0.5 && salvar.left >= 0 && salvar.right <= innerWidth + 0.5,
+          tecla: Math.min(...[...document.querySelectorAll('.teclado button')].map((b) => b.getBoundingClientRect().height)),
+          chips: [...document.querySelectorAll('#nv-datas .chip')].map((c) => c.getBoundingClientRect().height),
+          largura: document.scrollingElement.scrollWidth - innerWidth, linhas: new Set([...document.querySelectorAll('#nv-datas .chip, #nv-cartao-chip')].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+        };
+      });
+      if (rotuloCaptura && ((width === 412 && height === 780) || (width === 360 && height === 640)) && estado !== 'com cartão escolhido') {
+        fs.mkdirSync(path.join(SAIDA, 'capturas'), { recursive: true });
+        await p.screenshot({ path: path.join(SAIDA, 'capturas', `novo-${rotuloCaptura}-${width}x${height}-${estado.replace(/\s/g, '-')}.png`) });
+      }
+      /* O fundo (a tela de baixo) tem a altura dela e fica travado; a folha não aumenta a página e cabe inteira na janela. */
+      assert.ok(r.travado, `${onde}: o fundo rola por baixo da folha`);
+      assert.ok(r.pagina <= paginaAntes, `${onde}: a folha aumentou a página de ${paginaAntes} para ${r.pagina}px`);
+      assert.ok(r.folhaTopo >= 0, `${onde}: o topo da folha passa da janela (${r.folhaTopo}px)`);
+      assert.ok(r.folha <= 1, `${onde}: a folha rola ${r.folha}px`);
+      assert.ok(r.salvarDentro, `${onde}: o Salvar não está inteiro na tela`);
+      assert.ok(r.tecla >= (height === 568 ? 36 : 40), `${onde}: tecla de ${r.tecla}px`);
+      assert.ok(r.largura <= 0, `${onde}: rolagem lateral de ${r.largura}px`);
+      assert.ok(r.chips.every((c) => c >= 38), `${onde}: chips baixos ${r.chips}`);
+      if (estado !== 'com cartão escolhido') {
+        let alcancou = false;
+        for (let i = 0; i < 60 && !alcancou && estado !== 'sem cartão'; i++) { await p.keyboard.press('Tab'); alcancou = await p.evaluate(() => document.activeElement && document.activeElement.id === 'nv-cartao'); }
+        if (estado !== 'sem cartão') assert.ok(alcancou, `${onde}: Tab não chega ao “Pago com”`);
+      }
+      await p.close();
+    }
+  }
+});
+
+await caso('3.2.0 Impressão: Mês impresso sem menus nem botões, em branco, sem rolagem lateral em A4; o botão só existe no Acompanhar', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const A4 = { width: 794, height: 1123, deviceScaleFactor: 1 };
+  const p = await abrir(a, A4, montarPagina(a, 'impressao'));
+  await pronto(p);
+  await irPara(p, 'mes'); await sleep(120);
+  const visivel = (sel) => p.$eval(sel, (e) => getComputedStyle(e).display !== 'none');
+  assert.equal((await p.$$('[data-acao="imprimir"]')).length, 1, 'o botão Imprimir este mês existe na tela Mês');
+  assert.ok((await p.$eval('[data-acao="imprimir"]', (e) => e.getAttribute('aria-label'))).startsWith('Imprimir este mês'), 'o botão tem aria-label');
+  assert.equal(await visivel('.so-impressao'), false, 'o cabeçalho de impressão não aparece na tela');
+  assert.equal(await visivel('#inferior'), true, 'na tela, a barra inferior aparece');
+  await p.emulateMediaType('print');
+  for (const sel of ['#lateral', '#inferior', '#topo', '.inf-mais', '#avisos', '#camada']) assert.equal(await visivel(sel), false, sel + ' some na impressão');
+  assert.equal(await visivel('.so-impressao'), true, 'o cabeçalho de impressão aparece');
+  assert.equal(await p.$eval('[data-acao="imprimir"]', (e) => getComputedStyle(e).display), 'none', 'o botão Imprimir some na impressão');
+  assert.equal(await p.$eval('.mes-cab .segmentado', (e) => getComputedStyle(e).display), 'none', 'o seletor de modo some na impressão');
+  assert.equal(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)', 'fundo branco');
+  assert.equal(await p.evaluate(() => getComputedStyle(document.body).color), 'rgb(0, 0, 0)', 'texto preto');
+  const cab = await p.$eval('.so-impressao', (e) => e.textContent);
+  assert.ok(cab.includes('novembro de 2026') && cab.includes('Impresso em 18/11/2026'), cab);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'sem rolagem horizontal em 794 px');
+  await p.emulateMediaType('screen');
+  assert.equal(await visivel('#inferior'), true, 'a barra inferior volta na tela');
+  assert.equal(await visivel('.so-impressao'), false, 'o cabeçalho de impressão volta a esconder');
+  await p.click('[data-acao="modo-mes"][data-modo="planejar"]'); await sleep(120);
+  assert.equal((await p.$$('[data-acao="imprimir"]')).length, 0, 'o botão não existe no Planejar');
+  await p.close();
+});
+
+/* ---------- 3.2.0 parte E: axe, 200% de zoom, só teclado e capturas ---------- */
+const EXIGE_AXE = process.env.E2E_EXIGE_AXE === '1';
+const MODO_CAPTURAS = process.argv.includes('--capturas');
+const CAPTURAS = path.join(SAIDA, 'capturas');
+const TAGS_AXE = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const GRAVES_AXE = ['critical', 'serious'];
+/** Código do axe-core: AXE_PATH (arquivo axe.min.js, relativo à pasta atual ou à raiz) ou import('axe-core'). Sem nenhum dos dois, vale null. */
+async function carregarAxe() {
+  try {
+    if (process.env.AXE_PATH) {
+      const arq = [path.resolve(process.env.AXE_PATH), path.resolve(RAIZ, process.env.AXE_PATH)].find((c) => fs.existsSync(c));
+      return arq ? fs.readFileSync(arq, 'utf8') : null;
+    }
+    const m = await import('axe-core');
+    return (m.default || m).source || null;
+  } catch { return null; }
+}
+const axeFonte = await carregarAxe();
+
+/** Exemplo fictício mais um Cartão Azul com uma compra em novembro (a fatura do Mês e a folha da fatura passam a existir). */
+function abasComFatura() {
+  const d = JSON.parse(JSON.stringify(exemplo));
+  d.anos['2026'].lancamentos.push({ id: 'kabcdefghij_ax1', mes: 11, dia: 15, categoriaId: 'mercado', descricao: 'Compra de exemplo', valor: 120 });
+  const abas = abasDoBackup(d);
+  abas.cartoes = [['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'], CARTAO_AZUL];
+  return abas;
+}
+/** Leva a página a uma "tela" do teste: inicio, mes (Acompanhar), planejar, planilha, extrato ou ajustes. */
+async function irParaTela(p, tela) {
+  const modo = tela === 'planejar' ? 'planejar' : 'acompanhar';
+  const real = tela === 'planejar' ? 'mes' : tela;
+  if (await p.evaluate(() => S.tela) !== real) await irPara(p, real);
+  if (real === 'mes' && await p.evaluate(() => S.modoMes) !== modo) { await p.evaluate((m) => { S.modoMes = m; render(); }, modo); await sleep(150); }
+  await sleep(150);
+}
+const abrirNovoPorToque = async (p) => { await p.$eval('[data-acao="novo"]:not([hidden])', (e) => e.click()).catch(async () => { await p.evaluate(() => abrirNovo()); }); await folhaAberta(p); };
+const fecharFolhas = async (p) => { await p.keyboard.press('Escape'); await semFolha(p); };
+/** Abre a folha da fatura (Mês, Acompanhar). */
+async function abrirFaturaNaTela(p) { await irParaTela(p, 'mes'); await p.$eval('.faturas button.linha-fatura', (e) => e.click()); await folhaAberta(p); }
+async function abrirDiagnosticosNaTela(p) { await irParaTela(p, 'ajustes'); await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p); }
+
+/** Roda o axe na página e devolve as violações com no máximo 3 seletores cada. */
+async function rodarAxe(p) {
+  if (!(await p.evaluate(() => typeof axe !== 'undefined'))) await p.evaluate(axeFonte);
+  return p.evaluate(async (tags) => {
+    const r = await axe.run(document, { runOnly: { type: 'tag', values: tags } });
+    return r.violations.map((v) => ({ id: v.id, impacto: v.impact, ajuda: v.help, alvos: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+  }, TAGS_AXE);
+}
+const textoViolacao = (onde, v) => `${onde}: ${v.id} (${v.impacto}) ${v.ajuda} [${v.alvos.join(' | ')}]`;
+
+for (const [rotuloVp, vp] of [['celular 390', CEL], ['PC 1440', PC]]) {
+  for (const tema of ['light', 'dark']) {
+    await caso(`3.2.0 axe (${rotuloVp}, ${tema === 'dark' ? 'escuro' : 'claro'}): nenhuma violação crítica ou séria nas telas e folhas`, async () => {
+      if (!axeFonte) {
+        if (EXIGE_AXE) throw new Error('axe-core ausente e E2E_EXIGE_AXE=1: instale o axe-core ou aponte AXE_PATH');
+        console.log('  axe-core ausente: casos de axe pulados');
+        return;
+      }
+      const a = criarAmbiente(abasComFatura());
+      const p = await abrir(a, vp, montarPagina(a, `axe-${rotuloVp.replace(' ', '-')}-${tema}`), { tema });
+      await pronto(p); await fontes(p);
+      const graves = []; const avisos = [];
+      const conferir = async (onde) => {
+        for (const v of await rodarAxe(p)) (GRAVES_AXE.includes(v.impacto) ? graves : avisos).push(textoViolacao(onde, v));
+      };
+      for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes']) {
+        await irParaTela(p, tela); await conferir(tela);
+      }
+      await abrirNovoPorToque(p); await conferir('folha Novo lançamento'); await fecharFolhas(p);
+      await abrirFaturaNaTela(p); await conferir('folha da fatura'); await fecharFolhas(p);
+      await abrirDiagnosticosNaTela(p); await conferir('folha Diagnósticos'); await fecharFolhas(p);
+      for (const m of new Set(avisos)) console.log('  aviso axe (moderada/leve): ' + m);
+      await p.close();
+      assert.deepEqual(graves, [], graves.join(' || '));
+    });
+  }
+}
+
+/** Mede, na página, o que o reflow exige: sem rolagem lateral, nada além da borda, nenhum texto cortado sem reticências. */
+const medirReflow = (p, raizSeletor) => p.evaluate((raizSel) => {
+  const larg = window.innerWidth;
+  const raiz = document.querySelector(raizSel);
+  const desc = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '');
+  const passam = []; const cortados = [];
+  const dentroDeRolagem = (e) => {
+    for (let a = e.parentElement; a && a !== raiz.parentElement; a = a.parentElement) {
+      const o = getComputedStyle(a).overflowX;
+      if (o === 'auto' || o === 'scroll' || o === 'hidden') return true;
+    }
+    return false;
+  };
+  for (const e of raiz.querySelectorAll('*')) {
+    const b = e.getBoundingClientRect();
+    // Só para leitor de tela (.sr, 1 px) e campos de formulário (rolam o próprio conteúdo) não entram na medição.
+    if (b.width <= 1 || b.height <= 1) continue;
+    const cs = getComputedStyle(e);
+    if (cs.position === 'fixed') continue;
+    if (b.right > larg + 1 && !dentroDeRolagem(e)) passam.push(desc(e));
+    if (!/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) && (cs.overflowX === 'hidden' || cs.overflowX === 'clip') && e.scrollWidth > e.clientWidth + 1 && cs.textOverflow !== 'ellipsis') cortados.push(desc(e));
+  }
+  return { rolaLado: document.documentElement.scrollWidth > larg, passam: [...new Set(passam)].slice(0, 3), cortados: [...new Set(cortados)].slice(0, 3) };
+}, raizSeletor);
+
+for (const [rotulo, vp] of [['200% de zoom (640 px)', { width: 640, height: 900, deviceScaleFactor: 2 }], ['reflow do WCAG (320 px)', { width: 320, height: 640, deviceScaleFactor: 2 }]]) {
+  await caso(`3.2.0 ${rotulo}: sem rolagem lateral, nada além da borda, texto sem corte e Salvar alcançável`, async () => {
+    const a = criarAmbiente(abasComFatura());
+    const p = await abrir(a, vp, montarPagina(a, `zoom-${vp.width}`));
+    await pronto(p); await fontes(p);
+    const erros = [];
+    for (const tela of ['inicio', 'mes', 'planejar', 'ajustes']) {
+      await irParaTela(p, tela);
+      const r = await medirReflow(p, '#tela');
+      if (r.rolaLado) erros.push(`${tela}: rolagem lateral`);
+      if (r.passam.length) erros.push(`${tela}: passa da borda [${r.passam.join(' | ')}]`);
+      if (r.cortados.length) erros.push(`${tela}: texto cortado [${r.cortados.join(' | ')}]`);
+    }
+    await abrirNovoPorToque(p);
+    const f = await medirReflow(p, '.folha.aberta');
+    if (f.rolaLado) erros.push('folha Novo lançamento: rolagem lateral');
+    if (f.passam.length) erros.push(`folha Novo lançamento: passa da borda [${f.passam.join(' | ')}]`);
+    if (f.cortados.length) erros.push(`folha Novo lançamento: texto cortado [${f.cortados.join(' | ')}]`);
+    const salvar = await p.evaluate(() => {
+      const b = document.querySelector('#nv-salvar');
+      b.scrollIntoView({ block: 'nearest' });
+      const r = b.getBoundingClientRect();
+      const topo = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { dentro: r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1, clicavel: !!topo && (topo === b || b.contains(topo)) };
+    });
+    if (!salvar.dentro || !salvar.clicavel) erros.push('folha Novo lançamento: Salvar fora da área visível ou coberto ' + JSON.stringify(salvar));
+    await p.close();
+    assert.deepEqual(erros, [], erros.join(' || '));
+  });
+}
+
+/** Informações do elemento focado: descrição curta e se o foco é visível (contorno ou sombra). */
+const focoAtual = (p) => p.evaluate(() => {
+  const e = document.activeElement;
+  if (!e || e === document.body) return { corpo: true };
+  const cs = getComputedStyle(e);
+  const desc = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.getAttribute('data-acao') ? '[' + e.getAttribute('data-acao') + ']' : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '');
+  const contorno = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+  const sombra = !!cs.boxShadow && cs.boxShadow !== 'none';
+  // Campo sem borda dentro de uma caixa (lançamento rápido): o anel é desenhado na caixa, por :has(:focus-visible).
+  const pai = e.parentElement && getComputedStyle(e.parentElement);
+  const contornoPai = !!pai && pai.outlineStyle !== 'none' && parseFloat(pai.outlineWidth) > 0;
+  return { desc, visivel: contorno || sombra || contornoPai, naFolha: !!e.closest('.folha'), id: e.id, foco: e.getAttribute('data-foco') };
+});
+
+for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
+  await caso(`3.2.0 só teclado (${rotuloVp}): skip link, foco visível em cada parada e nenhum tabindex positivo`, async () => {
+    const a = criarAmbiente(abasComFatura());
+    const p = await abrir(a, vp, montarPagina(a, 'teclado-' + rotuloVp));
+    await pronto(p);
+    await p.keyboard.press('Tab');
+    assert.equal(await p.evaluate(() => document.activeElement.matches('a.pular')), true, 'o primeiro Tab não foca o skip link');
+    assert.equal((await focoAtual(p)).visivel, true, 'o skip link não mostra o foco');
+    await p.keyboard.press('Enter'); await sleep(150);
+    assert.equal(await p.evaluate(() => document.activeElement.id), 'tela', 'Enter no skip link não leva o foco ao conteúdo');
+    const erros = [];
+    for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes']) {
+      await irParaTela(p, tela);
+      await p.evaluate(() => document.querySelector('#tela').focus());
+      const positivos = await p.$$eval('[tabindex]', (els) => els.filter((e) => Number(e.getAttribute('tabindex')) > 0).length);
+      if (positivos) erros.push(`${tela}: ${positivos} elemento(s) com tabindex positivo`);
+      for (let i = 0; i < 40; i++) {
+        await p.keyboard.press('Tab');
+        const f = await focoAtual(p);
+        if (f.corpo) break;
+        if (!f.visivel) erros.push(`${tela}: sem foco visível em ${f.desc}`);
+      }
+    }
+    await p.close();
+    assert.deepEqual([...new Set(erros)], [], [...new Set(erros)].slice(0, 6).join(' || '));
+  });
+}
+
+await caso('3.2.0 só teclado (PC): a folha Novo lançamento abre por Enter, prende o foco, Esc devolve o foco e Salvar grava', async () => {
+  const a = criarAmbiente(abasDoBackup(exemplo));
+  const p = await abrir(a, PC, montarPagina(a, 'teclado-folha'));
+  await pronto(p);
+  await irParaTela(p, 'inicio');
+  await p.$eval('[data-foco="novo-topo"]', (e) => e.focus());
+  await p.keyboard.press('Enter'); await folhaAberta(p);
+  assert.equal((await focoAtual(p)).naFolha, true, 'o foco não vai para dentro da folha');
+  for (let i = 0; i < 40; i++) {
+    await p.keyboard.press('Tab');
+    const f = await focoAtual(p);
+    assert.ok(!f.corpo && f.naFolha, `o Tab saiu da folha na parada ${i + 1}`);
+    assert.ok(f.visivel, `sem foco visível na folha em ${f.desc}`);
+  }
+  await p.keyboard.press('Escape'); await semFolha(p);
+  assert.equal((await focoAtual(p)).foco, 'novo-topo', 'Esc não devolveu o foco ao botão que abriu a folha');
+  await p.keyboard.press('Enter'); await folhaAberta(p);
+  await p.type('#nv-texto', '45 mercado teclado puro');
+  let salvar = false;
+  for (let i = 0; i < 40 && !salvar; i++) { await p.keyboard.press('Tab'); salvar = (await focoAtual(p)).id === 'nv-salvar'; }
+  assert.ok(salvar, 'o Tab não chega ao Salvar');
+  await p.keyboard.press('Enter'); await semFolha(p); await sincronizado(p);
+  const linha = a.linhas().find((l) => l[6] === 45 && String(l[5]).includes('teclado puro'));
+  assert.ok(linha, 'o lançamento feito só pelo teclado não foi gravado');
+  await irParaTela(p, 'extrato');
+  assert.ok((await p.$eval('#tela', (e) => e.innerText)).includes('teclado puro'), 'o lançamento não aparece no extrato');
+  await p.close();
+});
+
+/** Modo --capturas: PNG de cada tela em testes/saida/capturas/<tela>-<largura>-<tema>.png (320, 390 e 1440 px, claro e escuro), com dados de exemplo. */
+if (MODO_CAPTURAS) {
+  await caso('3.2.0 capturas: grava as telas e folhas em testes/saida/capturas', async () => {
+    fs.mkdirSync(CAPTURAS, { recursive: true });
+    for (const [largura, vp] of [[320, { ...CEL, width: 320, height: 640 }], [390, CEL], [1440, PC]]) {
+      for (const tema of ['light', 'dark']) {
+        const a = criarAmbiente(abasComFatura());
+        const p = await abrir(a, vp, montarPagina(a, `capturas-${largura}-${tema}`), { tema });
+        await pronto(p); await fontes(p);
+        const nome = (tela) => path.join(CAPTURAS, `${tela}-${largura}-${tema === 'dark' ? 'escuro' : 'claro'}.png`);
+        for (const tela of ['inicio', 'mes', 'planejar', 'ajustes']) { await irParaTela(p, tela); await p.screenshot({ path: nome(tela) }); }
+        await abrirNovoPorToque(p); await p.screenshot({ path: nome('novo-lancamento') }); await fecharFolhas(p);
+        await abrirFaturaNaTela(p); await p.screenshot({ path: nome('fatura') }); await fecharFolhas(p);
+        await p.close();
+      }
+    }
+  });
+}
 
 await caso('nenhum erro de JavaScript em nenhuma página', async () => {
   const erros = paginas.flatMap((p) => p.erros);

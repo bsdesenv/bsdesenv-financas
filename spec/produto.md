@@ -39,6 +39,11 @@ Não há papel gravado no banco nem autorização em camadas: a planilha pertenc
 | Orçamento/Plano | `orcamento` | — | `ano`, `categoriaId`, `mes`, `valor` |
 | Configuração | `config` | — | `chave`, `valor` (inclui `revisao`, `atualizadoEm`, `categoriaGuardar`, `categoriaSobra`, e as marcas `encerrada:`, `fechado:` e `pular:`) |
 | Recorrência | `recorrencias` (opcional, nasce na primeira gravação) | — | `id`, `categoriaId`, `descricao`, `valor`, `dia`, `inicio`, `fim` (aaaamm), `ativa`, `automatico` |
+| Cartão de crédito | `cartoes` (opcional, nasce na primeira gravação; 3.2.0) | — | `id` (`k` + 10 caracteres `[a-z0-9]`), `nome`, `fechamento` (1–31), `vencimento` (1–31), `limite` (opcional), `ativo`. Lançamento de cartão tem id `k<cartao>_<id>`, sem coluna nova |
+
+**Fatura** (3.2.0) não é entidade gravada: é o agrupamento dos lançamentos de um cartão pelo mês de pagamento, mostrado no Mês. O total aparece, nunca é somado de novo, e a fatura não vira conta a mais.
+
+**Diagnósticos** (3.2.0) é a folha de Ajustes com versão, revisão, fila, última sincronização, operações recusadas e sinais da planilha. Mostra só contagens e datas, e o texto copiado segue a mesma regra.
 
 Não há convenção de FK por prefixo: as colunas são literais (`categoriaId` aponta para `categorias.id`).
 

@@ -249,7 +249,7 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas. No topo, o 
 
 ### Ajustes
 
-Nome do controle, tema (automático, claro ou escuro), categorias, a seção **Atualizações** e a seção **Seus dados**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
+Nome do controle, tema (automático, claro ou escuro), categorias, **Cartões de crédito**, a seção **Atualizações**, a seção **Seus dados** e **Diagnósticos**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
 
 A cor de cada categoria segue a posição dela na lista, então ela muda quando você reordena. O texto usa a fonte DM Sans, que já vem com o app.
 
@@ -283,6 +283,32 @@ Cada linha mostra a situação:
 | inválida | sem data ou sem valor; fica de fora, com o motivo |
 
 Importar o mesmo arquivo duas vezes não duplica nada. Duas compras iguais no mesmo dia, com a mesma descrição, contam como duas. **Baixar backup antes** guarda uma cópia antes de gravar. Ao importar, **Desfazer** apaga todos os lançamentos do arquivo. Se alguma linha cai num mês já fechado, o app avisa e atualiza o fechamento.
+
+## Cartão de crédito
+
+Compra no cartão entra no mês em que a fatura é **paga**, não no dia da compra.
+
+- **Cadastrar:** em **Ajustes › Cartões de crédito**, toque em **Novo cartão** e informe o nome, o dia do **fechamento**, o dia do **vencimento** e, se quiser, o **limite**. Com limite, a fatura mostra quanto ainda está disponível, ou quanto passou dele.
+- **Lançar uma compra:** no **Novo lançamento** de um gasto, escolha **Pago com** o cartão. A categoria é a de sempre.
+- **Parcelas:** **Parcelar** no cartão divide a compra em uma parcela por fatura mensal seguinte.
+- **Ver a fatura:** no **Mês**, o bloco **Cartões de crédito** mostra cada fatura com o vencimento e o total. Toque nela para ver as compras.
+- **Arquivar:** esconde o cartão do seletor de **Pago com**, e a fatura continua no Mês. Um cartão com lançamentos não se apaga; arquive-o.
+
+O que é e o que não é:
+
+- Cada compra é um lançamento comum. A fatura é só um agrupamento: o total aparece, mas nunca é somado de novo.
+- A compra cai no mês em que a fatura é paga, no dia do vencimento. A data real da compra não fica guardada.
+- Compra feita até o dia do fechamento entra na fatura que fecha naquele dia; depois dele, na seguinte. Se o vencimento vem depois do fechamento, a fatura é paga no mesmo mês; se não, no mês seguinte. Dia 31 em mês curto vale o último dia do mês.
+
+## Diagnósticos
+
+Em **Ajustes › Diagnósticos**, toque em **Ver diagnósticos**. A folha mostra a versão, a revisão, a fila de envio, a última sincronização, a **duração do último envio**, as operações recusadas e os sinais da planilha (só contagens, como lançamentos sem descrição e meses com pendências). Tocar num mês com pendências abre esse mês na tela Mês.
+
+**Copiar diagnóstico** leva só contagens e datas, sem nomes, descrições ou valores. A duração do último envio é o número para medir a sincronização no seu aparelho.
+
+## Imprimir o mês
+
+No **Mês**, o botão **Imprimir este mês** abre a impressão do navegador, onde também dá para salvar como PDF. A impressão sai em cores claras, sem menus nem botões.
 
 ## Seus dados e backup
 

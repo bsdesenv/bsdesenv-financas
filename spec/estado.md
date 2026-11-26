@@ -12,6 +12,7 @@ Branch de trabalho: `main`. Branch principal: `main`.
 | Tema | Situação |
 |---|---|
 | Plano financeiro e UX | Em revisão: a sessão atual trabalha na revisão do plano financeiro e da experiência de uso do app. |
+| Versão 3.2.0 | Publicada em 25/11/2026: cartão de crédito com fatura no Mês, Diagnósticos, impressão do Mês e testes de acessibilidade locais (axe, 200% de zoom, só teclado, capturas em 320/390/1440). |
 | Versão 3.1.0 | Publicada em 25/11/2026 (planejamento de verdade: recorrências, parcelas, sobra levada, importar extrato). O app avisa quando houver nova versão; o instalador faz atualização preservando dados. |
 
 ---
@@ -53,3 +54,5 @@ Uma suposição é uma lacuna que foi preenchida com um palpite razoável para n
 | ID | Suposição | Status | Resolução |
 |---|---|---|---|
 | ASM-001 | A revisão de UX não muda a regra do `disponível` nem a estrutura das abas existentes. | fechada | A regra do `disponível` não mudou. A 3.1.0 acrescentou só a aba opcional `recorrencias`, sem colunas novas nas abas antigas (R-004). |
+| ASM-002 | A data real da compra no cartão não é guardada: a compra conta no mês de pagamento da fatura, no dia do vencimento. | aberta | Guardar a data exigiria coluna ou aba de detalhe (R-004). Fica suposição até decisão sobre isso. |
+| ASM-003 | CSP não implementada: a política de conteúdo por meta tag dentro do iframe do HtmlService não foi verificada. | aberta | `docs/SEGURANCA.md` diz que não é prometida; o teste fixa só as origens externas. |

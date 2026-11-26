@@ -9,7 +9,7 @@
  * Detalhes: docs/ARQUITETURA.md (Dados, Sincronização, Segurança).
  */
 
-var VERSAO_APP = '3.1.0';
+var VERSAO_APP = '3.2.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {
@@ -18,6 +18,7 @@ var CABECALHOS = {
   orcamento: ['ano', 'categoriaId', 'mes', 'valor'],
   config: ['chave', 'valor'],
   recorrencias: ['id', 'categoriaId', 'descricao', 'valor', 'dia', 'inicio', 'fim', 'ativa', 'automatico'],
+  cartoes: ['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'],
 };
 var GRUPOS = ['fixo', 'variavel', 'renda'];
 var TEMAS = ['auto', 'claro', 'escuro'];
@@ -232,7 +233,20 @@ function lerModelo_() {
       };
     });
 
-  return { cfg: lerConfig_(), cats: cats, lanc: lanc, orc: orc, rec: rec, sujo: {} };
+  var cartoes = linhasOpcionais_('cartoes')
+    .filter(function (l) { return l[0] !== '' && l[0] !== null; })
+    .map(function (l) {
+      return {
+        id: String(l[0]),
+        nome: texto_(l[1]),
+        fechamento: Number(l[2]),
+        vencimento: Number(l[3]),
+        limite: (l[4] === '' || l[4] === null) ? null : arred_(num_(l[4])),
+        ativo: flagLida_(l[5], 1),
+      };
+    });
+
+  return { cfg: lerConfig_(), cats: cats, lanc: lanc, orc: orc, rec: rec, cartoes: cartoes, sujo: {} };
 }
 
 /** Sim/não da planilha: vazio vale o padrão; checkbox (true) e 1 valem 1. */
@@ -261,6 +275,11 @@ function gravarModelo_(m) {
     escrever_('recorrencias', m.rec.map(function (r) {
       return [r.id, r.categoriaId, celulaTexto_(r.descricao), r.valor, r.dia === null ? '' : r.dia,
         r.inicio, r.fim === null ? '' : r.fim, r.ativa, r.automatico];
+    }));
+  }
+  if (m.sujo.cartoes) {
+    escrever_('cartoes', m.cartoes.map(function (c) {
+      return [c.id, celulaTexto_(c.nome), c.fechamento, c.vencimento, c.limite === null ? '' : c.limite, c.ativo];
     }));
   }
   if (m.sujo.config) escreverConfig_(m.cfg);
@@ -315,6 +334,12 @@ function paraCliente_(m) {
         inicio: r.inicio, fim: r.fim, ativa: r.ativa === 1, automatico: r.automatico === 1,
       };
     }),
+    cartoes: m.cartoes.map(function (c) {
+      return {
+        id: c.id, nome: c.nome, fechamento: c.fechamento, vencimento: c.vencimento,
+        limite: c.limite, ativo: c.ativo === 1,
+      };
+    }),
     anos: anos,
   };
 }
@@ -333,6 +358,8 @@ function aplicarOp_(m, op) {
     case 'orc': return salvarOrc_(m, op);
     case 'rec': return salvarRec_(m, op.r);
     case 'rec-': return apagarRec_(m, op.id);
+    case 'cartao': return salvarCartao_(m, op.c);
+    case 'cartao-': return apagarCartao_(m, op.id);
     case 'cfg': return salvarCfg_(m, op.k, op.v);
     case 'importar': return importar_(m, op);
     default: throw new Error('operação desconhecida: ' + op.t);
@@ -434,6 +461,42 @@ function apagarRec_(m, id) {
     m.sujo.recorrencias = true;
   }
   apagarPulares_(m, [id]);
+}
+
+/** Valida um cartão de crédito e devolve o registro pronto para a aba. */
+function validarCartao_(c) {
+  if (!c || typeof c !== 'object') throw new Error('cartão vazio');
+  var id = String(c.id);
+  if (!/^k[a-z0-9]{10}$/.test(id)) throw new Error('id de cartão inválido');
+  var nome = texto_(c.nome).trim().slice(0, 60);
+  if (!nome) throw new Error('nome do cartão obrigatório');
+  var fechamento = inteiro_(c.fechamento, 1, 31, 'fechamento');
+  var vencimento = inteiro_(c.vencimento, 1, 31, 'vencimento');
+  var limite = (c.limite === null || c.limite === undefined || c.limite === '') ? null : arred_(Number(c.limite));
+  if (limite !== null && (!isFinite(limite) || limite <= 0 || limite >= 1e10)) throw new Error('limite inválido');
+  var ativo = flag_(c.ativo, 1, 'ativo');
+  return { id: id, nome: nome, fechamento: fechamento, vencimento: vencimento, limite: limite, ativo: ativo };
+}
+
+function salvarCartao_(m, c) {
+  var novo = validarCartao_(c);
+  var i = indice_(m.cartoes, 'id', novo.id);
+  if (i >= 0) m.cartoes[i] = novo; else m.cartoes.push(novo);
+  m.sujo.cartoes = true;
+}
+
+/** Apaga o cartão sem lançamentos. Com lançamentos, recusa: nada some em massa. */
+function apagarCartao_(m, id) {
+  id = String(id);
+  var prefixo = id + '_';
+  if (m.lanc.some(function (l) { return l.id.indexOf(prefixo) === 0; })) {
+    throw new Error('O cartão tem lançamentos; arquive em vez de apagar.');
+  }
+  var i = indice_(m.cartoes, 'id', id);
+  if (i >= 0) {
+    m.cartoes.splice(i, 1);
+    m.sujo.cartoes = true;
+  }
 }
 
 function validarCat_(c, ordemPadrao) {
@@ -686,6 +749,7 @@ function importar_(m, op) {
     lancamentos: { aceitos: 0, ignorados: 0 },
     planos: { aceitos: 0, ignorados: 0 },
     recorrencias: { aceitas: 0, ignoradas: 0 },
+    cartoes: { aceitas: 0, ignoradas: 0 },
     motivos: [],
   };
   function motivo_(texto) { if (resumo.motivos.length < 5) resumo.motivos.push(texto); }
@@ -751,6 +815,19 @@ function importar_(m, op) {
     }
   });
 
+  var cartoes = [];
+  (Array.isArray(d.cartoes) ? d.cartoes : []).forEach(function (c, i) {
+    try {
+      var cartao = validarCartao_(c);
+      var k = indice_(cartoes, 'id', cartao.id);
+      if (k >= 0) cartoes[k] = cartao; else cartoes.push(cartao);
+      resumo.cartoes.aceitas++;
+    } catch (e) {
+      resumo.cartoes.ignoradas++;
+      motivo_('cartão ' + ((c && typeof c === 'object' && c.id !== undefined) ? c.id : '#' + (i + 1)) + ': ' + msg_(e));
+    }
+  });
+
   if (mesclar) {
     cats.forEach(function (c) {
       var i = indice_(m.cats, 'id', c.id);
@@ -765,11 +842,16 @@ function importar_(m, op) {
       var i = indice_(m.rec, 'id', r.id);
       if (i >= 0) m.rec[i] = r; else m.rec.push(r);
     });
+    cartoes.forEach(function (c) {
+      var i = indice_(m.cartoes, 'id', c.id);
+      if (i >= 0) m.cartoes[i] = c; else m.cartoes.push(c);
+    });
   } else {
     m.cats = cats;
     m.lanc = lanc;
     m.orc = orc;
     m.rec = recs;
+    m.cartoes = cartoes;
     Object.keys(m.cfg).forEach(function (k) { if (ehMarca_(k) || ehFechado_(k) || ehPular_(k)) delete m.cfg[k]; });
   }
   var fechados = d.config && d.config.fechados;
@@ -815,7 +897,7 @@ function importar_(m, op) {
   if (nome && (!mesclar || !nomeAtual)) m.cfg.nome = nome.slice(0, 60);
   var tema = d.config && d.config.tema;
   if (!mesclar && TEMAS.indexOf(tema) >= 0) m.cfg.tema = tema;
-  m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.recorrencias = m.sujo.config = true;
+  m.sujo.categorias = m.sujo.lancamentos = m.sujo.orcamento = m.sujo.recorrencias = m.sujo.cartoes = m.sujo.config = true;
   return resumo;
 }
 

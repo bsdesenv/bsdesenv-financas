@@ -26,6 +26,33 @@ O Finanças é código aberto (MIT) e roda inteiro na sua conta Google. Esta pá
 - **Você cola e publica:** a troca é feita por você no editor do Apps Script e a publicação é uma nova versão na implantação existente. Os dados da planilha não são tocados.
 - **Volta atrás:** em **Implantar › Gerenciar implantações › ✏️**, escolha a versão anterior. O formato dos dados é o mesmo.
 
+## Política de conteúdo (CSP)
+
+**Para onde o app vai.** Só estes destinos:
+
+- `script.google.com`: o próprio Apps Script, para ler e gravar a sua planilha.
+- `raw.githubusercontent.com`: o GitHub, só para consultar a versão nova e baixar a atualização assistida. Reserva: `cdn.jsdelivr.net`, para o mesmo arquivo.
+- `github.com`: só um link para o projeto. O app não carrega nada de lá.
+
+Nenhum outro destino, nenhuma biblioteca de terceiros e nenhum rastreador.
+
+**Por que o app não declara uma política de segurança de conteúdo (CSP).**
+
+- O `HtmlOutput` do Apps Script ignora meta tags escritas no arquivo. Só aceita as que o próprio `addMetaTag` oferece.
+- O app não controla os cabeçalhos HTTP da resposta.
+- O app roda dentro de um iframe do Google.
+
+Uma CSP por meta tag dentro desse iframe **não foi verificada** e não é prometida.
+
+**O que protege no lugar.**
+
+- Um teste automático fixa a lista de destinos acima. Um host novo derruba o `npm test` até a lista ser atualizada.
+- Nenhum `<script src>`, `<link href>` nem `@import` aponta para fora. O app não carrega código nem fonte de terceiros.
+- Permissão só da planilha: `spreadsheets.currentonly` (ver o começo desta página).
+- O código não usa `eval` nem `new Function`.
+
+Se um dia a CSP for testada em produção, a conclusão entra aqui.
+
 ## Instalador (opcional)
 
 O instalador é um **projeto Apps Script separado**, publicado pela bsdesenv, para quem quer instalar e atualizar com um clique. Ele é opcional: quem não quiser pode instalar e atualizar à mão, mantendo só a permissão da planilha. O app em si continua pedindo apenas `spreadsheets.currentonly`.

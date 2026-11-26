@@ -30,6 +30,8 @@ O front é uma SPA escrita em JavaScript vanilla, servida pelo `HtmlService`. O 
 
 - O HTML usa templates `<template id="...">` e o JS os clona.
 - O roteador interno troca seções por `data-route`; não há roteador de URL real.
+- Folha aberta no celular trava a rolagem do fundo: enquanto a folha está aberta, `html.com-folha` fica no `<html>` (com `overflow: hidden` até 1023,98 px). Quem abre folha no celular não põe rolagem própria no fundo.
+- Impressão: `@media print` em `src/Estilos.html` deixa o Mês em cores claras e esconde menus, avisos, folha e botões. Não há PDF próprio.
 - Estado global vive em um objeto curto; persistência vai para o servidor via `google.script.run`.
 - Tratamento de erro mostra mensagem na tela; erros de rede/rede do Apps Script devem ser retentados uma vez e, se persistirem, exibidos.
 
@@ -50,6 +52,9 @@ Formatação:
 - Aspas simples em strings e propriedades quando o projeto já as usa.
 - Indentação de 2 espaços no `.gs` e no `.html` inline.
 - Nomes de função em `camelCase` português (`carregarLancamentos`).
+- Id de cartão: `k` + 10 caracteres `[a-z0-9]` (`novoIdCartao`). Id de lançamento de cartão: `k<cartao>_<id>` (`idNoCartao`, lido por `cartaoDoId`). Sem coluna nova (R-004).
+- Nomes novos da 3.2.0 seguem `fatura*`, `mesDaFatura`, `idNoCartao`, `cartaoDoId`, `lancamentosDoCartao`, `limiteUsado`, `sinaisDaPlanilha`, `novoIdCartao`, `abrirCadastroCartao`, `abrirFatura`, `blocoFaturas`, `htmlCartoesCredito`, `abrirDiagnosticos`, `textoDiagnostico`. O prefixo `cartao*` já é de UI.
+- Modo `node testes/e2e.mjs --capturas` grava PNG de 320, 390 e 1440 px (claro e escuro) em `testes/saida/capturas`.
 
 ---
 

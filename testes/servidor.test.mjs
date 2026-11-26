@@ -762,3 +762,183 @@ test('compatibilidade: o servidor da 3.0.0 preserva a aba de recorrências e as 
   assert.equal(chaves.categoriaSobra, 'salario');
   assert.equal(chaves.nome, 'Casa');
 });
+
+const cartao = (id, extra = {}) => ({ t: 'cartao', c: { id, nome: 'Cartão Azul', fechamento: 5, vencimento: 12, limite: 3000, ativo: 1, ...extra } });
+const cabecalhoCartao = ['id', 'nome', 'fechamento', 'vencimento', 'limite', 'ativo'];
+
+test('cartões: planilha sem a aba abre sem criá-la', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const d = JSON.parse(ctx.carregar());
+  assert.deepEqual(d.cartoes, []);
+  assert.ok(!planilha.abas.has('cartoes'), 'a aba só nasce na primeira gravação');
+});
+
+test('cartões: a primeira gravação cria a aba; limite vazio vira null e ativo sai booleano', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [cartao('kab12cd34ef', { limite: '' })]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(planilha.abas.get('cartoes').dados[0], cabecalhoCartao);
+  assert.deepEqual(planilha.ler('cartoes')[0], ['kab12cd34ef', 'Cartão Azul', 5, 12, '', 1]);
+  assert.deepEqual(JSON.parse(ctx.carregar()).cartoes, [
+    { id: 'kab12cd34ef', nome: 'Cartão Azul', fechamento: 5, vencimento: 12, limite: null, ativo: true },
+  ]);
+});
+
+test('cartões: validações recusam o que não cabe no formato', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [
+    cartao('kab12cd34e'),
+    cartao('Kab12cd34ef'),
+    cartao('kab12cd34ef', { nome: '  ' }),
+    cartao('kcd12ab34ef', { fechamento: 0 }),
+    cartao('kcd12ab34eg', { fechamento: 32 }),
+    cartao('kcd12ab34eh', { vencimento: 0 }),
+    cartao('kcd12ab34ei', { vencimento: 32 }),
+    cartao('kcd12ab34ej', { limite: 0 }),
+    cartao('kcd12ab34ek', { limite: -5 }),
+  ]);
+  assert.equal(r.aplicadas, 0);
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.match(r.rejeitadas[0].motivo, /id de cartão inválido/);
+  assert.match(r.rejeitadas[1].motivo, /id de cartão inválido/);
+  assert.match(r.rejeitadas[2].motivo, /nome do cartão obrigatório/);
+  assert.match(r.rejeitadas[3].motivo, /fechamento inválido/);
+  assert.match(r.rejeitadas[4].motivo, /fechamento inválido/);
+  assert.match(r.rejeitadas[5].motivo, /vencimento inválido/);
+  assert.match(r.rejeitadas[6].motivo, /vencimento inválido/);
+  assert.match(r.rejeitadas[7].motivo, /limite inválido/);
+  assert.match(r.rejeitadas[8].motivo, /limite inválido/);
+  assert.ok(!planilha.abas.has('cartoes'), 'nada gravado, a aba não nasce');
+});
+
+test('cartões: editar o mesmo id substitui, não duplica', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  sinc(ctx, 0, [cartao('kab12cd34ef')]);
+  sinc(ctx, 0, [cartao('kab12cd34ef', { nome: 'Cartão Verde', limite: 5000 })]);
+  assert.deepEqual(planilha.ler('cartoes').map((l) => l[1]), ['Cartão Verde']);
+  assert.deepEqual(JSON.parse(ctx.carregar()).cartoes.map((c) => c.limite), [5000]);
+});
+
+test('cartões: cartao- apaga o cartão sem lançamentos; com lançamento, recusa e mantém', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  sinc(ctx, 0, [cartao('kab12cd34ef'), cartao('kcd12ab34ef'), lanc('kab12cd34ef_l1abc2defg')]);
+  const r = sinc(ctx, 0, [
+    { t: 'cartao-', id: 'kcd12ab34ef' },
+    { t: 'cartao-', id: 'kzz99zz99zz' },
+    { t: 'cartao-', id: 'kab12cd34ef' },
+  ]);
+  assert.equal(r.aplicadas, 2, 'id que não existe não é erro');
+  assert.deepEqual(r.rejeitadas.map((x) => x.i), [2]);
+  assert.equal(r.rejeitadas[0].motivo, 'O cartão tem lançamentos; arquive em vez de apagar.');
+  assert.deepEqual(planilha.ler('cartoes').map((l) => l[0]), ['kab12cd34ef']);
+});
+
+test('cartões: lançamento com id do cartão é aceito e volta com o mesmo id', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const r = sinc(ctx, 0, [cartao('kab12cd34ef'), lanc('kab12cd34ef_l1abc2defg')]);
+  assert.equal(r.aplicadas, 2);
+  const d = JSON.parse(ctx.carregar());
+  assert.ok(d.anos['2026'].lancamentos.some((l) => l.id === 'kab12cd34ef_l1abc2defg'));
+});
+
+test('cartões: importar grava os válidos e recusa o inválido com motivo; mesclar atualiza pelo id', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  const base = {
+    versao: 3,
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  const cartoesBackup = [
+    { id: 'kab12cd34ef', nome: 'Cartão Azul', fechamento: 5, vencimento: 12, limite: 3000, ativo: true },
+    { id: 'kzz', nome: 'ruim', fechamento: 5, vencimento: 12 },
+  ];
+  let r = sinc(ctx, 0, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: { ...base, cartoes: cartoesBackup } }]);
+  assert.equal(r.aplicadas, 1);
+  assert.equal(r.importacao.cartoes.aceitas, 1);
+  assert.equal(r.importacao.cartoes.ignoradas, 1);
+  assert.ok(r.importacao.motivos.some((t) => /^cartão kzz: id de cartão inválido/.test(t)));
+  assert.deepEqual(JSON.parse(r.dados).cartoes, [
+    { id: 'kab12cd34ef', nome: 'Cartão Azul', fechamento: 5, vencimento: 12, limite: 3000, ativo: true },
+  ]);
+
+  r = sinc(ctx, 0, [{ t: 'importar', modo: 'mesclar', confirmado: true, dados: { ...base, cartoes: [
+    { id: 'kab12cd34ef', nome: 'Cartão Verde', fechamento: 7, vencimento: 15, limite: null, ativo: false },
+    { id: 'kcd12ab34ef', nome: 'Cartão Roxo', fechamento: 1, vencimento: 10, ativo: true },
+  ] } }]);
+  const d = JSON.parse(r.dados);
+  assert.deepEqual(d.cartoes.map((c) => c.id), ['kab12cd34ef', 'kcd12ab34ef']);
+  assert.equal(d.cartoes[0].nome, 'Cartão Verde');
+  assert.equal(d.cartoes[0].ativo, false);
+});
+
+test('cartões: backup sem a chave cartoes continua importando (regressão)', () => {
+  const { ctx } = criarServidor(planilhaV1());
+  sinc(ctx, 0, [cartao('kab12cd34ef')]);
+  const base = {
+    versao: 3,
+    categorias: [{ id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 1 }],
+    anos: { 2026: { lancamentos: [], orcamento: {} } },
+  };
+  const r = sinc(ctx, 0, [{ t: 'importar', modo: 'substituir', confirmado: true, dados: base }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(JSON.parse(r.dados).cartoes, []);
+  assert.deepEqual(JSON.parse(r.dados).categorias.map((c) => c.id), ['mercado']);
+});
+
+test('cartões: edição à mão na aba cartoes aumenta a revisão', () => {
+  const { ctx, planilha } = criarServidor(planilhaV1());
+  sinc(ctx, 0, [cartao('kab12cd34ef')]);
+  const rev = ctx.estado().revisao;
+  ctx.onEdit({ range: planilha.ss.getSheetByName('cartoes').getRange(2, 2) });
+  assert.equal(ctx.estado().revisao, rev + 1);
+});
+
+/** Planilha da versão 1 com lançamentos sintéticos até o total pedido (ids n00001...). */
+function planilhaComLancamentos(total) {
+  const p = planilhaV1();
+  const existentes = p.lancamentos.length - 1;
+  for (let i = 1; i <= total - existentes; i++) {
+    p.lancamentos.push(['n' + String(i).padStart(5, '0'), 2026, 1 + (i % 12), '', 'mercado', 'Lançamento sintético', 10]);
+  }
+  return p;
+}
+
+test('limite do sincronizar: uma operação de config regrava só a aba config', () => {
+  const { ctx, planilha, contagem, zerarContagem } = criarServidor(planilhaComLancamentos(2000));
+  assert.equal(planilha.ler('lancamentos').length, 2000);
+  zerarContagem();
+  const r = sinc(ctx, 0, [{ t: 'cfg', k: 'tema', v: 'escuro' }]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(contagem.abasGravadas, { config: 1 });
+});
+
+test('limite do sincronizar: uma operação lanc regrava lancamentos e config, e nenhuma outra aba', () => {
+  const { ctx, planilha, contagem, zerarContagem } = criarServidor(planilhaComLancamentos(2000));
+  zerarContagem();
+  const r = sinc(ctx, 0, [lanc('nova0')]);
+  assert.equal(r.aplicadas, 1);
+  assert.deepEqual(contagem.abasGravadas, { lancamentos: 1, config: 1 });
+  assert.equal(planilha.ler('lancamentos').length, 2001);
+});
+
+test('limite do sincronizar: lote de 200 lanc com 2.000 lançamentos regrava lancamentos uma vez', () => {
+  const { ctx, planilha, contagem, zerarContagem } = criarServidor(planilhaComLancamentos(2000));
+  const ops = Array.from({ length: 200 }, (_, i) => lanc('nova' + i));
+  zerarContagem();
+  const r = sinc(ctx, 0, ops);
+  assert.equal(r.aplicadas, 200);
+  assert.equal(contagem.abasGravadas.lancamentos, 1, 'uma regravação da aba, não 200');
+  assert.equal(contagem.abasGravadas.config, 1);
+  assert.equal(planilha.ler('lancamentos').length, 2200);
+});
+
+test('limite do sincronizar: lote acima de MAX_OPS (501) é recusado e nada é gravado', () => {
+  const { ctx, planilha, contagem, zerarContagem } = criarServidor(planilhaComLancamentos(2000));
+  const revAntes = ctx.estado().revisao;
+  zerarContagem();
+  assert.throws(() => ctx.sincronizar(0, JSON.stringify(Array.from({ length: 501 }, (_, i) => lanc('nova' + i)))), /Muitas operações/);
+  assert.equal(contagem.gravacoes, 0);
+  assert.deepEqual(contagem.abasGravadas, {});
+  assert.equal(planilha.ler('lancamentos').length, 2000);
+  assert.equal(ctx.estado().revisao, revAntes);
+});

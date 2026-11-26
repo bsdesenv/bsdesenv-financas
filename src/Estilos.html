@@ -540,6 +540,13 @@ button.versao-nova:hover { filter: brightness(.97); }
 .atu-estado { margin-top: 10px; font-size: 0.875rem; color: var(--tinta-2); display: grid; gap: 6px; }
 .atu-estado p { margin: 0; }
 .atu-estado strong { color: var(--tinta); }
+.diag { margin: 0; font-size: 0.875rem; }
+.diag-linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--linha-2); }
+.diag-linha:first-child { border-top: 0; }
+.diag dt { color: var(--tinta-2); }
+.diag dd { margin: 0; color: var(--tinta); overflow-wrap: anywhere; }
+.diag-lista { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.diag-lista li { overflow-wrap: anywhere; }
 .atu-ok { display: flex; align-items: flex-start; gap: 8px; color: var(--ok); }
 .atu-ok .ic { flex: none; margin-top: 1px; }
 .acoes .atu-como { flex-basis: 100%; margin: 2px 0 0; }
@@ -632,6 +639,21 @@ button.versao-nova:hover { filter: brightness(.97); }
 .nv-toque .valor-grande { font-size: var(--nv-valor, 2.75rem); }
 .nv-toque .segmentado button { min-height: var(--nv-seg, 40px); }
 .nv-toque .nv-teclado-area { min-height: var(--nv-teclas, 197px); }
+/* Uma linha só de opções: Hoje, Ontem, Outra data, Parcelar e Cartão (o chip do cartão guarda o select invisível por cima). Se não couber, quebra e os chips se repartem a largura. */
+.nv-opcoes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nv-opcoes .datas { display: contents; }
+.nv-toque .nv-opcoes .chip { min-height: 44px; }
+.nv-opcoes .chip { flex: 1 1 auto; justify-content: center; padding: 0 7px; font-size: 0.8125rem; gap: 5px; }
+@media (max-width: 399px) { .nv-opcoes { gap: 4px; } .nv-opcoes .chip { font-size: 0.78125rem; gap: 4px; } }
+.nv-opcoes .datas-extra { flex: 1 1 100%; order: 3; }
+.nv-opcoes .chip-cartao { order: 2; position: relative; }
+/* O nome do cartão é cortado aqui para não jogar o chip para outra linha; a dica da fatura, logo abaixo, mostra o nome inteiro. */
+.chip-cartao-txt { max-width: 4.6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-cartao.ativo .ic { display: none; }
+.chip-cartao select { position: absolute; inset: -1.5px; width: calc(100% + 3px); height: calc(100% + 3px); opacity: 0; border: 0; font-size: 16px; cursor: pointer; appearance: none; }
+.chip-cartao.ativo { border-color: var(--acento); background: var(--acento-fraco); color: var(--acento-forte); font-weight: 600; }
+.chip-cartao:has(select:focus-visible) { outline: 3px solid var(--acento); outline-offset: 3px; }
+.nv-toque .nv-fatura { margin: 0 0 2px; }
 .nv-toque::before { display: var(--nv-alca, block); }
 @media (max-height: 700px) {
   .nv-toque #nv-rot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -642,19 +664,19 @@ button.versao-nova:hover { filter: brightness(.97); }
 }
 /* Telas baixas (celular pequeno com a barra do navegador): uma linha de categorias e tudo mais justo */
 @media (max-height: 670px) {
-  .nv-toque { --nv-chip: 38px; --nv-valor: 36px; --nv-seg: 34px; --nv-teclas: 181px; }
+  .nv-toque { --nv-chip: 38px; --nv-valor: 36px; --nv-seg: 34px; --nv-teclas: 184px; }
   .nv-toque::before { display: none; }
   .nv-toque .nv-fixo { gap: 8px; padding-bottom: 6px; }
   .nv-toque .nv-cats-area { margin-top: 6px; }
   .nv-toque .folha-corpo { min-height: 44px; padding: 6px 16px 6px; }
   .nv-toque .nv-teclado-area { padding-top: 6px; }
   .nv-toque .folha-rodape { padding-top: 8px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-  .datas { gap: 6px; }
   .nv-toque .chips-faixa { grid-template-rows: auto; }
   .nv-toque .nv-cats-area legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 @media (max-height: 600px) {
   .nv-toque { --nv-alca: none; }
+  .nv-toque { --nv-teclas: 168px; }
 }
 .entendi { font-size: 0.8125rem; color: var(--tinta-3); min-height: 19px; }
 .entendi.erro { color: var(--perigo); }
@@ -663,6 +685,7 @@ button.versao-nova:hover { filter: brightness(.97); }
 .linha-desc { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .linha-desc .entrada { flex: 1 1 180px; }
 .datas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.datas-extra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .datas input[type="date"] { min-height: 44px; border-radius: 12px; border: 1.5px solid var(--chip-borda); background: var(--cartao); padding: 0 10px; }
 .fc-lista .linha-lanc { min-height: 52px; }
 .fc-novo { display: grid; grid-template-columns: 1fr 1.4fr 64px; gap: 6px; }
@@ -695,6 +718,8 @@ button.versao-nova:hover { filter: brightness(.97); }
 .aviso.erro { background: var(--perigo); color: #FFFFFF; }
 /* Com uma folha aberta, os avisos saem de cima dela: no celular vão para o topo; no computador, para a esquerda do painel. */
 html.com-folha .avisos { top: calc(12px + env(safe-area-inset-top)); bottom: auto; }
+/* No celular a folha é modal e cobre a tela: o fundo não rola por baixo dela. No computador o painel fica ao lado, e esconder a barra faria a tela pular. */
+@media (max-width: 1023.98px) { html.com-folha { overflow: hidden; } }
 .aviso-txt { flex: 1; padding: 8px 0; }
 .aviso-acao { min-height: 44px; padding: 0 12px; border-radius: 10px; color: var(--toast-acao); font-weight: 650; }
 .aviso.erro .aviso-acao { color: #FFFFFF; text-decoration: underline; }
@@ -751,6 +776,7 @@ html.com-folha .avisos { top: calc(12px + env(safe-area-inset-top)); bottom: aut
     color: var(--tinta); display: inline-flex; align-items: center; gap: 10px; min-width: 300px;
   }
   .busca-rapida:focus-within { border-color: var(--acento); }
+  .busca-rapida:has(input:focus-visible) { outline: 3px solid var(--acento); outline-offset: 3px; }
   .busca-rapida .ic { color: var(--acento); flex: none; }
   .busca-rapida input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--tinta); font: inherit; padding: 0; }
   .busca-rapida input::placeholder { color: var(--tinta-3); }
@@ -979,6 +1005,29 @@ button.onde-linha:hover { background: var(--cartao-2); }
 .parc-grade { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: end; }
 @media (max-width: 420px) { .parc-grade { grid-template-columns: 1fr; } .rc-acoes { margin-left: 0; } }
 .opcao[hidden] { display: none; }
+/* 3.2.0: cartões de crédito e faturas */
+.cc-dias { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cc-dias .campo { margin: 0; min-width: 0; }
+@media (max-width: 420px) { .cc-dias { grid-template-columns: 1fr; } }
+.faturas { margin-top: 4px; }
+.linha-fatura { width: 100%; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 14px; border-top: 1px solid var(--linha-2); min-height: 60px; background: transparent; color: var(--tinta); }
+.linha-fatura:first-child { border-top: 0; }
+button.linha-fatura:hover { background: var(--cartao-2); }
+.fat-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.fat-nome { font-size: 0.9375rem; font-weight: 600; overflow-wrap: anywhere; }
+.fat-valor { font-size: 0.9375rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fat-meta, .fat-limite { font-size: 0.8125rem; color: var(--tinta-3); overflow-wrap: anywhere; }
+.fat-limite { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--tinta-2); }
+.fat-limite .ic { flex: none; }
+.fat-aviso { margin: 8px 4px 0; }
+.ll-cartao { display: inline-flex; align-items: center; gap: 3px; vertical-align: -2px; color: var(--tinta-2); font-weight: 500; }
+.ll-cartao .ic { flex: none; }
+.nv-cartao { margin: 0; gap: 4px; min-width: 0; }
+.nv-cartao .entrada { min-height: 40px; }
+.nv-fatura { margin: 0; font-size: 0.8125rem; color: var(--tinta-2); line-height: 1.4; }
+.nv-fatura:empty { display: none; }
+.ed-cartao { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--tinta-2); font-weight: 500; }
+.ed-cartao .ic { flex: none; }
 .previa:has(> :nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ie-abrir { align-self: flex-start; }
 .ie-colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
@@ -1003,4 +1052,42 @@ button.onde-linha:hover { background: var(--cartao-2); }
 /* modo exemplo */
 .faixa-exemplo { position: sticky; top: 0; z-index: 11; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 8px 16px; background: var(--acento-fraco); color: var(--acento-forte); border-bottom: 1px solid var(--chip-borda); font-size: 0.8125rem; font-weight: 600; }
 .faixa-exemplo + .topo { top: var(--faixa-h, 0px); }
+/* impressão do mês: cabeçalho que só existe no papel */
+.so-impressao { display: none; }
+.so-impressao strong { display: block; font-size: 1.25rem; font-weight: 650; }
+.so-impressao span { display: block; font-size: 0.875rem; }
+/* impressão: só o mês aberto, em preto sobre branco, sem menus nem botões de ação */
+@media print {
+  @page { margin: 14mm; }
+  :root:root:root {
+    color-scheme: light;
+    --fundo: #FFFFFF; --cartao: #FFFFFF; --cartao-2: #FFFFFF;
+    --tinta: #000000; --tinta-2: #1F2937; --tinta-3: #374151;
+    --linha: #9CA3AF; --linha-2: #D1D5DB; --trilho: #E5E7EB;
+    --chip: #F3F4F6; --chip-borda: #9CA3AF;
+    --acento: #312E81; --acento-tinta: #FFFFFF; --acento-fraco: #FFFFFF; --acento-forte: #312E81;
+    --gasto: #312E81;
+    --ok: #065F46; --acima: #9A3412; --atencao: #92400E;
+    --aviso-fundo: #FFFFFF; --aviso-borda: #9CA3AF; --aviso-tinta: #000000;
+    --ok-fundo: #FFFFFF; --ok-borda: #9CA3AF; --ok-tinta: #065F46;
+    --perigo: #991B1B;
+    --sombra: none; --sombra-forte: none;
+  }
+  :root:root .cor-0 { --c: #1D4ED8; } :root:root .cor-1 { --c: #0F766E; } :root:root .cor-2 { --c: #6D28D9; } :root:root .cor-3 { --c: #A21CAF; }
+  :root:root .cor-4 { --c: #0E7490; } :root:root .cor-5 { --c: #BE185D; } :root:root .cor-6 { --c: #475569; } :root:root .cor-7 { --c: #3F6212; }
+  html, body { background: #FFFFFF !important; color: #000000; min-height: 0; font-size: 11pt; }
+  * { box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; animation: none !important; transition: none !important; }
+  #lateral, #topo, #inferior, .inf-mais, #avisos, #camada, a.pular, .carga, .boasvindas, .faixa-exemplo, .sinc, .veu, .folha { display: none !important; }
+  .mes-cab .segmentado, .mes .acoes, .mes .botao, .mes .icone, .planejar-ajuda { display: none !important; }
+  .so-impressao { display: block; margin: 0 0 10pt; padding-bottom: 6pt; border-bottom: 1px solid var(--linha); }
+  .app { display: block; min-height: 0; }
+  .coluna { display: block; padding: 0; }
+  .tela { padding: 0; width: auto; max-width: none; overflow: visible; }
+  .extrato, .mes { max-width: none; }
+  .lista, .cartao { overflow: visible; background: #FFFFFF; }
+  .kpis-mes > div, .linha-cat, .linha-fatura, .faturas, .dica-ritmo { break-inside: avoid; }
+  .grupo-titulo { break-after: avoid; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}
 </style>

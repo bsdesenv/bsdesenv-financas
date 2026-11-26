@@ -69,7 +69,7 @@ const paginas = [];
 const HOSTS_GITHUB = /^https:\/\/(raw\.githubusercontent\.com|cdn\.jsdelivr\.net)\//;
 /** Páginas abertas no caso em andamento: fecham ao fim dele (com o contexto próprio), salvo as abertas com `manter`. */
 let abertasNoCaso = null;
-async function abrir(amb, vp, url, { tema, contexto, antes, manter } = {}) {
+async function abrir(amb, vp, url, { tema, contexto, antes, manter, agora = AGORA } = {}) {
   const ctx = contexto || (await browser.createBrowserContext());
   const p = await ctx.newPage();
   if (!contexto) { const fechar = p.close.bind(p); p.close = async () => { await fechar().catch(() => {}); await ctx.close().catch(() => {}); }; }
@@ -98,7 +98,7 @@ async function abrir(amb, vp, url, { tema, contexto, antes, manter } = {}) {
       constructor(...a) { super(...(a.length ? a : [agora])); }
       static now() { return agora; }
     };
-  }, AGORA);
+  }, agora);
   await p.exposeFunction('__servidor', (fn, args) => amb.ponte(fn, args));
   await p.setViewport(vp);
   if (tema) await p.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: tema }]);
@@ -595,7 +595,7 @@ await caso('de onde vem: a folha mostra contas a pagar e o que resta nos planos'
   assert.ok(texto.includes('Contas a pagar'), 'lista as contas a pagar');
   assert.ok(texto.includes('Ainda nos planos'), 'lista o que ainda resta nos planos');
   assert.ok(texto.includes('plano ' + moeda(1000) + ' · gasto ' + moeda(500)), 'mostra o plano restante da categoria já iniciada (mercado)');
-  assert.ok(!texto.includes('Acima do plano') && !texto.includes('Encerradas no mês'), 'sem blocos vazios');
+  assert.ok(!texto.includes('Acima do plano') && !texto.includes('Liberadas no mês'), 'sem blocos vazios');
   assert.ok(texto.includes('Ajustar planos'), 'oferece ajustar os planos');
   await p.close();
 });
@@ -1219,7 +1219,7 @@ await caso('2.8.0 quitar: conta fixa paga em parte libera o que faltava, grava a
   await pronto(p);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(5000 - 209.36 - 140.64), 'antes: 140,64 ainda reservados');
   const cartao = await p.$eval('#h-vencer', (e) => e.closest('section').innerText);
-  assert.ok(cartao.includes('Aluguel') && cartao.includes('Quitar'), 'a conta aparece com Quitar');
+  assert.ok(cartao.includes('Aluguel') && cartao.includes('Liberar'), 'a conta aparece com Liberar');
   await p.click('[data-acao="encerrar"][data-cat="aluguel"]');
   await esperarHeroi(p, moeda(5000 - 209.36)); await sincronizado(p);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(4790.64), 'o herói sobe 140,64');
@@ -1244,16 +1244,89 @@ await caso('2.8.0 encerrar e reabrir uma categoria variável pelo painel', async
   await pronto(p);
   assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(700));
   await p.evaluate(() => abrirCategoria('mercado', 2026, 11)); await folhaAberta(p);
-  assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Encerrar no mês (libera ${moeda(200)})`);
+  assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Liberar ${moeda(200)}`);
   await p.click('.folha [data-f="encerrar"]');
   await p.waitForSelector('.folha [data-f="reabrir"]'); await sincronizado(p);
-  assert.equal(await p.$eval('.folha [data-f="reabrir"]', (e) => e.textContent.trim()), 'Reabrir no mês');
+  assert.equal(await p.$eval('.folha [data-f="reabrir"]', (e) => e.textContent.trim()), 'Voltar a reservar');
   assert.equal(String(configDe(a, 'encerrada:2026-11:mercado')[1]), '1', 'marca gravada');
   await esperarHeroi(p, moeda(900));
   await p.click('.folha [data-f="reabrir"]');
   await p.waitForSelector('.folha [data-f="encerrar"]'); await sincronizado(p);
   assert.equal(configDe(a, 'encerrada:2026-11:mercado'), undefined, 'a marca saiu da planilha');
   await esperarHeroi(p, moeda(700));
+  await p.close();
+});
+
+/* ---------- 3.4.0: liberar a sobra de um plano ---------- */
+const dadosLiberar = () => ({
+  nome: 'Liberar', categorias: [...catsBase(), { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 }],
+  anos: { 2026: { lancamentos: [
+    { id: 'l1', mes: 11, dia: 5, categoriaId: 'mercado', descricao: '', valor: 100 },
+    { id: 'l2', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
+  ], orcamento: { mercado: { 11: 300 }, lazer: { 11: 200 }, salario: { 11: 1000 } } } },
+});
+
+await caso('3.4.0 Liberar uma categoria pela composição e desfazer', async () => {
+  const a = criarAmbiente(abasDoBackup(dadosLiberar()));
+  const p = await abrir(a, CEL, montarPagina(a, 'liberar-composicao'));
+  await pronto(p);
+  assert.equal(await p.$eval('.numero-heroi', (e) => e.textContent), moeda(500));
+  await p.click('[data-acao="detalhe-reserva"]'); await folhaAberta(p);
+  await p.click('.folha [data-f="liberar"][data-cat="mercado"]');
+  await esperarHeroi(p, moeda(700)); await sincronizado(p);
+  const aviso = await textoAviso(p);
+  assert.ok(aviso.includes('O plano fechou em') && aviso.includes(moeda(100)), 'o aviso diz o que fechou: ' + aviso);
+  await p.click('.aviso-acao');
+  await esperarHeroi(p, moeda(500)); await sincronizado(p);
+  await p.close();
+});
+
+await caso('3.4.0 Liberar todos e um só Desfazer', async () => {
+  const a = criarAmbiente(abasDoBackup(dadosLiberar()));
+  const p = await abrir(a, CEL, montarPagina(a, 'liberar-todos'));
+  await pronto(p);
+  await p.click('[data-acao="detalhe-reserva"]'); await folhaAberta(p);
+  await p.click('.folha [data-f="liberar-todos"]');
+  await esperarHeroi(p, moeda(900)); await sincronizado(p);
+  await esperar(() => p.evaluate(() => !document.querySelector('#reserva-planos')));
+  assert.equal(await p.$('#reserva-planos'), null, 'o bloco Ainda nos planos some quando nada mais sobra');
+  await p.click('.aviso-acao');
+  await esperarHeroi(p, moeda(500)); await sincronizado(p);
+  await p.close();
+});
+
+await caso('3.4.0 Liberar: tocar na linha abre a categoria', async () => {
+  const a = criarAmbiente(abasDoBackup(dadosLiberar()));
+  const p = await abrir(a, CEL, montarPagina(a, 'liberar-linha'));
+  await pronto(p);
+  await p.click('[data-acao="detalhe-reserva"]'); await folhaAberta(p);
+  await p.click('.folha [data-f="abrir"][data-cat="mercado"]');
+  await esperar(() => p.$$eval('.folha h2', (hs) => hs.some((h) => h.textContent.includes('Mercado'))));
+  await p.close();
+});
+
+await caso('3.4.0 Liberar: Revisar sobras só nos últimos 7 dias', async () => {
+  const a = criarAmbiente(abasDoBackup(dadosLiberar()));
+  const p = await abrir(a, CEL, montarPagina(a, 'liberar-sobras-18'));
+  await pronto(p);
+  assert.equal(await p.$('[data-acao="revisar-sobras"]'), null, 'em 18/11 ainda faltam mais de 7 dias: sem Revisar sobras');
+  await p.close();
+  const p2 = await abrir(a, CEL, montarPagina(a, 'liberar-sobras-25'), { agora: Date.parse('2026-11-25T12:00:00') });
+  await pronto(p2);
+  assert.ok((await p2.$eval('[data-acao="revisar-sobras"]', (e) => e.textContent)).includes('Revisar sobras'), 'em 25/11 o herói mostra Revisar sobras');
+  await p2.click('[data-acao="revisar-sobras"]'); await folhaAberta(p2);
+  assert.ok(await p2.$('#reserva-planos'), 'Revisar sobras abre a composição com o bloco Ainda nos planos');
+  await p2.close();
+});
+
+await caso('3.4.0 Liberar: no celular a folha da categoria não foca o Valor', async () => {
+  const a = criarAmbiente(abasDoBackup(dadosLiberar()));
+  const p = await abrir(a, CEL, montarPagina(a, 'liberar-foco'));
+  await pronto(p);
+  await p.evaluate(() => abrirCategoria('mercado', 2026, 11)); await folhaAberta(p);
+  await sleep(300);
+  assert.notEqual(await p.evaluate(() => document.activeElement.id), 'fc-valor', 'no celular a folha não foca o Valor');
+  assert.equal(await p.$eval('.folha [data-f="encerrar"]', (e) => e.textContent.trim()), `Liberar ${moeda(200)}`);
   await p.close();
 });
 

@@ -42,7 +42,7 @@ A categoria **Guardar** é um fixo especial, com o id `guardar`. O plano mensal 
 
 O app lembra qual é a sua categoria de economia, mesmo que você mude o nome dela. Ao abrir, ele anota essa escolha na planilha, uma vez só. Sem essa anotação, ele usa o id `guardar`. Se também não existir, vale a primeira categoria de gasto cujo nome comece com "Guardar".
 
-A categoria de economia não pode ser apagada: o botão fica desabilitado em **Ajustes**. Também não pode virar renda.
+A categoria de economia não pode ser apagada: no painel da categoria, o botão **Apagar categoria** aparece desativado, com o motivo escrito abaixo dele. Também não pode virar renda.
 
 Ela não entra na barra de gastos, nos avisos de "passou do plano" nem em "Sem plano" (guardar mais do que a meta é bom). Entra no total de saídas, na sobra e no disponível. Em **O que falta pagar**, Guardar tem um bloco próprio, com o botão **Guardar** para lançar a transferência. A meta fica em **Plano do mês**.
 
@@ -216,7 +216,7 @@ Se a sobra mudar depois do fechamento, por exemplo porque outra pessoa ou outro 
 
 ### Extrato
 
-Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e filtros, como o filtro **Saídas**. Toque num lançamento para editar, duplicar ou apagar. O botão **Importar extrato** traz lançamentos de um arquivo do banco (veja **Importar extrato**).
+Todos os lançamentos, agrupados por dia, com busca (no computador: tecla `/`) e filtros numa linha só: **Tudo**, **Saídas**, **Rendas** e **Categoria**. Toque num lançamento para editar, duplicar ou apagar. O botão com a seta para cima, ao lado da busca (**Importar extrato**), traz lançamentos de um arquivo do banco (veja **Importar extrato**).
 
 Com texto na busca, escolha entre **Neste mês** e **Em <ano>**, que procura no ano inteiro. A opção do ano já vem marcada.
 
@@ -249,22 +249,24 @@ O ano inteiro numa tabela: categorias nas linhas, meses nas colunas. No topo, o 
 
 ### Ajustes
 
-Nome do controle, tema (automático, claro ou escuro), categorias, **Cartões de crédito**, a seção **Atualizações**, a seção **Seus dados** e **Diagnósticos**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
+Ajustes abre num índice: **Geral**, **Categorias**, **Cartões**, **Seus dados**, **Atualizações** e **Diagnósticos**. No celular, toque num item para abrir a seção, e **‹ Ajustes** volta ao índice (o voltar do navegador também). No computador, o índice fica à esquerda e a seção à direita, começando em **Geral**. A versão do app aparece no rodapé do menu (no computador), no topo de **Ajustes** e no cartão **Atualizações**, que avisa quando há versão nova e mostra o passo a passo para atualizar.
 
 A cor de cada categoria segue a posição dela na lista, então ela muda quando você reordena. O texto usa a fonte DM Sans, que já vem com o app.
 
-Em **Ajustes › Categorias**:
+Em **Ajustes › Categorias**, cada categoria é uma linha com a bolinha da cor, o nome, a quantidade de lançamentos e uma seta. Os selos **Economia** e **Sobra** marcam as categorias especiais. Cada grupo mostra a contagem (por exemplo, **Fixos · 5**) e, no fim, **+ Nova em {grupo}**. Tocar numa linha abre o painel, com **Nome**, **Grupo** (**Fixos**, **Variáveis** ou **Rendas**) e **Apagar categoria**.
 
+- **Ordenar:** liga o modo de ordenação. Cada linha mostra subir, descer e uma alça (≡) para arrastar dentro do grupo. Esc durante o arraste devolve a posição, e **Concluir** sai do modo. Trocar de grupo continua sendo pelo painel.
 - **Trocar o grupo:** entre **Fixos** e **Variáveis**, a troca é livre, e o aviso traz **Desfazer**.
 - **Renda e gasto:** uma categoria com lançamentos não muda entre renda e gasto. Isso inverteria o sinal do que já foi lançado. O app avisa e sugere criar outra categoria.
-- **Categoria de economia:** o botão de apagar fica desabilitado, e ela não pode virar renda.
+- **Apagar:** quando não dá para apagar, o painel mostra o motivo abaixo do botão. O motivo pode ser que a categoria tenha lançamentos, que seja a categoria de economia ou que leve a sobra.
+- **Categoria de economia:** ela não pode ser apagada nem virar renda.
 - **Sobra do mês anterior:** a categoria criada ao levar a sobra para o mês seguinte também não pode ser apagada nem deixar de ser renda.
 
 O navegador busca o ícone no GitHub. A fonte já vem com o app, então não há consulta ao Google Fonts. Se o aviso de versão estiver ligado, ele também consulta o arquivo de versões no GitHub ou no jsDelivr. O texto de Ajustes diz isso. Esses serviços veem o endereço IP de quem usa, mas nenhum dado da planilha é enviado.
 
 ## Importar extrato
 
-Traz lançamentos de um arquivo do banco, sem digitar. Fica em **Ajustes** (ao lado de **Importar backup**) e no **Extrato**. O arquivo é lido no próprio navegador e não sai do seu aparelho.
+Traz lançamentos de um arquivo do banco, sem digitar. Fica em **Ajustes › Seus dados** (ao lado de **Importar backup**) e no **Extrato** (a seta para cima ao lado da busca). O arquivo é lido no próprio navegador e não sai do seu aparelho.
 
 1. Escolha o arquivo: **OFX**, **QFX**, **CSV** ou **TXT**, até 2 MB. Passando de 2.000 linhas, só as primeiras são lidas, e o app avisa.
 2. No **CSV**, o app mostra as primeiras linhas e tenta adivinhar as colunas. Confira **data**, **descrição** e **valor**, e marque se a primeira linha é cabeçalho. Aceita `;`, vírgula e tabulação, datas como 25/11/2026 e valores como `1.234,56`.
@@ -288,7 +290,7 @@ Importar o mesmo arquivo duas vezes não duplica nada. Duas compras iguais no me
 
 Compra no cartão entra no mês em que a fatura é **paga**, não no dia da compra.
 
-- **Cadastrar:** em **Ajustes › Cartões de crédito**, toque em **Novo cartão** e informe o nome, o dia do **fechamento**, o dia do **vencimento** e, se quiser, o **limite**. Com limite, a fatura mostra quanto ainda está disponível, ou quanto passou dele.
+- **Cadastrar:** em **Ajustes › Cartões**, toque em **Novo cartão** e informe o nome, o dia do **fechamento**, o dia do **vencimento** e, se quiser, o **limite**. Com limite, a fatura mostra quanto ainda está disponível, ou quanto passou dele.
 - **Lançar uma compra:** no **Novo lançamento** de um gasto, escolha **Pago com** o cartão. A categoria é a de sempre.
 - **Parcelas:** **Parcelar** no cartão divide a compra em uma parcela por fatura mensal seguinte.
 - **Ver a fatura:** no **Mês**, o bloco **Cartões de crédito** mostra cada fatura com o vencimento e o total. Toque nela para ver as compras.

@@ -1,14 +1,14 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.2.0",
-  "ref": "v3.2.0",
-  "data": "2026-11-25",
+  "versao": "3.3.0",
+  "ref": "v3.3.0",
+  "data": "2026-11-26",
   "novidades": [
-    "Cartão de crédito",
-    "Compra no cartão",
-    "Diagnósticos",
-    "Imprimir o mês",
-    "Qualidade contínua"
+    "Ajustes em índice",
+    "Categorias em lista de leitura",
+    "Ordenar com alça e setas",
+    "Motivo de não apagar visível",
+    "Extrato mais compacto no celular"
   ],
   "arquivos": [
     {
@@ -17,7 +17,7 @@
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
       "bytes": 35919,
-      "sha256": "ec700aaee4626cf62c9a7aea0e328736380f1eb8d60e8d25f905d0040ccac904"
+      "sha256": "04389c25aa6a044fc7b9b4e2ce86ec2d3f991240e4ea7424e7ee21355d08d30f"
     },
     {
       "nome": "Index",
@@ -32,16 +32,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 163275,
-      "sha256": "a5d775c13434137d47d9f72b62f73ad492fd7f639b2ea0759996b8d490042680"
+      "bytes": 167150,
+      "sha256": "8f08d86670921abc4bd3f718f93607c2b0d262e0278d86ecae3c191a8c179620"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 315179,
-      "sha256": "6141d59161720a74e5beeeab0af1b067d1141b5d12710d2449facfcf171211f1"
+      "bytes": 326459,
+      "sha256": "a4df8fb0f82a65405779f3c838eaf62b57f34eef229a2317b59b20b0c3ff9ce0"
     },
     {
       "nome": "appsscript",

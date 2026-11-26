@@ -95,6 +95,6 @@ Não há analytics, rastreadores, cookies de terceiros nem envio de dados para a
 
 ## Se algo der errado
 
-- **Dados:** no Google Sheets, **Arquivo › Histórico de versões**; no app, **Ajustes › Baixar backup (JSON)**.
+- **Dados:** no Google Sheets, **Arquivo › Histórico de versões**; no app, **Ajustes › Seus dados › Baixar backup (JSON)**.
 - **Código:** em **Implantar › Gerenciar implantações › ✏️**, escolha a versão anterior e implante. No instalador, use o número da cópia de segurança mostrado no fim da atualização.
 - **Permissões:** em <https://myaccount.google.com/permissions>, remova o acesso do instalador ou do app e autorize de novo quando quiser.

@@ -27,7 +27,7 @@ Não há papel gravado no banco nem autorização em camadas: a planilha pertenc
 | Extrato | Lista lançamentos, permite busca e filtros; importa extrato de banco (CSV e OFX) no navegador | Tela de extrato |
 | Planilha | Mostra o ano em mapa de calor e os detalhes do mês selecionado | Aba do Google Sheets |
 | Planejar | Define valores planejados por categoria/mês, com "Copiar de" | Tela de planejamento |
-| Ajustes | Configura tema, atualização, versão e dados de exemplo; backup (JSON v3), CSVs e importação | Tela de ajustes |
+| Ajustes | Abre num índice (Geral, Categorias, Cartões, Seus dados, Atualizações, Diagnósticos); no computador, índice e seção lado a lado. Categorias é uma lista de leitura: tocar numa linha abre o painel de edição, e **Ordenar** muda a posição dentro do grupo. Configura tema, atualização, versão e dados de exemplo; backup (JSON v3), CSVs e importação | Tela de ajustes |
 | Fechamento | Fecha o mês passado, guarda a sobra realizada e pode levá-la como renda ao mês seguinte | Folha "Fechar {mês}" |
 
 ## Entidades e prefixos de coluna

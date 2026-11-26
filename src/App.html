@@ -720,6 +720,8 @@ const ICONES = {
   busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>',
   sobe: '<path d="m6 15 6-6 6 6"/>',
   desce: '<path d="m6 9 6 6 6-6"/>',
+  alca: '<path d="M5 8h14M5 12h14M5 16h14"/>',
+  ordenar: '<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
   lixeira: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   externo: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   baixar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
@@ -755,7 +757,7 @@ const S = {
   recusadas: [], duracaoEnvio: 0, operacoesUltimoEnvio: 0,
   atualizacao: null, verificandoAtu: null,
   exemplo: null, montado: false, tela: 'inicio', ano: hoje().ano, mes: hoje().mes,
-  planoSalvo: null, planoPrevia: null, busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', cartaoNovo: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '',
+  planoSalvo: null, planoPrevia: null, busca: '', buscaNoAno: true, filtro: 'tudo', filtroCat: '', cartaoNovo: '', modoMes: 'acompanhar', calor: true, rolarPlanilha: true, quick: '', ajSecao: null, ordenando: false,
 };
 /* O armazenamento do navegador dentro do Apps Script pode ser apagado pelo
    navegador: é só um reforço. A garantia é a planilha.
@@ -1300,7 +1302,7 @@ function renderLateral() {
   $('#lateral').innerHTML = `<div class="lateral-marca"><span class="logo" aria-hidden="true"><i></i><i></i><i></i></span><span style="min-width:0"><strong>${esc(d.nome || 'Minhas finanças')}</strong><small>Controle financeiro</small></span></div>`
     + `<nav aria-label="Seções">${itens.map((t) => `<button type="button" class="lat-item" data-acao="tela" data-tela="${t}" data-foco="lat-${t}"${t === 'ajustes' && nova ? ' aria-label="Ajustes, nova versão disponível"' : ''}${S.tela === t ? ' aria-current="page"' : ''}>${ic(TELAS[t].icone, 20)}${TELAS[t].nome}${t === 'ajustes' && nova ? '<span class="ponto-novo" aria-hidden="true"></span>' : ''}</button>`).join('')}</nav>`
     + `<div class="lat-rodape"><button type="button" class="sinc sinc-lateral" id="sinc-lateral" data-acao="sincronizar"></button>`
-    + (nova ? `<button type="button" class="versao versao-nova" data-acao="tela" data-tela="ajustes" data-foco="lat-versao">v${esc(d.versaoApp || '—')} · nova ${esc(nova.versao)}</button>`
+    + (nova ? `<button type="button" class="versao versao-nova" data-acao="tela" data-tela="ajustes" data-secao="atualizacoes" data-foco="lat-versao">v${esc(d.versaoApp || '—')} · nova ${esc(nova.versao)}</button>`
       : `<span class="versao" title="Versão ${esc(d.versaoApp || '—')}">v${esc(d.versaoApp || '—')}</span>`)
     + (d.planilha && d.planilha.url ? `<a class="link" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">Abrir a planilha ${ic('externo', 14)}</a>` : '') + '</div>';
 }
@@ -1714,16 +1716,16 @@ function renderExtrato(tela) {
   if (tela.dataset.tela !== 'extrato') {
     tela.dataset.tela = 'extrato';
     tela.innerHTML = '<div class="extrato"><div class="extrato-ferramentas">'
-      + `<label class="campo-busca">${ic('busca', 18)}<span class="sr">Buscar no extrato</span><input type="search" id="busca" data-digitar="busca" data-foco="busca" placeholder="Buscar descrição, categoria ou valor" autocomplete="off" value="${esc(S.busca)}"></label>`
-      + '<div class="chips" id="extrato-filtros"></div>'
-      + `<button type="button" class="botao pequeno fantasma ie-abrir" data-acao="importar-extrato" data-foco="importar-extrato">${ic('enviar', 16)}Importar extrato</button></div><div id="extrato-resumo"></div><div id="extrato-lista"></div></div>`;
+      + `<div class="busca-linha"><label class="campo-busca">${ic('busca', 18)}<span class="sr">Buscar no extrato</span><input type="search" id="busca" data-digitar="busca" data-foco="busca" placeholder="Buscar descrição, categoria ou valor" autocomplete="off" value="${esc(S.busca)}"></label>`
+      + `<button type="button" class="ie-abrir" data-acao="importar-extrato" data-foco="importar-extrato" aria-label="Importar extrato" title="Importar extrato">${ic('enviar', 20)}</button></div>`
+      + '<div class="chips" id="extrato-filtros"></div></div><div id="extrato-resumo"></div><div id="extrato-lista"></div></div>';
   }
   const f = (id, txt) => `<button type="button" class="chip" data-acao="filtro" data-filtro="${id}" data-foco="filtro-${id}" aria-pressed="${S.filtro === id}">${txt}</button>`;
   const opcoes = cats().map((c) => `<option value="${esc(c.id)}"${S.filtroCat === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('');
   const esc2 = (id, txt, ligado) => `<button type="button" class="chip" data-acao="escopo-busca" data-escopo="${id}" data-foco="escopo-${id}" aria-pressed="${ligado}">${txt}</button>`;
   $('#extrato-filtros').innerHTML = f('tudo', 'Tudo') + f('gastos', 'Saídas') + f('rendas', 'Rendas')
     + (S.busca.trim() ? esc2('mes', 'Neste mês', !S.buscaNoAno) + esc2('ano', 'Em ' + S.ano, S.buscaNoAno) : '')
-    + `<label class="chip chip-select"><span class="sr">Categoria</span><select data-mudar="filtro-cat" data-foco="filtro-cat"><option value="">Todas as categorias</option>${opcoes}</select></label>`;
+    + `<label class="chip chip-select"><span class="sr">Categoria</span><select data-mudar="filtro-cat" data-foco="filtro-cat"><option value="">Categoria</option>${opcoes}</select></label>`;
   const r = filtrarExtrato();
   $('#extrato-resumo').innerHTML = `<div class="resumo-faixa"><div><span class="sub">${r.itens.length} lançamento${r.itens.length === 1 ? '' : 's'} em ${r.doAno ? S.ano : MESES[S.mes - 1]}</span><strong>${moeda(r.gastos)}</strong><span class="sub">em saídas</span></div>`
     + `<div style="text-align:right"><span class="sub">&nbsp;</span><strong class="txt-ok">${moeda(r.rendas)}</strong><span class="sub">em rendas</span></div></div>`;
@@ -1952,43 +1954,76 @@ function contagemPorCategoria() {
   for (const b of Object.values(S.dados.anos)) for (const l of b.lancamentos) n[l.categoriaId] = (n[l.categoriaId] || 0) + 1;
   return n;
 }
-function telaAjustes() {
-  const d = S.dados; const usos = contagemPorCategoria();
-  const temas = { auto: 'Automático', claro: 'Claro', escuro: 'Escuro' };
-  const linhas = ORDEM_GRUPOS.map((g) => {
+const SECOES_AJUSTES = [['geral', 'Geral'], ['categorias', 'Categorias'], ['cartoes', 'Cartões'], ['dados', 'Seus dados'], ['atualizacoes', 'Atualizações'], ['diagnosticos', 'Diagnósticos']];
+/** Do PC (como a barra lateral) para cima: índice e seção lado a lado; abaixo disso, uma coisa de cada vez. */
+const AJUSTES_LARGO = window.matchMedia('(min-width: 1024px)');
+AJUSTES_LARGO.addEventListener('change', () => { if (S.tela === 'ajustes') render(); });
+const TEMAS = { auto: 'Automático', claro: 'Claro', escuro: 'Escuro' };
+function resumoAjuste(id) {
+  const d = S.dados;
+  if (id === 'geral') return `${d.nome || 'Sem nome'} · ${TEMAS[d.tema || 'auto']}`;
+  if (id === 'categorias') return String(d.categorias.length);
+  if (id === 'cartoes') return String(cartoes().filter((c) => c.ativo).length);
+  if (id === 'atualizacoes') return 'v' + (d.versaoApp || '—');
+  return '';
+}
+/** Por que a categoria não pode ser apagada (texto vazio quando pode). */
+function motivoNaoApagar(c, n) {
+  if (n) return `Tem ${n} lançamento${n > 1 ? 's' : ''}: mova-${n > 1 ? 'os' : 'o'} para outra categoria antes de apagar.`;
+  if (ehGuardar(c)) return 'É a categoria de economia: não dá para apagar.';
+  if (ehSobra(c)) return 'Leva a sobra de um mês para o outro: não dá para apagar.';
+  return '';
+}
+const seloCategoria = (c) => (ehGuardar(c) ? '<span class="selo">Economia</span>' : ehSobra(c) ? '<span class="selo">Sobra</span>' : '');
+function htmlCategoriasAjustes() {
+  const usos = contagemPorCategoria(); const ord = S.ordenando;
+  const grupos = ORDEM_GRUPOS.map((g) => {
     const lista = catsDoGrupo(g);
-    if (!lista.length) return '';
-    return `<h3 class="grupo-titulo"><span>${GRUPOS[g]}</span><span></span></h3>` + lista.map((c, i) => {
-      const n = usos[c.id] || 0;
-      return `<div class="linha-ajuste">`
-        + `<button type="button" class="icone" data-acao="cat-mover" data-cat="${esc(c.id)}" data-dir="-1" data-foco="sobe-${esc(c.id)}" aria-label="Subir ${esc(c.nome)}"${i === 0 ? ' disabled' : ''}>${ic('sobe', 18)}</button>`
-        + `<button type="button" class="icone" data-acao="cat-mover" data-cat="${esc(c.id)}" data-dir="1" data-foco="desce-${esc(c.id)}" aria-label="Descer ${esc(c.nome)}"${i === lista.length - 1 ? ' disabled' : ''}>${ic('desce', 18)}</button>`
-        + `<label class="sr" for="cn-${esc(c.id)}">Nome da categoria</label><input class="entrada" id="cn-${esc(c.id)}" data-mudar="cat-nome" data-cat="${esc(c.id)}" data-foco="cn-${esc(c.id)}" value="${esc(c.nome)}" maxlength="60">`
-        + `<label class="sr" for="cg-${esc(c.id)}">Grupo</label><select class="entrada" id="cg-${esc(c.id)}" data-mudar="cat-grupo" data-cat="${esc(c.id)}" data-foco="cg-${esc(c.id)}">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === c.grupo ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
-        + `<span class="qtd">${n} lanç.</span>`
-        + `<button type="button" class="icone" data-acao="cat-apagar" data-cat="${esc(c.id)}" data-foco="del-${esc(c.id)}" aria-label="${n ? 'Não dá para apagar: tem lançamentos' : ehGuardar(c) ? 'Não dá para apagar: é a categoria de economia' : ehSobra(c) ? 'Não dá para apagar: leva a sobra de um mês para o outro' : 'Apagar ' + esc(c.nome)}" title="${n ? 'Tem lançamentos: não dá para apagar' : ehGuardar(c) ? 'Categoria de economia: não dá para apagar' : ehSobra(c) ? 'Leva a sobra de um mês para o outro: não dá para apagar' : 'Apagar'}"${n || ehGuardar(c) || ehSobra(c) ? ' disabled' : ''}>${ic('lixeira', 18)}</button></div>`;
+    const linhas = lista.map((c, i) => {
+      const id = esc(c.id); const n = usos[c.id] || 0;
+      const base = `<span class="ponto" aria-hidden="true"></span><span class="nome">${esc(c.nome)}</span>${seloCategoria(c)}`;
+      if (!ord) return `<li data-cat="${id}"><button type="button" class="linha-cat-aj cor-${corCat(c.id)}" data-acao="cat-editar" data-cat="${id}" data-foco="cat-${id}">${base}<span class="qtd">${n} lanç.</span>${ic('dir', 16)}</button></li>`;
+      const mover = (dir, icone, rot, some) => `<button type="button" class="icone${some ? ' oculto' : ''}" data-acao="cat-mover" data-cat="${id}" data-dir="${dir}" data-foco="${dir < 0 ? 'sobe' : 'desce'}-${id}" aria-label="${rot} ${esc(c.nome)}"${some ? ' disabled tabindex="-1"' : ''}>${ic(icone, 18)}</button>`;
+      return `<li data-cat="${id}" class="linha-cat-aj ordem cor-${corCat(c.id)}">${base}${mover(-1, 'sobe', 'Subir', i === 0)}${mover(1, 'desce', 'Descer', i === lista.length - 1)}`
+        + `<span class="alca${lista.length < 2 ? ' oculto' : ''}" data-alca="${id}" aria-hidden="true">${ic('alca', 20)}</span></li>`;
     }).join('');
+    return `<div class="cat-grupo" data-grupo="${g}"><h3 class="grupo-titulo"><span>${GRUPOS[g]} · ${lista.length}</span></h3>`
+      + (lista.length ? `<ul class="cat-lista" data-grupo="${g}">${linhas}</ul>` : '<p class="sub cat-vazio">Nenhuma categoria aqui.</p>')
+      + (ord ? '' : `<button type="button" class="cat-mais" data-acao="cat-nova" data-grupo="${g}" data-foco="cat-nova-${g}">${ic('mais', 16)}Nova em ${GRUPOS[g]}</button>`) + '</div>';
   }).join('');
-  return '<div class="ajustes">'
-    + '<section class="cartao"><h2>Geral</h2>'
+  return '<section class="cartao" aria-labelledby="h-cats-aj"><div class="aj-cab"><h2 id="h-cats-aj">Categorias</h2>'
+    + `<button type="button" class="botao pequeno${ord ? ' primario' : ''}" data-acao="cat-ordenar" data-foco="cat-ordenar">${ord ? ic('check', 16) + 'Concluir' : ic('ordenar', 16) + 'Ordenar'}</button></div>`
+    + `<p class="sub">${ord ? 'Use as setas ou arraste pela alça para mudar a ordem dentro do grupo.' : 'A ordem definida aqui vale para as listas e para a planilha. Toque numa categoria para editar.'}</p>` + grupos + '</section>';
+}
+function htmlSecaoAjustes(id) {
+  const d = S.dados;
+  if (id === 'categorias') return htmlCategoriasAjustes();
+  if (id === 'cartoes') return htmlCartoesCredito();
+  if (id === 'atualizacoes') return cartaoAtualizacoes();
+  if (id === 'diagnosticos') return '<section class="cartao" aria-labelledby="h-diagnosticos"><h2 id="h-diagnosticos">Diagnósticos</h2><p class="sub">Contagens, datas e tempos para conferir a sincronização. Não mostra nomes nem valores.</p><div class="acoes"><button type="button" class="botao" data-acao="diagnosticos" data-foco="diagnosticos">Ver diagnósticos</button></div></section>';
+  if (id === 'dados') {
+    return `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que você pode abrir e ler.</p><div class="acoes">`
+      + (d.planilha && d.planilha.url ? `<a class="botao" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir a planilha</a>` : '')
+      + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
+      + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}CSV dos lançamentos</button>`
+      + `<button type="button" class="botao" data-acao="exportar-csv-ano" data-foco="exp-csv-ano">${ic('baixar', 18)}CSV da tabela de ${S.ano}</button>`
+      + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button>`
+      + `<button type="button" class="botao" data-acao="importar-extrato" data-foco="importar-extrato2">${ic('enviar', 18)}Importar extrato…</button></div>`
+      + `<p class="sub" id="aj-backup" style="margin-top:10px">${esc(textoUltimoBackup())}</p></section>`;
+  }
+  return '<section class="cartao"><h2>Geral</h2>'
     + `<label class="campo">Nome do controle<input id="aj-nome" name="nome" data-mudar="nome" data-foco="aj-nome" value="${esc(d.nome)}" maxlength="60" placeholder="Ex.: Casa, Pessoal"></label>`
-    + `<div class="campo"><span>Aparência</span><div class="segmentado" role="group" aria-label="Tema">${Object.entries(temas).map(([k, v]) => `<button type="button" data-acao="tema" data-tema="${k}" data-foco="tema-${k}" aria-pressed="${(d.tema || 'auto') === k}">${v}</button>`).join('')}</div></div></section>`
-    + '<section class="cartao"><h2>Categorias</h2><p class="sub">A ordem definida aqui vale para as listas e para a planilha.</p>' + linhas
-    + '<div class="nova-cat"><label class="sr" for="nova-cat-nome">Nome da nova categoria</label><input class="entrada" id="nova-cat-nome" data-foco="nova-cat-nome" placeholder="Nova categoria" maxlength="60">'
-    + `<label class="sr" for="nova-cat-grupo">Grupo da nova categoria</label><select class="entrada" id="nova-cat-grupo" data-foco="nova-cat-grupo">${ORDEM_GRUPOS.map((x) => `<option value="${x}"${x === 'variavel' ? ' selected' : ''}>${GRUPOS[x]}</option>`).join('')}</select>`
-    + `<button type="button" class="botao" data-acao="cat-nova" data-foco="cat-nova">${ic('mais', 18)}Adicionar</button></div></section>`
-    + htmlCartoesCredito()
-    + `<section class="cartao"><h2>Seus dados</h2><p class="sub">Tudo fica na planilha <strong>${esc((d.planilha && d.planilha.nome) || '')}</strong>, no seu Google Drive, em abas que você pode abrir e ler.</p><div class="acoes">`
-    + (d.planilha && d.planilha.url ? `<a class="botao" href="${esc(d.planilha.url)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir a planilha</a>` : '')
-    + `<button type="button" class="botao" data-acao="exportar-json" data-foco="exp-json">${ic('baixar', 18)}Baixar backup (JSON)</button>`
-    + `<button type="button" class="botao" data-acao="exportar-csv" data-foco="exp-csv2">${ic('baixar', 18)}CSV dos lançamentos</button>`
-    + `<button type="button" class="botao" data-acao="exportar-csv-ano" data-foco="exp-csv-ano">${ic('baixar', 18)}CSV da tabela de ${S.ano}</button>`
-    + `<button type="button" class="botao" data-acao="importar" data-foco="importar">${ic('enviar', 18)}Importar backup…</button>`
-    + `<button type="button" class="botao" data-acao="importar-extrato" data-foco="importar-extrato2">${ic('enviar', 18)}Importar extrato…</button></div>`
-    + `<p class="sub" id="aj-backup" style="margin-top:10px">${esc(textoUltimoBackup())}</p></section>`
-    + cartaoAtualizacoes()
-    + '<section class="cartao" aria-labelledby="h-diagnosticos"><h2 id="h-diagnosticos">Diagnósticos</h2><p class="sub">Contagens, datas e tempos para conferir a sincronização. Não mostra nomes nem valores.</p><div class="acoes"><button type="button" class="botao" data-acao="diagnosticos" data-foco="diagnosticos">Ver diagnósticos</button></div></section>'
-    + '</div>';
+    + `<div class="campo"><span>Aparência</span><div class="segmentado" role="group" aria-label="Tema">${Object.entries(TEMAS).map(([k, v]) => `<button type="button" data-acao="tema" data-tema="${k}" data-foco="tema-${k}" aria-pressed="${(d.tema || 'auto') === k}">${v}</button>`).join('')}</div></div></section>`;
+}
+function telaAjustes() {
+  const largo = AJUSTES_LARGO.matches;
+  const sec = S.ajSecao || (largo ? 'geral' : null);
+  const nova = atualizacaoNova();
+  const item = ([id, nome]) => `<button type="button" class="aj-item" data-acao="aj-secao" data-secao="${id}" data-foco="aj-${id}"${largo && sec === id ? ' aria-current="page"' : ''}>`
+    + `<span class="aj-rot">${nome}</span><span class="aj-resumo">${esc(resumoAjuste(id))}</span>${id === 'atualizacoes' && nova ? '<span class="ponto-novo" aria-hidden="true"></span>' : ''}${ic('dir', 16)}</button>`;
+  const indice = `<nav class="aj-indice" aria-label="Ajustes">${SECOES_AJUSTES.map(item).join('')}</nav>`;
+  const voltar = largo ? '' : `<button type="button" class="aj-volta" data-acao="aj-secao" data-secao="" data-foco="aj-volta">${ic('esq', 18)}Ajustes</button>`;
+  return '<div class="ajustes">' + (largo || !sec ? indice : '') + (sec ? `<div class="aj-secao" data-secao="${sec}">${voltar}${htmlSecaoAjustes(sec)}</div>` : '') + '</div>';
 }
 /** Números e datas do Diagnósticos: a folha e o texto copiado leem daqui (R-005: nunca nome, valor ou descrição). */
 function dadosDiagnostico() {
@@ -2106,7 +2141,7 @@ function abrirFolha(f) {
     const alvo = el.querySelector('[data-autofoco]') || el;
     alvo.focus({ preventScroll: true });
   });
-  hist.push({ tela: S.tela, n: pilha.length });
+  hist.push(estadoHist(pilha.length));
 }
 function fecharFolha(porHistorico = false) {
   const f = pilha.pop();
@@ -2119,7 +2154,10 @@ function fecharFolha(porHistorico = false) {
     if ($('#app')) $('#app').inert = false;
   }
   if (f.aoFechar) f.aoFechar();
-  if (f.origem && document.contains(f.origem) && f.origem.focus) f.origem.focus({ preventScroll: true });
+  /* A tela de trás pode ter sido redesenhada com a folha aberta: acha o mesmo controle pelo data-foco. */
+  let volta = f.origem;
+  if (volta && !document.contains(volta) && volta.dataset && volta.dataset.foco) volta = document.querySelector(`[data-foco="${CSS.escape(volta.dataset.foco)}"]`);
+  if (volta && document.contains(volta) && volta.focus) volta.focus({ preventScroll: true });
   if (!porHistorico) agendarRender();
 }
 function topoFolha(titulo, rotulo = '') {
@@ -4279,6 +4317,8 @@ function mostrarBoasVindas() {
 /* =====================================================================
    11. Ações, teclado e histórico (botão Voltar)
    ===================================================================== */
+/** Estado do histórico: no celular, a seção aberta de Ajustes entra nele para o Voltar do aparelho fechar a seção e não a tela. */
+const estadoHist = (n) => (S.tela === 'ajustes' && S.ajSecao && !AJUSTES_LARGO.matches ? { tela: S.tela, n, sec: S.ajSecao } : { tela: S.tela, n });
 const parametros = (estado) => ({ tela: estado.tela, ano: String(S.ano), mes: String(S.mes) });
 const hist = (() => {
   const g = typeof google !== 'undefined' && google.script && google.script.history;
@@ -4297,13 +4337,34 @@ const hist = (() => {
 hist.ouvir((estado) => {
   const n = estado && typeof estado.n === 'number' ? estado.n : 0;
   while (pilha.length > n) fecharFolha(true);
-  if (estado && estado.tela && TELAS[estado.tela] && estado.tela !== S.tela) { S.tela = estado.tela; S.rolarPlanilha = true; render(); }
+  const sec = estado && estado.sec ? estado.sec : null;
+  if (estado && estado.tela && TELAS[estado.tela] && estado.tela !== S.tela) {
+    S.ajSecao = estado.tela === 'ajustes' && !AJUSTES_LARGO.matches ? sec : null; S.ordenando = false;
+    S.tela = estado.tela; S.rolarPlanilha = true; render();
+  } else if (estado && estado.tela === 'ajustes' && S.tela === 'ajustes' && !AJUSTES_LARGO.matches && sec !== S.ajSecao) {
+    const saiu = S.ajSecao; S.ajSecao = sec; S.ordenando = false; render(); window.scrollTo(0, 0);
+    const alvo = !sec && saiu && $(`[data-foco="aj-${saiu}"]`);
+    if (alvo) alvo.focus({ preventScroll: true });
+  }
 });
 function irPara(tela, opc = {}) {
   if (!TELAS[tela]) return;
+  if (tela === 'ajustes' && (opc.secao || (S.tela === 'ajustes' && !AJUSTES_LARGO.matches))) {
+    const tinha = S.ajSecao; S.ajSecao = opc.secao || null; S.ordenando = false;
+    if (S.tela === 'ajustes') {
+      if (!AJUSTES_LARGO.matches && tinha !== S.ajSecao) {
+        // fora do Apps Script, sair da seção desempilha a entrada dela; quem desenha é o ouvinte do histórico
+        if (!S.ajSecao && history.state && history.state.sec) { S.ajSecao = tinha; history.back(); return 'historico'; }
+        if (S.ajSecao) hist.push(estadoHist(0));
+        else hist.replace(estadoHist(0));
+      }
+      render(); window.scrollTo(0, 0); return;
+    }
+  }
   if (S.tela === tela) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  if (S.tela === 'ajustes') { S.ajSecao = null; S.ordenando = false; }
   S.tela = tela; S.rolarPlanilha = true;
-  if (opc.historico !== false) hist.push({ tela, n: 0 });
+  if (opc.historico !== false) hist.push(estadoHist(0));
   render();
   window.scrollTo(0, 0);
   $('#tela').focus({ preventScroll: true });
@@ -4311,7 +4372,7 @@ function irPara(tela, opc = {}) {
 }
 function irParaMes(ano, mes) {
   S.ano = ano; S.mes = mes;
-  hist.replace({ tela: S.tela, n: pilha.length });
+  hist.replace(estadoHist(pilha.length));
   render();
 }
 function mudarMes(d) {
@@ -4368,6 +4429,156 @@ async function moverCategoria(cid, dir) {
   registrar({ t: 'cat', c: { ...a, ordem: b.ordem } });
   registrar({ t: 'cat', c: { ...b, ordem: a.ordem } });
 }
+/** Troca o grupo da categoria; recusa (com aviso) o que quebraria uma regra e devolve se a troca valeu. */
+function trocarGrupoCategoria(cid, novo) {
+  const c = catPorId(cid);
+  if (!c || novo === c.grupo) return false;
+  const antigo = c.grupo;
+  const cruzaRenda = (novo === 'renda') !== (antigo === 'renda');
+  const n = contagemPorCategoria()[c.id] || 0;
+  if (ehSobra(c) && novo !== 'renda') { aviso(`“${c.nome}” leva a sobra de um mês para o outro e precisa continuar sendo renda.`, { tipo: 'erro' }); return false; }
+  if (ehGuardar(c) && novo === 'renda') { aviso(`“${c.nome}” é a categoria de economia e não pode virar renda.`, { tipo: 'erro' }); return false; }
+  if (cruzaRenda && n) {
+    aviso(`“${c.nome}” tem ${n} lançamento${n > 1 ? 's' : ''}: mudar entre renda e gasto inverteria o sinal do histórico. Crie outra categoria.`, { tipo: 'erro' });
+    return false;
+  }
+  registrar({ t: 'cat', c: { ...c, grupo: novo } });
+  aviso(`“${c.nome}” agora está em ${GRUPOS[novo]}.${cruzaRenda ? '' : ' O que já foi lançado não muda.'}`, { acao: 'Desfazer', fn: () => registrar({ t: 'cat', c: { ...c, grupo: antigo } }) });
+  return true;
+}
+function apagarCategoria(cid) {
+  const c = catPorId(cid); if (!c) return;
+  const planos = [];
+  for (const [ano, b] of Object.entries(S.dados.anos)) for (const [m, v] of Object.entries(b.orcamento[c.id] || {})) planos.push({ ano: Number(ano), mes: Number(m), valor: v });
+  const recs = recsDaCategoria(c.id).map((r) => ({ ...r }));
+  const marcas = Object.keys(S.dados.marcas || {}).filter((k) => k.startsWith('pular:') && recs.some((r) => k.endsWith(':' + r.id)));
+  const apagar = () => {
+    registrar({ t: 'cat-', id: c.id });
+    aviso(`Categoria “${c.nome}” apagada${recs.length ? ` (e ${recs.length} recorrência${recs.length > 1 ? 's' : ''})` : ''}.`, { acao: 'Desfazer', fn: () => {
+      registrar({ t: 'cat', c });
+      planos.forEach((p) => registrar({ t: 'orc', ano: p.ano, categoriaId: c.id, mes: p.mes, valor: p.valor }));
+      recs.forEach((r) => registrar({ t: 'rec', r }));
+      marcas.forEach((k) => registrar({ t: 'cfg', k, v: '1' }));
+    } });
+  };
+  if (recs.length) { aviso(`“${c.nome}” tem ${recs.length} recorrência${recs.length > 1 ? 's' : ''} (o que se repete todo mês), que ${recs.length > 1 ? 'vão' : 'vai'} junto.`, { acao: 'Apagar mesmo', fn: apagar, tempo: 12000 }); return; }
+  apagar();
+}
+/** Folha de categoria: com `id` edita (nome, grupo, apagar); com `grupo` cria uma nova nesse grupo. */
+function abrirFolhaCategoria(o = {}) {
+  const atual = o.id ? catPorId(o.id) : null;
+  if (o.id && !atual) return;
+  const st = { grupo: atual ? atual.grupo : (o.grupo || 'variavel') };
+  abrirFolha({
+    tipo: 'categoria', classe: 'folha-cat',
+    montar(el) {
+      const seg = ORDEM_GRUPOS.map((g) => `<button type="button" data-f="grupo" data-v="${g}" aria-pressed="${g === st.grupo}">${GRUPOS[g]}</button>`).join('');
+      el.innerHTML = topoFolha(atual ? atual.nome : 'Nova categoria', atual ? 'Categoria' : '')
+        + '<div class="folha-corpo">'
+        + (atual ? '<p class="sub" id="fc-resumo"></p>' : '')
+        + '<div class="campo"><label for="fc-nome">Nome</label>'
+        + `<input class="entrada" id="fc-nome" maxlength="60" autocomplete="off"${atual ? ` data-mudar="cat-nome" data-cat="${esc(atual.id)}" value="${esc(atual.nome)}"` : ' placeholder="Ex.: Academia" data-autofoco'}></div>`
+        + `<div class="campo"><span class="rotulo" id="fc-grupo-rot">Grupo</span><div class="segmentado" role="group" aria-labelledby="fc-grupo-rot">${seg}</div></div>`
+        + (atual ? '<div class="fc-apagar"><button type="button" class="botao perigo" data-f="apagar" id="fc-apagar" aria-describedby="fc-motivo">' + ic('lixeira', 18) + 'Apagar categoria</button><p class="sub" id="fc-motivo"></p></div>' : '')
+        + '</div>'
+        + (atual ? '' : `<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="criar">${ic('mais', 18)}Adicionar</button></footer>`);
+      const pintar = () => {
+        const c = atual && catPorId(atual.id);
+        if (atual && !c) { fecharFolha(); return; }
+        if (c) st.grupo = c.grupo;
+        el.querySelectorAll('[data-f="grupo"]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.grupo)));
+        if (!c) return;
+        const n = contagemPorCategoria()[c.id] || 0; const motivo = motivoNaoApagar(c, n);
+        el.querySelector('h2').textContent = c.nome;
+        el.querySelector('#fc-resumo').textContent = `${GRUPOS[c.grupo]} · ${n} lançamento${n === 1 ? '' : 's'}`;
+        el.querySelector('#fc-apagar').disabled = Boolean(motivo);
+        el.querySelector('#fc-motivo').textContent = motivo;
+      };
+      pintar();
+      this.atualizar = pintar;
+      const criar = () => {
+        const campo = el.querySelector('#fc-nome'); const nome = campo.value.trim();
+        if (!nome) { campo.focus(); return; }
+        const ordem = Math.max(0, ...S.dados.categorias.map((c) => c.ordem)) + 1;
+        registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo: st.grupo, ordem } });
+        fecharFolha();
+        aviso(`Categoria “${nome}” criada em ${GRUPOS[st.grupo]}.`);
+      };
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-f]');
+        if (!b) return;
+        const f = b.dataset.f;
+        if (f === 'fechar') fecharFolha();
+        else if (f === 'grupo') { if (atual) { if (trocarGrupoCategoria(atual.id, b.dataset.v)) pintar(); } else { st.grupo = b.dataset.v; pintar(); } }
+        else if (f === 'apagar') { apagarCategoria(atual.id); fecharFolha(); }
+        else if (f === 'criar') criar();
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.id !== 'fc-nome') return;
+        e.preventDefault();
+        if (atual) e.target.blur(); else criar();
+      });
+    },
+  });
+}
+/** Arraste da alça (Pointer Events) no modo Ordenar: as outras linhas deslizam por transform e o DOM só muda quando a ordem é gravada. */
+let arraste = null;
+function limparArraste() {
+  if (!arraste) return;
+  for (const li of arraste.ul.children) { li.style.transform = ''; li.classList.remove('arrastando', 'desliza'); }
+  document.removeEventListener('keydown', teclaArraste, true);
+  arraste = null;
+}
+function teclaArraste(e) {
+  if (e.key !== 'Escape') return;
+  e.preventDefault(); e.stopPropagation();
+  limparArraste();
+}
+function moverArraste(y) {
+  const a = arraste;
+  if (!a.li.isConnected) { limparArraste(); return; }
+  const min = a.tops[0] - a.tops[a.i]; const max = a.tops[a.tops.length - 1] - a.tops[a.i];
+  const dy = Math.min(max, Math.max(min, y + window.scrollY - a.inicioY));
+  const centro = a.tops[a.i] + dy + a.alturas[a.i] / 2;
+  let novo = 0;
+  a.tops.forEach((t, j) => { if (j !== a.i && t + a.alturas[j] / 2 <= centro) novo++; });
+  if (dy >= max) novo = a.tops.length - 1; else if (dy <= min) novo = 0;
+  a.novo = novo;
+  [...a.ul.children].forEach((li, j) => {
+    if (j === a.i) { li.style.transform = `translateY(${dy}px)`; return; }
+    const desloca = j > a.i && j <= novo ? -a.passo : j < a.i && j >= novo ? a.passo : 0;
+    li.style.transform = desloca ? `translateY(${desloca}px)` : '';
+  });
+}
+function soltarArraste() {
+  const a = arraste; if (!a) return;
+  const { ul, i, novo } = a; const ids = a.ids.slice();
+  limparArraste();
+  if (novo === i) return;
+  ids.splice(novo, 0, ids.splice(i, 1)[0]);
+  const ords = catsDoGrupo(ul.dataset.grupo).map((c) => c.ordem);
+  if (ords.length !== ids.length) return;
+  ids.forEach((id, k) => { const c = catPorId(id); if (c && c.ordem !== ords[k]) registrar({ t: 'cat', c: { ...c, ordem: ords[k] } }); });
+  render();
+}
+document.addEventListener('pointerdown', (e) => {
+  const alca = e.target.closest && e.target.closest('.alca');
+  if (!alca || arraste || e.button > 0) return;
+  const li = alca.closest('li[data-cat]'); const ul = li && li.parentElement;
+  if (!ul) return;
+  e.preventDefault();
+  const itens = [...ul.children]; const rs = itens.map((x) => x.getBoundingClientRect());
+  arraste = {
+    ul, li, pid: e.pointerId, i: itens.indexOf(li), novo: itens.indexOf(li), ids: itens.map((x) => x.dataset.cat),
+    tops: rs.map((r) => r.top + window.scrollY), alturas: rs.map((r) => r.height), passo: rs.length > 1 ? rs[1].top - rs[0].top : rs[0].height, inicioY: e.clientY + window.scrollY,
+  };
+  itens.forEach((x) => x.classList.add('desliza')); li.classList.remove('desliza'); li.classList.add('arrastando');
+  try { alca.setPointerCapture(e.pointerId); } catch (erro) { /* sem captura: os eventos seguem no documento */ }
+  document.addEventListener('keydown', teclaArraste, true);
+});
+document.addEventListener('pointermove', (e) => { if (arraste && e.pointerId === arraste.pid) moverArraste(e.clientY); });
+document.addEventListener('pointerup', (e) => { if (arraste && e.pointerId === arraste.pid) soltarArraste(); });
+document.addEventListener('pointercancel', (e) => { if (arraste && e.pointerId === arraste.pid) limparArraste(); });
 function definirGuardar(valor) {
   const ano = S.ano; const mes = S.mes;
   const existente = catGuardar();
@@ -4407,7 +4618,7 @@ function planejarSemPlano() {
   });
 }
 const ACOES = {
-  tela: (el) => irPara(el.dataset.tela),
+  tela: (el) => irPara(el.dataset.tela, { secao: el.dataset.secao }),
   'sair-exemplo': () => sairExemplo(),
   novo: () => abrirNovo(),
   imprimir: () => window.print(),
@@ -4449,32 +4660,21 @@ const ACOES = {
   filtro: (el) => { S.filtro = el.dataset.filtro; renderExtrato($('#tela')); },
   calor: (el) => { S.calor = el.dataset.calor === '1'; render(); },
   tema: (el) => { const t = el.dataset.tema; aplicarTema(t); LS.gravar('tema', t); registrar({ t: 'cfg', k: 'tema', v: t }); },
-  'cat-mover': (el) => moverCategoria(el.dataset.cat, Number(el.dataset.dir)),
-  'cat-apagar': (el) => {
-    const c = catPorId(el.dataset.cat); if (!c) return;
-    const planos = [];
-    for (const [ano, b] of Object.entries(S.dados.anos)) for (const [m, v] of Object.entries(b.orcamento[c.id] || {})) planos.push({ ano: Number(ano), mes: Number(m), valor: v });
-    const recs = recsDaCategoria(c.id).map((r) => ({ ...r }));
-    const marcas = Object.keys(S.dados.marcas || {}).filter((k) => k.startsWith('pular:') && recs.some((r) => k.endsWith(':' + r.id)));
-    const apagar = () => {
-      registrar({ t: 'cat-', id: c.id });
-      aviso(`Categoria “${c.nome}” apagada${recs.length ? ` (e ${recs.length} recorrência${recs.length > 1 ? 's' : ''})` : ''}.`, { acao: 'Desfazer', fn: () => {
-        registrar({ t: 'cat', c });
-        planos.forEach((p) => registrar({ t: 'orc', ano: p.ano, categoriaId: c.id, mes: p.mes, valor: p.valor }));
-        recs.forEach((r) => registrar({ t: 'rec', r }));
-        marcas.forEach((k) => registrar({ t: 'cfg', k, v: '1' }));
-      } });
-    };
-    if (recs.length) { aviso(`“${c.nome}” tem ${recs.length} recorrência${recs.length > 1 ? 's' : ''} (o que se repete todo mês), que ${recs.length > 1 ? 'vão' : 'vai'} junto.`, { acao: 'Apagar mesmo', fn: apagar, tempo: 12000 }); return; }
-    apagar();
+  'cat-mover': (el) => {
+    const id = el.dataset.cat; const dir = Number(el.dataset.dir);
+    moverCategoria(id, dir); render();
+    const foco = $(`[data-foco="${dir < 0 ? 'sobe' : 'desce'}-${CSS.escape(id)}"]:not(:disabled)`) || $(`[data-foco="${dir < 0 ? 'desce' : 'sobe'}-${CSS.escape(id)}"]:not(:disabled)`);
+    if (foco) foco.focus({ preventScroll: true });
   },
-  'cat-nova': () => {
-    const nome = $('#nova-cat-nome').value.trim();
-    if (!nome) { $('#nova-cat-nome').focus(); return; }
-    const grupo = $('#nova-cat-grupo').value;
-    const ordem = Math.max(0, ...S.dados.categorias.map((c) => c.ordem)) + 1;
-    registrar({ t: 'cat', c: { id: idUnico(nome), nome, grupo, ordem } });
-    aviso(`Categoria “${nome}” criada.`);
+  'cat-editar': (el) => { el.focus({ preventScroll: true }); abrirFolhaCategoria({ id: el.dataset.cat }); },
+  'cat-nova': (el) => { el.focus({ preventScroll: true }); abrirFolhaCategoria({ grupo: el.dataset.grupo }); },
+  'cat-ordenar': () => { S.ordenando = !S.ordenando; render(); },
+  'aj-secao': (el) => {
+    const antes = S.ajSecao;
+    if (irPara('ajustes', { secao: el.dataset.secao || null }) === 'historico') return;
+    if (S.ajSecao === antes) { S.ordenando = false; render(); window.scrollTo(0, 0); }
+    const alvo = $(S.ajSecao ? '[data-foco="aj-volta"]' : `[data-foco="aj-${antes}"]`);
+    if (alvo) alvo.focus({ preventScroll: true }); else $('#tela').focus({ preventScroll: true });
   },
   'exportar-json': () => exportarJSON(),
   'exportar-csv': () => exportarCSV(),
@@ -4549,22 +4749,6 @@ const MUDAR = {
     const c = catPorId(el.dataset.cat); const nome = el.value.trim();
     if (!c || !nome || nome === c.nome) { if (c && !nome) el.value = c.nome; return; }
     registrar({ t: 'cat', c: { ...c, nome } });
-  },
-  'cat-grupo': (el) => {
-    const c = catPorId(el.dataset.cat);
-    if (!c || el.value === c.grupo) return;
-    const novo = el.value; const antigo = c.grupo;
-    const cruzaRenda = (novo === 'renda') !== (antigo === 'renda');
-    const n = contagemPorCategoria()[c.id] || 0;
-    if (ehSobra(c) && novo !== 'renda') { el.value = antigo; aviso(`“${c.nome}” leva a sobra de um mês para o outro e precisa continuar sendo renda.`, { tipo: 'erro' }); return; }
-    if (ehGuardar(c) && novo === 'renda') { el.value = antigo; aviso(`“${c.nome}” é a categoria de economia e não pode virar renda.`, { tipo: 'erro' }); return; }
-    if (cruzaRenda && n) {
-      el.value = antigo;
-      aviso(`“${c.nome}” tem ${n} lançamento${n > 1 ? 's' : ''}: mudar entre renda e gasto inverteria o sinal do histórico. Crie outra categoria.`, { tipo: 'erro' });
-      return;
-    }
-    registrar({ t: 'cat', c: { ...c, grupo: novo } });
-    aviso(`“${c.nome}” agora está em ${GRUPOS[novo]}.${cruzaRenda ? '' : ' O que já foi lançado não muda.'}`, { acao: 'Desfazer', fn: () => registrar({ t: 'cat', c: { ...c, grupo: antigo } }) });
   },
 };
 let tBusca = 0;
@@ -4702,7 +4886,7 @@ function lerAtalhosDaUrl() {
     const mudouMes = S.ano !== antes.ano || S.mes !== antes.mes;
     if (p.tela && TELAS[p.tela] && p.tela !== S.tela) irPara(p.tela, { historico: false });
     else if (mudouMes) render();
-    if (mudouMes) hist.replace({ tela: S.tela, n: pilha.length });
+    if (mudouMes) hist.replace(estadoHist(pilha.length));
     if (p.novo !== undefined) abrirNovo({ cat: p.novo && catPorId(p.novo) ? p.novo : null, hoje: true });
   };
   try {
@@ -4727,7 +4911,7 @@ async function iniciar() {
     S.atualizando = true;
     montarApp();
   }
-  hist.replace({ tela: S.tela, n: 0 });
+  hist.replace(estadoHist(0));
   await carregarDoServidor({ inicial: true, filaSalva, filaAntiga });
   lerAtalhosDaUrl();
 }

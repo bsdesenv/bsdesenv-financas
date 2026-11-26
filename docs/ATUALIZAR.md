@@ -28,7 +28,7 @@ A versão 2 lê **as mesmas quatro abas, com as mesmas colunas** da versão 1 (`
 
 ## O que muda
 
-- O **titular** vira o **nome do controle** (dá para trocar em Ajustes).
+- O **titular** vira o **nome do controle** (dá para trocar em Ajustes › Geral).
 - O **orçamento** passa a se chamar **plano**. Até a 2.7, a regra das contas era a da versão 1: vale o que foi lançado e, numa categoria sem lançamento, o plano. A 2.8.0 mudou essa regra (veja "Da 2.7 para a 2.8").
 - Editar a planilha à mão passa a ser seguro: o app grava operações sobre o que está na planilha e percebe as edições.
 

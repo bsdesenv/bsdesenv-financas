@@ -115,11 +115,11 @@ No topo do app aparece uma faixa cinza: *"Este aplicativo foi criado por um usu�
 
 São um ano de dados fictícios, bons para ver as telas cheias.
 
-1. **Antes, guarde o seu estado atual:** no app, **Ajustes › Baixar backup (JSON)**.
+1. **Antes, guarde o seu estado atual:** no app, **Ajustes › Seus dados › Baixar backup (JSON)**.
 2. Abra [`exemplos/dados-exemplo.json`](../exemplos/dados-exemplo.json) no GitHub e clique em **Download raw file** (ícone de seta para baixo, no canto superior direito).
-3. No app: **Ajustes › Importar backup**, escolha o arquivo de exemplo e **Substituir tudo**.
+3. No app: **Ajustes › Seus dados › Importar backup**, escolha o arquivo de exemplo e **Substituir tudo**.
 
-Para voltar ao seu estado: **Ajustes › Importar backup**, escolha o arquivo do passo 1 e **Substituir tudo**.
+Para voltar ao seu estado: **Ajustes › Seus dados › Importar backup**, escolha o arquivo do passo 1 e **Substituir tudo**.
 
 ## Atualizar o código depois
 
@@ -148,4 +148,4 @@ Os dois valem para quem instalou pelo instalador e para quem instalou à mão. O
 
 **Editei a planilha à mão.** Pode editar. O app percebe a mudança quando você volta para a aba dele, e cada gravação do app parte do que está na planilha naquele momento.
 
-**Quero voltar a uma versão antiga dos dados.** No Google Sheets: **Arquivo › Histórico de versões**. Em **Ajustes › Baixar backup** o app também gera um JSON completo.
+**Quero voltar a uma versão antiga dos dados.** No Google Sheets: **Arquivo › Histórico de versões**. Em **Ajustes › Seus dados › Baixar backup** o app também gera um JSON completo.

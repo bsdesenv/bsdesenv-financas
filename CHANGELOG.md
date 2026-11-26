@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.0 — 2026-11-26
+
+### Mudou
+- **Ajustes em índice.** No celular, Ajustes abre um índice com Geral, Categorias, Cartões, Seus dados, Atualizações e Diagnósticos. Cada item abre a sua seção, com **‹ Ajustes** para voltar. No computador, o índice fica à esquerda e a seção à direita, começando em Geral.
+- **Categorias em lista de leitura.** Cada categoria é uma linha com a bolinha da cor, o nome, a quantidade de lançamentos e uma seta. Os selos **Economia** e **Sobra** aparecem onde se aplicam, e cada grupo mostra a contagem (**Fixos · 5**) e **+ Nova em Fixos** (ou no grupo da vez) no fim. Tocar numa categoria abre o painel com Nome, Grupo e **Apagar categoria**.
+- **Ordenar com alça e setas.** O modo **Ordenar** mostra subir, descer e uma alça (≡) para arrastar dentro do grupo. Esc durante o arraste devolve a posição, e **Concluir** sai do modo.
+- **Motivo de não apagar visível.** Quando não dá para apagar, o painel escreve o motivo abaixo do botão: a categoria tem lançamentos, é a de economia ou leva a sobra.
+- **Extrato mais compacto no celular.** Os filtros **Tudo**, **Saídas**, **Rendas** e **Categoria** cabem numa linha só, e **Importar extrato** virou o botão com a seta para cima ao lado da busca.
+- **Voltar do aparelho em Ajustes.** No celular, o voltar do navegador sai da seção e volta ao índice de Ajustes.
+
 ## 3.2.0 — 2026-11-25
 
 ### Novo

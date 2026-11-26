@@ -120,8 +120,15 @@ async function esperar(cond, ms = 8000) {
   throw new Error('tempo esgotado esperando condição');
 }
 async function folhaAberta(p) { await p.waitForSelector('.folha.aberta'); await sleep(320); }
-async function semFolha(p) { await p.waitForFunction(() => !document.querySelector('.folha')); }
-async function irPara(p, tela) { await p.evaluate((t) => irPara(t), tela); await sleep(120); }
+async function semFolha(p) {
+  try { await p.waitForFunction(() => !document.querySelector('.folha'), { timeout: 10000 }); } catch (e) {
+    const abertas = await p.evaluate(() => [...document.querySelectorAll('.folha')].map((f) => ((f.querySelector('h2') || {}).textContent || '?') + (f.classList.contains('aberta') ? '' : ' (fechando)')).join(' | '));
+    throw new Error('folha não fechou: ' + abertas);
+  }
+}
+const fecharFolhas = async (p) => { await p.keyboard.press('Escape'); await semFolha(p); };
+/** `secao` só vale em Ajustes: abre a seção direto (no celular o app começa pelo índice). */
+async function irPara(p, tela, secao) { await p.evaluate((t, sc) => irPara(t, { secao: sc }), tela, secao); await sleep(120); }
 async function digitarTeclado(p, numeros) { for (const d of numeros) { await p.tap(`.teclado [data-v="${d}"]`); await sleep(30); } }
 /** Campo de valor (.valor): o app seleciona o conteúdo um instante depois do foco, então espera isso passar antes de digitar. */
 async function digitarValor(p, seletor, texto) {
@@ -236,17 +243,17 @@ if (PRINTS) {
   await pronto(pcCartao); await fontes(pcCartao);
   await irPara(pcCartao, 'mes'); await pcCartao.waitForSelector('.faturas');
   await (await pcCartao.$('.faturas')).screenshot({ path: path.join(PRINTS, 'computador-mes-faturas.png') });
-  await irPara(pcCartao, 'ajustes'); await pcCartao.waitForSelector('section[aria-labelledby="h-cartoes-credito"]');
+  await irPara(pcCartao, 'ajustes', 'cartoes'); await pcCartao.waitForSelector('section[aria-labelledby="h-cartoes-credito"]');
   await (await pcCartao.$('section[aria-labelledby="h-cartoes-credito"]')).screenshot({ path: path.join(PRINTS, 'computador-ajustes-cartoes.png') });
   const celCartao = await abrir(ambCartao, CEL, montarPagina(ambCartao, 'prints-cartao-cel'), { tema: 'light' });
   await pronto(celCartao); await fontes(celCartao);
-  await irPara(celCartao, 'ajustes'); await celCartao.click('[data-acao="cartao-novo"]'); await folhaAberta(celCartao);
+  await irPara(celCartao, 'ajustes', 'cartoes'); await celCartao.click('[data-acao="cartao-novo"]'); await folhaAberta(celCartao);
   await celCartao.screenshot({ path: path.join(PRINTS, 'celular-cartao-novo.png') });
   await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
   await irPara(celCartao, 'mes'); await celCartao.click('.faturas button.linha-fatura'); await folhaAberta(celCartao);
   await celCartao.screenshot({ path: path.join(PRINTS, 'celular-fatura.png') });
   await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
-  await irPara(celCartao, 'ajustes'); await celCartao.click('[data-acao="diagnosticos"]'); await folhaAberta(celCartao);
+  await irPara(celCartao, 'ajustes', 'diagnosticos'); await celCartao.click('[data-acao="diagnosticos"]'); await folhaAberta(celCartao);
   await celCartao.screenshot({ path: path.join(PRINTS, 'celular-diagnosticos.png') });
   await celCartao.keyboard.press('Escape'); await semFolha(celCartao);
   console.log('prints gravados em docs/img/');
@@ -897,10 +904,13 @@ await caso('computador: busca do extrato não recria o campo; Tab em Ajustes man
   assert.ok(await campo.evaluate((e) => e.isConnected && document.activeElement === e), 'o mesmo campo continua focado');
   assert.ok((await pc.$$('#extrato-lista .linha-lanc')).length > 0, 'achou “Feira”');
   await irPara(pc, 'ajustes');
-  await substituir(pc, '#cn-mercado', 'Mercado e feira');
+  const nomeAntes = await pc.evaluate(() => S.dados.nome || '');
+  await substituir(pc, '#aj-nome', 'Casa nova');
   await pc.keyboard.press('Tab'); await sleep(250); await sincronizado(pc);
-  assert.equal(await pc.evaluate(() => document.activeElement.id), 'cg-mercado');
-  assert.ok(amb.servidor.planilha.ler('categorias').some((l) => l[1] === 'Mercado e feira'));
+  assert.equal(await pc.evaluate(() => document.activeElement.dataset.foco), 'tema-auto');
+  assert.equal(await pc.$eval('#aj-nome', (e) => e.value), 'Casa nova');
+  await substituir(pc, '#aj-nome', nomeAntes);
+  await pc.keyboard.press('Tab'); await sleep(250); await sincronizado(pc);
 });
 
 await caso('leitor de números aceita o jeito brasileiro', async () => {
@@ -1015,7 +1025,7 @@ await caso('atualização: sem GitHub (requisições recusadas) o app abre norma
   const p = await abrir(amb, PC, url, { antes: async (pg) => { pg.github.resposta = () => null; } });
   await pronto(p);
   assert.match(await p.$eval('.numero-heroi', (e) => e.textContent), /R\$/);
-  await irPara(p, 'ajustes'); await estadoAtu(p, 'erro');
+  await irPara(p, 'ajustes', 'atualizacoes'); await estadoAtu(p, 'erro');
   assert.match(await p.$eval('#atu-estado', (e) => e.textContent), /Não deu para verificar agora\./);
   assert.equal(await p.$('.lat-item .ponto-novo'), null, 'sem ponto de destaque');
   assert.equal(await p.$('[data-acao="atualizar"]'), null, 'sem botão Atualizar');
@@ -1027,7 +1037,7 @@ await caso('atualização: sem GitHub (requisições recusadas) o app abre norma
 await caso('atualização: versão igual mostra “versão mais recente” e nenhum destaque', async () => {
   const p = await abrir(amb, PC, url, { antes: async (pg) => { pg.github.resposta = githubFalso({ versao: instalada }); } });
   await pronto(p);
-  await irPara(p, 'ajustes'); await estadoAtu(p, 'atual');
+  await irPara(p, 'ajustes', 'atualizacoes'); await estadoAtu(p, 'atual');
   const txt = await p.$eval('#atu-estado', (e) => e.textContent);
   assert.match(txt, /Você está na versão mais recente · verificado às 12:\d\d/);
   assert.equal(await p.$eval('#atu-estado', (e) => e.getAttribute('aria-live')), 'polite');
@@ -1091,14 +1101,14 @@ await caso('atualização: plano B de cópia (execCommand) e, sem ele, o código
   };
   const p = await abrir(amb, PC, url, { antes: ambiente(true) });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
   await p.waitForSelector('.atu-arq'); await p.click('[data-f="copiar"][data-i="0"]');
   await p.waitForFunction(() => window.__copiado.length === 1);
   assert.equal(await p.evaluate(() => window.__copiado[0]), ARQ_FALSOS[0].conteudo);
   assert.equal(await p.$eval('[data-f="copiar"][data-i="0"]', (e) => e.textContent), 'Copiado ✓');
   const q = await abrir(amb, PC, url, { antes: ambiente(false) });
   await pronto(q); await verificarJa(q); await estadoAtu(q, 'nova');
-  await irPara(q, 'ajustes'); await q.click('[data-acao="atualizar"]'); await folhaAberta(q);
+  await irPara(q, 'ajustes', 'atualizacoes'); await q.click('[data-acao="atualizar"]'); await folhaAberta(q);
   await q.waitForSelector('.atu-arq'); await q.click('[data-f="copiar"][data-i="1"]');
   await q.waitForSelector('textarea[readonly]');
   assert.equal(await q.$eval('textarea[readonly]', (t) => t.value), ARQ_FALSOS[1].conteudo);
@@ -1110,7 +1120,7 @@ await caso('atualização: plano B de cópia (execCommand) e, sem ele, o código
 await caso('atualização: hash que não confere mostra o erro e não copia nada', async () => {
   const p = await abrir(amb, PC, url, { antes: async (pg) => { pg.github.resposta = githubFalso({ versao: VERSAO_NOVA, adulterar: 'src/Index.html' }); await copiasFalsas(pg); } });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
   await p.waitForSelector('.atu-arq'); await p.click('[data-f="copiar"][data-i="1"]');
   await p.waitForSelector('.atu-erro');
   assert.equal(await p.$eval('.atu-erro', (e) => e.textContent), 'O arquivo baixado não confere com a versão publicada. Tente de novo mais tarde.');
@@ -1127,7 +1137,7 @@ await caso('atualização: tag ainda não publicada mostra a mensagem de espera'
     pg.github.resposta = (u) => (u.includes('/v' + VERSAO_NOVA + '/') || u.includes('@v' + VERSAO_NOVA + '/') ? { status: 404, body: '404' } : base(u));
   } });
   await pronto(p); await verificarJa(p); await estadoAtu(p, 'nova');
-  await irPara(p, 'ajustes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
+  await irPara(p, 'ajustes', 'atualizacoes'); await p.click('[data-acao="atualizar"]'); await folhaAberta(p);
   await p.waitForSelector('.atu-erro');
   assert.equal(await p.$eval('.atu-erro', (e) => e.textContent), `A versão ${VERSAO_NOVA} ainda está sendo publicada. Tente de novo em alguns minutos.`);
 });
@@ -1138,7 +1148,7 @@ await caso('atualização: com o interruptor desligado não faz nenhuma requisi�
     pg.github.resposta = githubFalso({ versao: VERSAO_NOVA });
     await pg.evaluateOnNewDocument((k) => localStorage.setItem(k, 'false'), chave);
   } });
-  await pronto(p); await irPara(p, 'ajustes');
+  await pronto(p); await irPara(p, 'ajustes', 'atualizacoes');
   assert.equal(await p.$eval('[data-mudar="atualizacao-auto"]', (e) => e.checked), false);
   await sleep(4600);
   assert.deepEqual(p.github.pedidos, [], 'nenhuma requisição, nem após o prazo automático');
@@ -1159,6 +1169,7 @@ await caso('atualização: celular (390 px) sem transbordo no cartão e na folha
   assert.ok(await p.$('.inf-item[data-tela="ajustes"] .ponto-novo'), 'ponto na barra de baixo');
   assert.equal(await p.$eval('.inf-item[data-tela="ajustes"]', (e) => e.getAttribute('aria-label')), 'Ajustes, nova versão disponível');
   await p.tap('.inf-item[data-tela="ajustes"]'); await sleep(200);
+  await p.tap('.aj-item[data-secao="atualizacoes"]'); await sleep(200);
   await p.waitForSelector('#atu-estado');
   await p.evaluate(() => document.querySelector('#atu-estado').closest('.cartao').scrollIntoView({ block: 'center' }));
   await sleep(150);
@@ -1489,6 +1500,14 @@ await caso('2.8.1 repetir até dezembro: pede confirmação antes de substituir 
   await p.close();
 });
 
+/** Abre a folha de uma categoria pela lista de Ajustes › Categorias. */
+const abrirCatNaFolha = async (p, id) => {
+  await irPara(p, 'ajustes', 'categorias');
+  await p.$eval(`[data-acao="cat-editar"][data-cat="${id}"]`, (e) => e.click()); await folhaAberta(p);
+};
+const grupoNaFolha = (p) => p.$eval('.folha [data-f="grupo"][aria-pressed="true"]', (e) => e.dataset.v);
+const escolherGrupo = async (p, g) => { await p.$eval(`.folha [data-f="grupo"][data-v="${g}"]`, (e) => e.click()); await sleep(250); await sincronizado(p); };
+
 await caso('2.8.1 grupo protegido: com lançamentos não vira renda; Fixos↔Variáveis tem Desfazer; sem lançamentos pode virar renda', async () => {
   const dados = { nome: 'Grupo', categorias: [...catsBase(), { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 }], anos: { 2026: { lancamentos: [
     { id: 'gp1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
@@ -1498,28 +1517,34 @@ await caso('2.8.1 grupo protegido: com lançamentos não vira renda; Fixos↔Var
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'grupo-protegido'));
   await pronto(p);
-  await irPara(p, 'ajustes'); await p.waitForSelector('#cg-mercado');
   const cats = () => JSON.stringify(a.servidor.planilha.ler('categorias'));
   const antes = cats();
-  await p.select('#cg-mercado', 'renda'); await sleep(250); await sincronizado(p);
-  assert.equal(await p.$eval('#cg-mercado', (e) => e.value), 'variavel', 'o select volta');
+  await abrirCatNaFolha(p, 'mercado');
+  await escolherGrupo(p, 'renda');
+  assert.equal(await grupoNaFolha(p), 'variavel', 'o botão volta para Variáveis');
   assert.ok(await p.$('.aviso.erro'), 'aviso de erro');
   assert.equal(cats(), antes, 'categorias não mudou');
+  await fecharFolhas(p);
   // Fixos -> Variáveis
-  await p.select('#cg-aluguel', 'variavel'); await sleep(250); await sincronizado(p);
+  await abrirCatNaFolha(p, 'aluguel');
+  await escolherGrupo(p, 'variavel');
   assert.notEqual(cats(), antes, 'a troca Fixos para Variáveis foi gravada');
   assert.equal(await p.evaluate(() => catPorId('aluguel').grupo), 'variavel');
+  assert.equal(await grupoNaFolha(p), 'variavel');
   await p.waitForSelector('.aviso-acao'); await p.click('.aviso-acao'); await sleep(250); await sincronizado(p);
   assert.equal(await p.evaluate(() => catPorId('aluguel').grupo), 'fixo', 'Desfazer volta');
+  assert.equal(await grupoNaFolha(p), 'fixo', 'a folha acompanha o Desfazer');
   assert.equal(cats(), antes);
+  await fecharFolhas(p);
   // sem lançamentos -> renda
-  await p.select('#cg-lazer', 'renda'); await sleep(250); await sincronizado(p);
+  await abrirCatNaFolha(p, 'lazer');
+  await escolherGrupo(p, 'renda');
   assert.equal(await p.evaluate(() => catPorId('lazer').grupo), 'renda', 'sem lançamentos pode virar renda');
   assert.ok(a.servidor.planilha.ler('categorias').some((l) => l[0] === 'lazer' && l.includes('renda')), 'gravado na planilha');
   await p.close();
 });
 
-await caso('2.8.1 categoria de economia: o id vai para a config e o botão de apagar fica desabilitado', async () => {
+await caso('2.8.1 categoria de economia: o id vai para a config e o botão de apagar fica desabilitado, com o motivo em texto', async () => {
   const dados = { nome: 'Economia', categorias: [...catsBase(), { id: 'guardar', nome: 'Guardar', grupo: 'variavel', ordem: 4 }], anos: { 2026: { lancamentos: [
     { id: 'ec1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 1000 },
   ], orcamento: {} } } };
@@ -1528,9 +1553,13 @@ await caso('2.8.1 categoria de economia: o id vai para a config e o botão de ap
   await pronto(p); await sincronizado(p); await sleep(300); await sincronizado(p);
   const cfg = configDe(a, 'categoriaGuardar');
   assert.ok(cfg && cfg[1] === 'guardar', 'config gravada: ' + JSON.stringify(a.servidor.planilha.ler('config')));
-  await irPara(p, 'ajustes'); await p.waitForSelector('[data-acao="cat-apagar"][data-cat="guardar"]');
-  assert.equal(await p.$eval('[data-acao="cat-apagar"][data-cat="guardar"]', (e) => e.disabled), true, 'apagar desabilitado');
-  assert.equal(await p.$eval('[data-acao="cat-apagar"][data-cat="mercado"]', (e) => e.disabled), false, 'outra categoria sem lançamentos continua apagável');
+  await abrirCatNaFolha(p, 'guardar');
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), true, 'apagar desabilitado');
+  assert.match(await p.$eval('#fc-motivo', (e) => e.textContent), /categoria de economia/);
+  await fecharFolhas(p);
+  await abrirCatNaFolha(p, 'mercado');
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), false, 'outra categoria sem lançamentos continua apagável');
+  assert.equal(await p.$eval('#fc-motivo', (e) => e.textContent), '');
   await p.close();
 });
 
@@ -2334,7 +2363,7 @@ await caso('3.1.0 backup em Ajustes: último backup, JSON v3 com recorrências, 
   await p.evaluate(() => registrar({ t: 'rec', r: { id: 'bkr', categoriaId: 'aluguel', valor: 900, dia: 10, automatico: false, descricao: '', inicio: 202601, fim: null } }));
   await sincronizado(p);
   await capturarDownloads(p);
-  await irPara(p, 'ajustes');
+  await irPara(p, 'ajustes', 'dados');
   assert.ok((await p.$eval('#aj-backup', (e) => e.textContent)).includes('nenhum neste aparelho'), 'começa sem backup');
   await p.click('[data-acao="exportar-json"]');
   const baixados = await p.evaluate(() => window.__baixados);
@@ -2371,7 +2400,7 @@ const cartoesDe = (a) => a.servidor.planilha.ler('cartoes');
 const kpisDoMes = (p) => p.$$eval('.kpis-mes strong', (els) => els.map((e) => e.textContent).join('|'));
 const avisoDesfazer = (p) => p.$eval('.aviso .aviso-acao', (e) => e.click());
 const abrirCartaoEmAjustes = async (p, id) => {
-  await irPara(p, 'ajustes');
+  await irPara(p, 'ajustes', 'cartoes');
   await p.$eval(`[data-acao="cartao-editar"][data-id="${id}"]`, (e) => e.click());
   await folhaAberta(p);
 };
@@ -2385,7 +2414,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
     const p = await abrir(a, vp, montarPagina(a, 'cartao-' + rotuloVp));
     await pronto(p);
     // cadastrar em Ajustes
-    await irPara(p, 'ajustes');
+    await irPara(p, 'ajustes', 'cartoes');
     assert.ok((await p.$eval('#h-cartoes-credito', (e) => e.closest('section').textContent)).includes('Nenhum cartão cadastrado'), 'começa sem cartão');
     await p.$eval('[data-acao="cartao-novo"]', (e) => e.click()); await folhaAberta(p);
     assert.ok((await p.$eval('.folha.aberta', (e) => e.textContent)).includes('Compras feitas depois do fechamento entram na fatura seguinte.'), 'texto de ajuda dos dias');
@@ -2464,7 +2493,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
     assert.ok(arq.includes('Arquivados') && arq.includes('Reativar'), arq);
     await irPara(p, 'mes');
     assert.ok((await p.$eval('.faturas', (e) => e.textContent)).includes('Cartão Verde'), 'a fatura continua no Mês');
-    await irPara(p, 'ajustes');
+    await irPara(p, 'ajustes', 'cartoes');
     await p.$eval('[data-acao="cartao-reativar"]', (e) => e.click()); await sincronizado(p);
     assert.equal(Number(cartoesDe(a)[0][5]), 1, 'reativado');
     await avisoDesfazer(p); await sincronizado(p);
@@ -2526,7 +2555,7 @@ await caso('3.2.0 backup: o JSON leva os cartões e o exemplo começa sem cartõ
   await p.evaluate(() => registrar({ t: 'cartao', c: { id: 'kabcdefghij', nome: 'Cartão Azul', fechamento: 5, vencimento: 15, limite: null, ativo: true } }));
   await sincronizado(p);
   await capturarDownloads(p);
-  await irPara(p, 'ajustes');
+  await irPara(p, 'ajustes', 'dados');
   await p.click('[data-acao="exportar-json"]');
   const json = JSON.parse((await p.evaluate(() => window.__baixados))[0].conteudo);
   assert.equal(json.cartoes.length, 1, 'os cartões vão no backup');
@@ -2671,7 +2700,7 @@ await caso('3.2.0 cartão: Desfazer de “Cartão criado” com compras já lan�
   const a = criarAmbiente(abasDoBackup(dados));
   const p = await abrir(a, PC, montarPagina(a, 'cartao-desfazer'));
   await pronto(p);
-  await irPara(p, 'ajustes');
+  await irPara(p, 'ajustes', 'cartoes');
   await p.$eval('[data-acao="cartao-novo"]', (e) => e.click()); await folhaAberta(p);
   await p.type('#cc-nome', 'Cartão Roxo'); await p.type('#cc-fecha', '10'); await p.type('#cc-vence', '20');
   await salvarTopo(p); await semFolha(p); await sincronizado(p);
@@ -2729,7 +2758,7 @@ await caso('3.2.0 Diagnósticos: versão, fila e recusa na folha; “Copiar diag
     const l = [...document.querySelectorAll('.folha.aberta .diag-linha')].find((x) => x.querySelector('dt').textContent === r);
     return l ? { texto: l.querySelector('dd').textContent, itens: [...l.querySelectorAll('li')].map((x) => x.textContent) } : null;
   }, rot);
-  await irPara(p, 'ajustes');
+  await irPara(p, 'ajustes', 'diagnosticos');
   await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p);
   assert.equal((await lerDiag('Versão do app')).texto, await p.evaluate(() => S.dados.versaoApp));
   assert.equal((await lerDiag('Fila de envio')).texto, 'Vazia');
@@ -2859,17 +2888,18 @@ function abasComFatura() {
 }
 /** Leva a página a uma "tela" do teste: inicio, mes (Acompanhar), planejar, planilha, extrato ou ajustes. */
 async function irParaTela(p, tela) {
-  const modo = tela === 'planejar' ? 'planejar' : 'acompanhar';
-  const real = tela === 'planejar' ? 'mes' : tela;
-  if (await p.evaluate(() => S.tela) !== real) await irPara(p, real);
+  const [nome, secao] = tela.split(':');
+  const modo = nome === 'planejar' ? 'planejar' : 'acompanhar';
+  const real = nome === 'planejar' ? 'mes' : nome;
+  if (real === 'ajustes' && secao) await irPara(p, real, secao);
+  else if (await p.evaluate(() => S.tela) !== real) await irPara(p, real);
   if (real === 'mes' && await p.evaluate(() => S.modoMes) !== modo) { await p.evaluate((m) => { S.modoMes = m; render(); }, modo); await sleep(150); }
   await sleep(150);
 }
 const abrirNovoPorToque = async (p) => { await p.$eval('[data-acao="novo"]:not([hidden])', (e) => e.click()).catch(async () => { await p.evaluate(() => abrirNovo()); }); await folhaAberta(p); };
-const fecharFolhas = async (p) => { await p.keyboard.press('Escape'); await semFolha(p); };
 /** Abre a folha da fatura (Mês, Acompanhar). */
 async function abrirFaturaNaTela(p) { await irParaTela(p, 'mes'); await p.$eval('.faturas button.linha-fatura', (e) => e.click()); await folhaAberta(p); }
-async function abrirDiagnosticosNaTela(p) { await irParaTela(p, 'ajustes'); await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p); }
+async function abrirDiagnosticosNaTela(p) { await irParaTela(p, 'ajustes:diagnosticos'); await p.$eval('[data-acao="diagnosticos"]', (e) => e.click()); await folhaAberta(p); }
 
 /** Roda o axe na página e devolve as violações com no máximo 3 seletores cada. */
 async function rodarAxe(p) {
@@ -2896,7 +2926,7 @@ for (const [rotuloVp, vp] of [['celular 390', CEL], ['PC 1440', PC]]) {
       const conferir = async (onde) => {
         for (const v of await rodarAxe(p)) (GRAVES_AXE.includes(v.impacto) ? graves : avisos).push(textoViolacao(onde, v));
       };
-      for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes']) {
+      for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes', 'ajustes:categorias', 'ajustes:cartoes', 'ajustes:dados', 'ajustes:atualizacoes']) {
         await irParaTela(p, tela); await conferir(tela);
       }
       await abrirNovoPorToque(p); await conferir('folha Novo lançamento'); await fecharFolhas(p);
@@ -2940,7 +2970,7 @@ for (const [rotulo, vp] of [['200% de zoom (640 px)', { width: 640, height: 900,
     const p = await abrir(a, vp, montarPagina(a, `zoom-${vp.width}`));
     await pronto(p); await fontes(p);
     const erros = [];
-    for (const tela of ['inicio', 'mes', 'planejar', 'ajustes']) {
+    for (const tela of ['inicio', 'mes', 'planejar', 'ajustes', 'ajustes:categorias', 'ajustes:cartoes', 'ajustes:dados', 'ajustes:atualizacoes']) {
       await irParaTela(p, tela);
       const r = await medirReflow(p, '#tela');
       if (r.rolaLado) erros.push(`${tela}: rolagem lateral`);
@@ -2990,7 +3020,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
     await p.keyboard.press('Enter'); await sleep(150);
     assert.equal(await p.evaluate(() => document.activeElement.id), 'tela', 'Enter no skip link não leva o foco ao conteúdo');
     const erros = [];
-    for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes']) {
+    for (const tela of ['inicio', 'mes', 'planejar', 'planilha', 'extrato', 'ajustes', 'ajustes:categorias', 'ajustes:dados', 'ajustes:atualizacoes']) {
       await irParaTela(p, tela);
       await p.evaluate(() => document.querySelector('#tela').focus());
       const positivos = await p.$$eval('[tabindex]', (els) => els.filter((e) => Number(e.getAttribute('tabindex')) > 0).length);
@@ -3054,6 +3084,351 @@ if (MODO_CAPTURAS) {
     }
   });
 }
+
+/* ---------- 3.3.0: Ajustes em índice e categorias em lista de leitura ---------- */
+const abasAjustes = () => abasDoBackup({ nome: 'Casa', categorias: [
+  { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 }, { id: 'guardar', nome: 'Guardar', grupo: 'fixo', ordem: 2 }, { id: 'internet', nome: 'Internet', grupo: 'fixo', ordem: 3 },
+  { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 4 }, { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 5 }, { id: 'transporte', nome: 'Transporte', grupo: 'variavel', ordem: 6 },
+  { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 7 }, { id: 'extra', nome: 'Renda extra', grupo: 'renda', ordem: 8 },
+], anos: { 2026: { lancamentos: [
+  { id: 'aj1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 3000 },
+  { id: 'aj2', mes: 11, dia: 2, categoriaId: 'aluguel', descricao: '', valor: 900 },
+  { id: 'aj3', mes: 10, dia: 2, categoriaId: 'aluguel', descricao: '', valor: 900 },
+  { id: 'aj4', mes: 11, dia: 3, categoriaId: 'mercado', descricao: '', valor: 80 },
+], orcamento: {} } } });
+const idsDoGrupo = (p, g) => p.evaluate((x) => catsDoGrupo(x).map((c) => c.id), g);
+const idsNaTela = (p, g) => p.$$eval(`.cat-lista[data-grupo="${g}"] > li`, (l) => l.map((e) => e.dataset.cat));
+const ordensNaPlanilha = (a) => Object.fromEntries(a.servidor.planilha.ler('categorias').map((l) => [l[0], Number(l[3])]));
+/** Arrasta com o mouse: desce/sobe a alça de `id` até o centro da linha `alvo` (mais `extra` px). */
+async function arrastar(p, id, alvo, extra = 0, soltar = true) {
+  const o = await p.$eval(`.alca[data-alca="${id}"]`, (e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const d = await p.$eval(`.cat-lista li[data-cat="${alvo}"]`, (e) => { const r = e.getBoundingClientRect(); return r.y + r.height / 2; });
+  await p.mouse.move(o.x, o.y); await p.mouse.down();
+  await p.mouse.move(o.x, o.y + (d + extra - o.y) / 2, { steps: 4 });
+  await p.mouse.move(o.x, d + extra, { steps: 4 });
+  if (soltar) { await p.mouse.up(); await sleep(150); }
+  return o;
+}
+
+for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
+  await caso(`3.3.0 categorias em lista (${rotuloVp}): uma linha por categoria, selos Economia e Sobra, grupos com contagem, sem campo, seletor nem lixeira (AC-001, AC-002, AC-003)`, async () => {
+    const a = criarAmbiente(abasAjustes());
+    const p = await abrir(a, vp, montarPagina(a, 'aj-lista-' + rotuloVp));
+    await pronto(p); await sincronizado(p); await sleep(300); await sincronizado(p);
+    await p.evaluate(() => { S.dados.categoriaSobra = 'extra'; });
+    await irPara(p, 'ajustes', 'categorias');
+    assert.equal((await p.$$('.linha-cat-aj')).length, 8);
+    assert.deepEqual(await p.$$eval('.cat-grupo .grupo-titulo', (l) => l.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), ['Fixos · 3', 'Variáveis · 3', 'Rendas · 2']);
+    const linha = await p.$eval('li[data-cat="aluguel"] .linha-cat-aj', (e) => ({
+      ponto: Boolean(e.querySelector('.ponto')), nome: e.querySelector('.nome').textContent, qtd: e.querySelector('.qtd').textContent, seta: Boolean(e.querySelector('svg.ic')), alto: e.getBoundingClientRect().height, corPonto: getComputedStyle(e.querySelector('.ponto')).backgroundColor,
+    }));
+    assert.deepEqual([linha.ponto, linha.nome, linha.qtd, linha.seta], [true, 'Aluguel', '2 lanç.', true]);
+    assert.notEqual(linha.corPonto, 'rgba(0, 0, 0, 0)', 'a bolinha tem a cor da categoria');
+    assert.ok(linha.alto < 60, 'uma linha só: ' + linha.alto);
+    const alturas = await p.$$eval('.linha-cat-aj', (l) => l.map((e) => Math.round(e.getBoundingClientRect().height)));
+    assert.ok(Math.max(...alturas) < 60, 'nenhuma linha quebra em duas: ' + alturas);
+    assert.equal(await p.$eval('li[data-cat="guardar"] .selo', (e) => e.textContent), 'Economia');
+    assert.equal(await p.$eval('li[data-cat="extra"] .selo', (e) => e.textContent), 'Sobra');
+    assert.equal((await p.$$('.cat-lista .selo')).length, 2, 'só as duas categorias especiais têm selo');
+    assert.equal((await p.$$('#h-cats-aj ~ * input, #h-cats-aj ~ * select, #h-cats-aj ~ * [data-acao="cat-apagar"]')).length, 0, 'sem campo, seletor nem lixeira na lista');
+    await p.close();
+  });
+}
+
+await caso('3.3.0 folha da categoria no celular: painel com nome, grupo em botões, Apagar e o motivo em texto; renomear; apagar com Desfazer (AC-004, AC-005)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-folha'));
+  await pronto(p); await sincronizado(p); await sleep(300); await sincronizado(p);
+  await p.evaluate(() => { S.dados.categoriaSobra = 'extra'; });
+  await abrirCatNaFolha(p, 'mercado');
+  assert.equal(await p.$eval('#fc-nome', (e) => e.value), 'Mercado');
+  assert.deepEqual(await p.$$eval('.folha [data-f="grupo"]', (l) => l.map((e) => [e.textContent, e.getAttribute('aria-pressed')])), [['Fixos', 'false'], ['Variáveis', 'true'], ['Rendas', 'false']]);
+  assert.equal(await p.$eval('#fc-resumo', (e) => e.textContent), 'Variáveis · 1 lançamento');
+  assert.equal((await p.$eval('#fc-apagar', (e) => e.textContent)).trim(), 'Apagar categoria');
+  // com lançamentos: desativado e o motivo à vista
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), true);
+  assert.equal(await p.$eval('#fc-motivo', (e) => e.textContent), 'Tem 1 lançamento: mova-o para outra categoria antes de apagar.');
+  assert.ok(await p.$eval('#fc-motivo', (e) => e.getBoundingClientRect().height > 0), 'o motivo aparece na tela');
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.getAttribute('aria-describedby')), 'fc-motivo');
+  // renomear: Enter grava e a folha acompanha
+  await substituir(p, '#fc-nome', 'Mercado e feira'); await p.keyboard.press('Enter'); await sleep(250); await sincronizado(p);
+  assert.ok(a.servidor.planilha.ler('categorias').some((l) => l[0] === 'mercado' && l[1] === 'Mercado e feira'), 'nome gravado');
+  assert.equal(await p.$eval('.folha h2', (e) => e.textContent), 'Mercado e feira');
+  await fecharFolhas(p);
+  assert.equal(await p.$eval('li[data-cat="mercado"] .nome', (e) => e.textContent), 'Mercado e feira');
+  const focoAtual = await p.evaluate(() => document.activeElement.dataset.foco || document.activeElement.tagName + '#' + document.activeElement.id);
+  assert.equal(focoAtual, 'cat-mercado', 'o foco volta à linha que abriu a folha: ' + focoAtual);
+  // motivos das categorias especiais
+  await p.$eval('[data-acao="cat-editar"][data-cat="guardar"]', (e) => e.click()); await folhaAberta(p);
+  assert.match(await p.$eval('#fc-motivo', (e) => e.textContent), /categoria de economia/);
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), true);
+  await fecharFolhas(p);
+  await p.$eval('[data-acao="cat-editar"][data-cat="extra"]', (e) => e.click()); await folhaAberta(p);
+  assert.match(await p.$eval('#fc-motivo', (e) => e.textContent), /sobra de um mês para o outro/);
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), true);
+  await fecharFolhas(p);
+  // sem lançamentos e sem papel especial: apaga, a folha fecha e o aviso desfaz
+  await p.$eval('[data-acao="cat-editar"][data-cat="lazer"]', (e) => e.click()); await folhaAberta(p);
+  assert.equal(await p.$eval('#fc-apagar', (e) => e.disabled), false);
+  assert.equal(await p.$eval('#fc-motivo', (e) => e.textContent), '');
+  await p.$eval('#fc-apagar', (e) => e.click()); await semFolha(p); await sleep(250); await sincronizado(p);
+  assert.ok(!a.servidor.planilha.ler('categorias').some((l) => l[0] === 'lazer'), 'apagada na planilha');
+  assert.equal((await p.$$('li[data-cat="lazer"]')).length, 0);
+  await avisoDesfazer(p); await sleep(250); await sincronizado(p);
+  assert.ok(a.servidor.planilha.ler('categorias').some((l) => l[0] === 'lazer'), 'Desfazer devolve');
+  await p.close();
+});
+
+await caso('3.3.0 nova categoria no grupo certo: “+ Nova em Variáveis” abre a folha com Variáveis escolhido e a nova vai para o fim do grupo (AC-007)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-nova'));
+  await pronto(p); await sincronizado(p);
+  await irPara(p, 'ajustes', 'categorias');
+  assert.deepEqual(await p.$$eval('.cat-mais', (l) => l.map((e) => e.textContent.trim())), ['Nova em Fixos', 'Nova em Variáveis', 'Nova em Rendas']);
+  await p.$eval('[data-acao="cat-nova"][data-grupo="variavel"]', (e) => e.click()); await folhaAberta(p);
+  assert.equal(await p.$eval('.folha h2', (e) => e.textContent), 'Nova categoria');
+  assert.equal(await grupoNaFolha(p), 'variavel');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'fc-nome', 'o campo de nome já vem focado');
+  // vazio não cria
+  await p.$eval('[data-f="criar"]', (e) => e.click()); await sleep(200);
+  assert.equal((await p.$$('.folha')).length, 1, 'sem nome a folha continua aberta');
+  await p.type('#fc-nome', 'Academia'); await p.keyboard.press('Enter'); await semFolha(p); await sleep(250); await sincronizado(p);
+  const linha = a.servidor.planilha.ler('categorias').find((l) => l[1] === 'Academia');
+  assert.ok(linha && linha[2] === 'variavel', JSON.stringify(linha));
+  assert.deepEqual((await idsNaTela(p, 'variavel')).slice(-1), [linha[0]], 'aparece no fim de Variáveis');
+  assert.equal(Number(linha[3]), 9, 'a ordem vem depois de todas');
+  // a mesma folha deixa trocar o grupo antes de criar
+  await p.$eval('[data-acao="cat-nova"][data-grupo="renda"]', (e) => e.click()); await folhaAberta(p);
+  assert.equal(await grupoNaFolha(p), 'renda');
+  await p.$eval('.folha [data-f="grupo"][data-v="fixo"]', (e) => e.click());
+  await p.type('#fc-nome', 'Seguro'); await p.$eval('[data-f="criar"]', (e) => e.click()); await semFolha(p); await sleep(250); await sincronizado(p);
+  assert.ok(a.servidor.planilha.ler('categorias').some((l) => l[1] === 'Seguro' && l[2] === 'fixo'), 'grupo escolhido na folha');
+  await p.close();
+});
+
+await caso('3.3.0 modo Ordenar: subir, descer e alça aparecem, o botão vira Concluir, os extremos ficam ocultos e subir/descer grava (AC-008)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-ordenar'));
+  await pronto(p); await sincronizado(p);
+  await irPara(p, 'ajustes', 'categorias');
+  assert.equal((await p.$$('.alca, [data-acao="cat-mover"]')).length, 0, 'na leitura não há setas nem alça');
+  assert.equal((await p.$eval('[data-acao="cat-ordenar"]', (e) => e.textContent)).trim(), 'Ordenar');
+  await p.$eval('[data-acao="cat-ordenar"]', (e) => e.click()); await sleep(100);
+  assert.equal((await p.$eval('[data-acao="cat-ordenar"]', (e) => e.textContent)).trim(), 'Concluir');
+  assert.equal((await p.$$('.alca')).length, 8);
+  assert.equal((await p.$$('[data-acao="cat-mover"]')).length, 16);
+  assert.equal(await p.$eval('[data-foco="sobe-aluguel"]', (e) => e.classList.contains('oculto') && e.disabled), true, 'o primeiro não sobe: fica oculto');
+  assert.equal(await p.$eval('[data-foco="desce-internet"]', (e) => e.classList.contains('oculto') && e.disabled), true, 'o último não desce: fica oculto');
+  assert.equal(await p.$eval('[data-foco="sobe-guardar"]', (e) => e.classList.contains('oculto')), false);
+  assert.equal(await p.$eval('[data-foco="sobe-guardar"]', (e) => e.getAttribute('aria-label')), 'Subir Guardar');
+  await p.$eval('[data-foco="desce-mercado"]', (e) => e.click()); await sleep(250); await sincronizado(p);
+  assert.deepEqual(await idsNaTela(p, 'variavel'), ['lazer', 'mercado', 'transporte']);
+  assert.deepEqual(await idsDoGrupo(p, 'variavel'), ['lazer', 'mercado', 'transporte']);
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.foco), 'desce-mercado', 'o foco acompanha o botão');
+  // chega ao fim: o botão que sumiu passa o foco ao outro
+  await p.$eval('[data-foco="desce-mercado"]', (e) => e.click()); await sleep(250); await sincronizado(p);
+  assert.deepEqual(await idsNaTela(p, 'variavel'), ['lazer', 'transporte', 'mercado']);
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.foco), 'sobe-mercado', 'foco no botão que continua visível');
+  const o = ordensNaPlanilha(a);
+  assert.ok(o.lazer < o.transporte && o.transporte < o.mercado, JSON.stringify(o));
+  // Concluir volta à leitura e a ordem vale nas outras telas
+  await p.$eval('[data-acao="cat-ordenar"]', (e) => e.click()); await sleep(100);
+  assert.equal((await p.$$('.alca')).length, 0);
+  assert.deepEqual(await idsNaTela(p, 'variavel'), ['lazer', 'transporte', 'mercado']);
+  await p.close();
+});
+
+await caso('3.3.0 arrastar pela alça (PC): reordena dentro do grupo, grava só o que mudou e vale nas outras telas; Esc devolve a posição (AC-009, AC-010)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, PC, montarPagina(a, 'aj-arrastar'));
+  await pronto(p); await sincronizado(p);
+  await irPara(p, 'ajustes', 'categorias');
+  await p.$eval('[data-acao="cat-ordenar"]', (e) => e.click()); await sleep(100);
+  await p.evaluate(() => { window.__ops = []; const orig = registrar; registrar = (op) => { window.__ops.push(op); return orig(op); }; });
+  const antes = ordensNaPlanilha(a);
+  assert.equal(await p.$eval('.alca', (e) => getComputedStyle(e).touchAction), 'none', 'touch-action: none na alça');
+  assert.equal(await p.$eval('.linha-cat-aj', (e) => getComputedStyle(e).touchAction), 'auto', 'e só nela');
+  // Esc no meio do arraste: nada muda
+  await arrastar(p, 'aluguel', 'internet', 4, false);
+  const meio = await p.$$eval('.cat-lista[data-grupo="fixo"] > li', (l) => l.map((e) => e.style.transform));
+  assert.ok(meio[0].startsWith('translateY(') && meio[1].startsWith('translateY(') && meio[2].startsWith('translateY('), 'as linhas acompanham o arraste: ' + meio);
+  await p.keyboard.press('Escape'); await sleep(100);
+  assert.deepEqual(await p.$$eval('.cat-lista[data-grupo="fixo"] > li', (l) => l.map((e) => e.style.transform)), ['', '', ''], 'Esc devolve as linhas');
+  await p.mouse.move(100, 100); await p.mouse.up(); await sleep(200); await sincronizado(p);
+  assert.deepEqual(await p.evaluate(() => window.__ops.length), 0, 'Esc não grava nada');
+  assert.deepEqual(await idsNaTela(p, 'fixo'), ['aluguel', 'guardar', 'internet']);
+  assert.deepEqual(ordensNaPlanilha(a), antes);
+  // arrastar Guardar para depois de Internet: Aluguel não muda, só dois são gravados
+  await arrastar(p, 'guardar', 'internet', 8);
+  await sleep(250); await sincronizado(p);
+  assert.deepEqual(await idsNaTela(p, 'fixo'), ['aluguel', 'internet', 'guardar']);
+  assert.deepEqual(await idsDoGrupo(p, 'fixo'), ['aluguel', 'internet', 'guardar']);
+  assert.deepEqual(await p.evaluate(() => window.__ops.map((o) => o.c.id).sort()), ['guardar', 'internet'], 'grava só as categorias cuja ordem mudou');
+  const depois = ordensNaPlanilha(a);
+  assert.equal(depois.aluguel, antes.aluguel);
+  assert.deepEqual([depois.guardar, depois.internet], [antes.internet, antes.guardar], 'permuta os valores de ordem do grupo');
+  assert.deepEqual(await p.$$eval('.cat-lista li', (l) => l.map((e) => e.style.transform).filter(Boolean)), [], 'sem resto de transform');
+  // arrastar para cima, dentro de Variáveis, e soltar fora do grupo não troca de grupo
+  await arrastar(p, 'transporte', 'mercado', -10);
+  await sleep(250); await sincronizado(p);
+  assert.deepEqual(await idsDoGrupo(p, 'variavel'), ['transporte', 'mercado', 'lazer']);
+  await arrastar(p, 'transporte', 'salario', 40);
+  await sleep(250); await sincronizado(p);
+  assert.deepEqual(await idsDoGrupo(p, 'variavel'), ['mercado', 'lazer', 'transporte'], 'solto abaixo do grupo: vai para o fim dele');
+  assert.equal(await p.evaluate(() => catPorId('transporte').grupo), 'variavel');
+  // a ordem vale nas outras telas
+  await irPara(p, 'mes'); await sleep(200);
+  await p.evaluate(() => { S.modoMes = 'planejar'; render(); }); await sleep(150);
+  const ordemMes = await p.$$eval('[data-cat]', (l) => [...new Set(l.map((e) => e.dataset.cat))]);
+  const pos = (id) => ordemMes.indexOf(id);
+  assert.ok(pos('aluguel') < pos('internet') && pos('internet') < pos('guardar'), 'Fixos na nova ordem no Mês: ' + ordemMes);
+  assert.ok(pos('mercado') < pos('lazer') && pos('lazer') < pos('transporte'), 'Variáveis na nova ordem no Mês: ' + ordemMes);
+  await p.close();
+});
+
+await caso('3.3.0 arrastar pela alça no celular: o toque na alça arrasta sem rolar a página (AC-009)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-arrastar-toque'));
+  await pronto(p); await sincronizado(p);
+  await irPara(p, 'ajustes', 'categorias');
+  await p.$eval('[data-acao="cat-ordenar"]', (e) => e.click()); await sleep(100);
+  const o = await p.$eval('.alca[data-alca="mercado"]', (e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const d = await p.$eval('li[data-cat="transporte"]', (e) => { const r = e.getBoundingClientRect(); return r.y + r.height / 2 + 10; });
+  const rolou = await p.evaluate(() => window.scrollY);
+  const toque = await p.touchscreen.touchStart(o.x, o.y);
+  for (let i = 1; i <= 8; i++) await toque.move(o.x, o.y + ((d - o.y) * i) / 8);
+  await toque.end(); await sleep(250); await sincronizado(p);
+  assert.equal(await p.evaluate(() => window.scrollY), rolou, 'a página não rolou');
+  assert.deepEqual(await idsDoGrupo(p, 'variavel'), ['lazer', 'transporte', 'mercado']);
+  await p.close();
+});
+
+await caso('3.3.0 Ajustes no celular: índice com seis itens, cada um abre a sua seção com botão de voltar; sair e voltar zera para o índice (AC-011)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-indice-cel'), { tema: 'dark' });
+  await pronto(p); await sincronizado(p);
+  await p.tap('.inf-item[data-tela="ajustes"]'); await sleep(250);
+  assert.deepEqual(await p.$$eval('.aj-indice .aj-rot', (l) => l.map((e) => e.textContent)), ['Geral', 'Categorias', 'Cartões', 'Seus dados', 'Atualizações', 'Diagnósticos']);
+  assert.equal((await p.$$('.aj-secao')).length, 0, 'no celular só o índice, sem seção');
+  assert.equal((await p.$$('.aj-volta')).length, 0);
+  const resumos = await p.$$eval('.aj-item', (l) => l.map((e) => e.querySelector('.aj-resumo').textContent));
+  assert.deepEqual([resumos[0], resumos[1], resumos[2], resumos[4]], ['Casa · Automático', '8', '0', 'v' + (await p.evaluate(() => S.dados.versaoApp))]);
+  await p.screenshot({ path: path.join(SAIDA, 'aj-indice-cel.png') });
+  const secoes = { geral: 'Geral', categorias: 'Categorias', cartoes: 'Cartões de crédito', dados: 'Seus dados', atualizacoes: 'Atualizações', diagnosticos: 'Diagnósticos' };
+  for (const [id, titulo] of Object.entries(secoes)) {
+    await p.tap(`.aj-item[data-secao="${id}"]`); await sleep(200);
+    assert.equal(await p.$eval('.aj-secao h2', (e) => e.textContent), titulo, id);
+    assert.equal((await p.$$('.aj-indice')).length, 0, id + ': o índice some enquanto a seção está aberta');
+    assert.equal(await p.evaluate(() => document.activeElement.dataset.foco), 'aj-volta', 'o foco vai ao botão de voltar');
+    assert.ok(await p.$eval('.aj-volta', (e) => e.getBoundingClientRect().height >= 43.5), 'alvo de 44 px');
+    assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, id + ': sem rolagem lateral');
+    await p.tap('.aj-volta'); await sleep(200);
+    assert.equal((await p.$$('.aj-indice')).length, 1, id + ': voltar mostra o índice');
+    assert.equal(await p.evaluate(() => document.activeElement.dataset.foco), 'aj-' + id, 'o foco volta ao item de onde saiu');
+  }
+  // sair de Ajustes e voltar começa pelo índice; tocar em Ajustes de novo, dentro de uma seção, também
+  await p.tap('.aj-item[data-secao="categorias"]'); await sleep(200);
+  await p.tap('[data-acao="cat-ordenar"]'); await sleep(100);
+  await p.tap('.inf-item[data-tela="inicio"]'); await sleep(250);
+  await p.tap('.inf-item[data-tela="ajustes"]'); await sleep(250);
+  assert.equal((await p.$$('.aj-secao')).length, 0, 'voltou ao índice');
+  assert.equal(await p.evaluate(() => S.ordenando), false, 'o modo Ordenar não sobrevive à saída');
+  await p.tap('.aj-item[data-secao="dados"]'); await sleep(200);
+  await p.tap('.inf-item[data-tela="ajustes"]'); await sleep(250);
+  assert.equal((await p.$$('.aj-indice')).length, 1, 'tocar em Ajustes dentro de uma seção volta ao índice');
+  await p.close();
+});
+
+await caso('3.3.0 Voltar do navegador no celular: da seção de Ajustes volta ao índice e depois à tela anterior; no PC trocar de seção não empilha histórico (AC-011, AC-012)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, CEL, montarPagina(a, 'aj-voltar-cel'));
+  await pronto(p); await sincronizado(p);
+  const tela = () => p.evaluate(() => [S.tela, S.ajSecao]);
+  await p.tap('.inf-item[data-tela="ajustes"]'); await sleep(250);
+  await p.tap('.aj-item[data-secao="categorias"]'); await sleep(250);
+  assert.deepEqual(await tela(), ['ajustes', 'categorias']);
+  // folha aberta dentro da seção: o primeiro Voltar fecha só a folha
+  await p.tap('[data-acao="cat-editar"][data-cat="mercado"]'); await folhaAberta(p);
+  await p.goBack(); await semFolha(p); await sleep(150);
+  assert.deepEqual(await tela(), ['ajustes', 'categorias'], 'Voltar fecha a folha e fica na seção');
+  await p.goBack(); await sleep(250);
+  assert.deepEqual(await tela(), ['ajustes', null], 'Voltar da seção leva ao índice');
+  assert.equal((await p.$$('.aj-indice')).length, 1);
+  await p.goBack(); await sleep(250);
+  assert.equal(await p.evaluate(() => S.tela), 'inicio', 'novo Voltar sai de Ajustes');
+  await p.goForward(); await sleep(250);
+  assert.deepEqual(await tela(), ['ajustes', null]);
+  // o botão de voltar da tela também desempilha: um Voltar depois vai ao Início
+  await p.tap('.aj-item[data-secao="dados"]'); await sleep(250);
+  await p.tap('.aj-volta'); await sleep(300);
+  assert.deepEqual(await tela(), ['ajustes', null]);
+  await p.goBack(); await sleep(250);
+  assert.equal(await p.evaluate(() => S.tela), 'inicio', 'o botão de voltar da tela não deixou entrada sobrando');
+  await p.close();
+  const b = criarAmbiente(abasAjustes());
+  const q = await abrir(b, PC, montarPagina(b, 'aj-voltar-pc'));
+  await pronto(q); await sincronizado(q);
+  await q.$eval('.lat-item[data-tela="ajustes"]', (e) => e.click()); await sleep(250);
+  const antes = await q.evaluate(() => history.length);
+  for (const sec of ['categorias', 'cartoes', 'dados']) { await q.$eval(`.aj-item[data-secao="${sec}"]`, (e) => e.click()); await sleep(150); }
+  assert.equal(await q.evaluate(() => history.length), antes, 'no PC trocar de seção não empilha');
+  await q.goBack(); await sleep(250);
+  assert.equal(await q.evaluate(() => S.tela), 'inicio');
+  await q.close();
+});
+
+for (const largura of [360, 412]) {
+  await caso(`3.3.0 Extrato a ${largura} px: chips e seletor de categoria numa linha só, importar como ícone ao lado da busca`, async () => {
+    const a = criarAmbiente(abasAjustes());
+    const p = await abrir(a, { ...CEL, width: largura, height: 800 }, montarPagina(a, 'extrato-linha-' + largura), { tema: 'dark' });
+    await pronto(p); await sincronizado(p);
+    await irPara(p, 'extrato'); await sleep(250);
+    const m = await p.evaluate(() => {
+      const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: b.left, right: b.right, h: Math.round(b.height) }; };
+      const sel = document.querySelector('.chip-select select');
+      return { tudo: r('[data-filtro="tudo"]'), rendas: r('[data-filtro="rendas"]'), sel: r('.chip-select'), busca: r('#busca'), imp: r('.ie-abrir'), larg: innerWidth, rolagem: document.documentElement.scrollWidth, textoVazio: sel.options[0].textContent, corte: sel.scrollWidth <= sel.clientWidth + 1 };
+    });
+    assert.equal(m.tudo.top, m.sel.top, 'chip e seletor na mesma linha: ' + JSON.stringify(m));
+    assert.equal(m.rendas.top, m.sel.top);
+    assert.ok(m.sel.right <= m.larg, 'o seletor cabe na tela');
+    assert.ok(m.rolagem <= m.larg, 'sem rolagem lateral');
+    assert.equal(m.textoVazio, 'Categoria');
+    assert.equal(m.imp.top, m.busca.top, 'importar na altura da busca');
+    assert.equal(m.imp.h, m.busca.h);
+    assert.ok(m.imp.left >= m.busca.right, 'importar à direita da busca');
+    assert.equal(await p.$eval('.ie-abrir', (e) => [e.getAttribute('aria-label'), e.title, e.dataset.acao, e.dataset.foco].join('|')), 'Importar extrato|Importar extrato|importar-extrato|importar-extrato');
+    // categoria de nome longo: o seletor continua na linha e dentro da tela
+    await p.evaluate(() => { const c = S.dados.categorias[0]; c.nome = 'Categoria com um nome bem comprido para testar o corte'; render(); });
+    await p.select('[data-foco="filtro-cat"]', await p.$eval('[data-foco="filtro-cat"] option:nth-child(2)', (e) => e.value)); await sleep(250);
+    const n = await p.evaluate(() => { const b = document.querySelector('.chip-select').getBoundingClientRect(); return { top: Math.round(b.top), right: b.right, larg: innerWidth, tudo: Math.round(document.querySelector('[data-filtro="tudo"]').getBoundingClientRect().top) }; });
+    assert.equal(n.top, n.tudo, 'nome longo não quebra a linha');
+    assert.ok(n.right <= n.larg, 'nome longo não passa da tela');
+    await p.close();
+  });
+}
+
+await caso('3.3.0 Ajustes no PC: índice à esquerda, seção à direita, começando em Geral (AC-012)', async () => {
+  const a = criarAmbiente(abasAjustes());
+  const p = await abrir(a, PC, montarPagina(a, 'aj-indice-pc'), { tema: 'dark' });
+  await pronto(p); await sincronizado(p); await fontes(p);
+  await p.$eval('.lat-item[data-tela="ajustes"]', (e) => e.click()); await sleep(250);
+  assert.equal(await p.$eval('.aj-secao h2', (e) => e.textContent), 'Geral', 'começa em Geral');
+  assert.equal(await p.$eval('.aj-item[aria-current="page"] .aj-rot', (e) => e.textContent), 'Geral');
+  assert.equal((await p.$$('.aj-volta')).length, 0, 'sem botão de voltar no PC');
+  const caixas = await p.evaluate(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { x: b.x, r: b.right, y: b.y }; }; return { indice: r('.aj-indice'), secao: r('.aj-secao') }; });
+  assert.ok(caixas.indice.r <= caixas.secao.x, 'índice à esquerda da seção: ' + JSON.stringify(caixas));
+  assert.ok(Math.abs(caixas.indice.y - caixas.secao.y) < 4, 'lado a lado, começando na mesma altura');
+  await p.screenshot({ path: path.join(SAIDA, 'aj-geral-pc.png') });
+  await p.$eval('.aj-item[data-secao="categorias"]', (e) => e.click()); await sleep(200);
+  assert.equal(await p.$eval('.aj-secao h2', (e) => e.textContent), 'Categorias');
+  assert.equal(await p.$eval('.aj-item[aria-current="page"] .aj-rot', (e) => e.textContent), 'Categorias');
+  assert.equal((await p.$$('.aj-indice')).length, 1, 'o índice continua à vista');
+  // trocar de aba no menu lateral e voltar recomeça em Geral
+  await p.$eval('.lat-item[data-tela="inicio"]', (e) => e.click()); await sleep(200);
+  await p.$eval('.lat-item[data-tela="ajustes"]', (e) => e.click()); await sleep(250);
+  assert.equal(await p.$eval('.aj-secao h2', (e) => e.textContent), 'Geral');
+  await p.close();
+});
 
 await caso('nenhum erro de JavaScript em nenhuma página', async () => {
   const erros = paginas.flatMap((p) => p.erros);

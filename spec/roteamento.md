@@ -94,6 +94,12 @@ Decisão por custo; a fonte é o campo `executor:` da tarefa no grafo. Sem grafo
 
 **O retorno é curto e conferível:** tabela PASS/FAIL ou lista `arquivo:linha`, nunca saída bruta nem dado sensível.
 
+**Testes no subagente custam o que imprimem.** Durante a tarefa, o e2e roda filtrado (`E2E_SO="<trecho do nome>"`), só nos cenários tocados; o e2e inteiro roda **uma vez**, no fechamento, e uma segunda só se falhar. Falha intermitente não se investiga com rodada inteira: o caso roda isolado, no `main` e no branch, e se falhar no `main` vira tarefa à parte. O prompt diz qual filtro usar.
+
+**Retomar ou começar de novo.** Retomar um subagente relê o contexto dele inteiro a cada chamada. Ajuste pequeno e já desenhado vai a um `mecanico` novo com `arquivo:linha` e a mudança exata, não a um `pleno` retomado com 100k de contexto só porque ele "já conhece o código".
+
+**Prints para revisão.** A sessão principal lê no máximo um ou dois prints por rodada, em escala 1 (`deviceScaleFactor: 1`) e recortados na área mudada. Conferência objetiva (cabe numa linha, mesmo `top`, sem rolagem lateral) é asserção de e2e, não olho.
+
 ---
 
 ## Paralelismo seguro

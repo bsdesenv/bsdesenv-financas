@@ -3936,11 +3936,11 @@ function estadoAtualizacaoHtml() {
   const a = S.atualizacao;
   if (!a) return `<p>${atualizacaoAuto() ? 'Ainda não verificado.' : 'A verificação automática está desligada.'}</p>`;
   if (a.estado === 'verificando' || S.verificandoAtu) return '<p>Verificando…</p>';
-  if (a.estado === 'atual') return `<p class="atu-ok">${ic('check', 18)}<span>Você está na versão mais recente · verificado às ${horaLocal(a.verificadoEm)}</span></p>`;
+  if (a.estado === 'atual') return `<p class="atu-linha"><span class="atu-selo ok">${ic('check', 16)}Atualizado</span><span class="sub">verificado às ${horaLocal(a.verificadoEm)}</span></p>`;
   if (a.estado === 'nova') {
     const data = dataBr(a.data);
-    return `<p><strong>Nova versão ${esc(a.versao)}</strong>${data ? ` · ${data}` : ''}</p>`
-      + (a.novidades.length ? `<ul class="atu-novidades">${a.novidades.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '')
+    return `<p class="atu-linha"><span class="atu-selo nova">${ic('setaSobe', 16)}Nova versão ${esc(a.versao)}</span>${data ? `<span class="sub"> · ${data}</span>` : ''}</p>`
+      + (a.novidades.length ? `<p class="atu-rotulo">Novidades</p><ul class="atu-novidades">${a.novidades.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '')
       + `<p><a class="link" href="${URL_CHANGELOG}" target="_blank" rel="noopener">Ver tudo o que mudou ${ic('externo', 14)}</a></p>`;
   }
   return '<p>Não deu para verificar agora.</p>';
@@ -3949,24 +3949,28 @@ function acoesAtualizacaoHtml() {
   const nova = atualizacaoNova();
   const ocupado = Boolean(S.verificandoAtu);
   const inst = nova ? urlInstalador() : '';
+  const verificar = `<button type="button" class="botao" data-acao="verificar-atualizacao" data-foco="atu-verificar"${ocupado ? ' disabled' : ''}>${ocupado ? 'Verificando…' : 'Verificar agora'}</button>`;
+  if (!nova) return verificar;
   // Com o instalador: um clique. Sem ele (prévia local, por exemplo), só o passo a passo.
-  const botoes = !nova ? ''
-    : inst ? `<a class="botao primario" href="${esc(inst)}" target="_blank" rel="noopener" data-foco="atu-instalador">${ic('baixar', 18)}Atualizar agora</a>`
-      + `<button type="button" class="botao" data-acao="atualizar" data-foco="atu-atualizar">Atualizar à mão…</button>`
-    : `<button type="button" class="botao primario" data-acao="atualizar" data-foco="atu-atualizar">${ic('baixar', 18)}Atualizar para ${esc(nova.versao)}…</button>`;
-  return botoes
-    + `<button type="button" class="botao" data-acao="verificar-atualizacao" data-foco="atu-verificar"${ocupado ? ' disabled' : ''}>${ocupado ? 'Verificando…' : 'Verificar agora'}</button>`
-    + (inst ? '<p class="sub atu-como">“Atualizar agora” abre o instalador da bsdesenv, que troca o código em um clique. “À mão” mostra o passo a passo, sem permissão nova.</p>' : '');
+  const principal = inst
+    ? `<a class="botao primario atu-principal" href="${esc(inst)}" target="_blank" rel="noopener" data-foco="atu-instalador">${ic('baixar', 18)}Atualizar para ${esc(nova.versao)}</a>`
+    : `<button type="button" class="botao primario atu-principal" data-acao="atualizar" data-foco="atu-atualizar">${ic('baixar', 18)}Atualizar para ${esc(nova.versao)}…</button>`;
+  const outras = (inst ? '<div class="atu-outra"><button type="button" class="botao" data-acao="atualizar" data-foco="atu-atualizar">Atualizar à mão…</button>'
+    + '<p class="sub">Mostra o passo a passo para colar os arquivos no editor do Apps Script, sem permissão nova.</p></div>' : '')
+    + `<div class="atu-outra">${verificar}<p class="sub">Procura de novo agora, sem esperar a verificação automática.</p></div>`;
+  return principal
+    + `<details class="atu-bloco" id="atu-outras"><summary data-foco="atu-outras">Outras formas</summary><div class="atu-bloco-corpo">${outras}</div></details>`;
 }
 function cartaoAtualizacoes() {
   const d = S.dados;
   return '<section class="cartao"><h2>Atualizações</h2>'
     + `<p class="sub">Versão instalada: <strong>${esc(d.versaoApp || '—')}</strong>.</p>`
     + `<div class="atu-estado" id="atu-estado" aria-live="polite">${estadoAtualizacaoHtml()}</div>`
-    + `<div class="acoes" id="atu-acoes">${acoesAtualizacaoHtml()}</div>`
+    + `<div class="acoes atu-acoes" id="atu-acoes">${acoesAtualizacaoHtml()}</div>`
     + `<label class="marcar interruptor"><input type="checkbox" role="switch" data-mudar="atualizacao-auto" data-foco="atu-auto"${atualizacaoAuto() ? ' checked' : ''}>Procurar novas versões automaticamente</label>`
     + '<p class="sub">Uma vez por dia o app consulta o GitHub para saber se há versão nova. Nenhum dado seu é enviado.</p>'
-    + `<p class="sub atu-sobre">bsdesenv-financas · código aberto (licença MIT). Seus dados financeiros ficam só na sua planilha, no Google Drive. A fonte vem com o app. Fora do Google, o navegador só busca o ícone no GitHub e, se o aviso de versão estiver ligado, uma vez por dia o arquivo de versões no GitHub ou no jsDelivr: esses serviços veem o seu endereço IP, nenhum dado da planilha. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></section>`;
+    + '<details class="atu-bloco atu-sobre"><summary data-foco="atu-sobre">Sobre e privacidade</summary>'
+    + `<p class="sub atu-bloco-corpo">bsdesenv-financas · código aberto (licença MIT). Seus dados financeiros ficam só na sua planilha, no Google Drive. A fonte vem com o app. Fora do Google, o navegador só busca o ícone no GitHub e, se o aviso de versão estiver ligado, uma vez por dia o arquivo de versões no GitHub ou no jsDelivr: esses serviços veem o seu endereço IP, nenhum dado da planilha. <a href="${URL_PROJETO}" target="_blank" rel="noopener">Projeto no GitHub</a></p></details></section>`;
 }
 /** Atualiza só o cartão (a área viva continua a mesma, para o leitor de tela anunciar) e, se preciso, o resto da tela. */
 function pintarAtualizacao(redesenhar) {
@@ -3974,8 +3978,10 @@ function pintarAtualizacao(redesenhar) {
   const est = $('#atu-estado'); const aco = $('#atu-acoes');
   if (!est || !aco) return;
   const ativo = document.activeElement; const foco = ativo && ativo.dataset ? ativo.dataset.foco : null;
+  const aberto = Boolean($('#atu-outras', aco) && $('#atu-outras', aco).open);
   est.innerHTML = estadoAtualizacaoHtml();
   aco.innerHTML = acoesAtualizacaoHtml();
+  if (aberto && $('#atu-outras', aco)) $('#atu-outras', aco).open = true;
   if (foco) { const n = document.querySelector(`[data-foco="${CSS.escape(foco)}"]`); if (n && n !== document.activeElement) n.focus({ preventScroll: true }); }
 }
 
@@ -4000,16 +4006,21 @@ function abrirAtualizar() {
   const st = { fase: 'carregando', m: null, erro: '', feitos: new Set(), erros: {}, copiando: -1, manual: null, aviso: '' };
   const d = S.dados;
   const urlEditor = /^[A-Za-z0-9_-]+$/.test(d.scriptId || '') ? `https:\/\/script.google.com/home/projects/${d.scriptId}/edit` : '';
+  const toque = Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   const urlReload = String(d.urlApp || '').startsWith('https:\/\/script.google.com/') ? d.urlApp : '';
   abrirFolha({
     tipo: 'atualizar',
     montar(el) {
       el.innerHTML = topoFolha(`Atualizar para ${nova.versao}`, 'Atualização assistida')
+        + (toque ? `<div class="atu-aviso" id="atu-aviso"><p><strong>Precisa de um computador:</strong> o editor do Apps Script não funciona no celular.</p>${urlEditor
+          ? '<button type="button" class="botao" data-f="copiar-editor" data-foco="atu-link-editor">Copiar o link do editor</button>'
+          : '<p class="sub">Na planilha, use Extensões › Apps Script, no computador.</p>'}</div>` : '')
         + '<div class="folha-corpo" id="atu-corpo"></div>'
         + '<footer class="folha-rodape"><p class="sub">Seus dados não mudam: só o código é trocado. Para voltar atrás, em Gerenciar implantações escolha a versão anterior.</p></footer>'
         + '<p class="sr" role="status" id="atu-live"></p>';
       const corpo = $('#atu-corpo', el);
       const dizer = (t) => { const l = $('#atu-live', el); if (l) l.textContent = t; };
+      const contagem = () => `${st.feitos.size} de ${st.m.arquivos.length} copiados`;
       const linha = (a, i) => {
         const feito = st.feitos.has(i);
         return `<div class="atu-arq${feito ? ' feito' : ''}"><div class="atu-arq-nome">${esc(a.editor)}${dicaArquivo(a) ? `<span class="sub">${esc(dicaArquivo(a))}</span>` : ''}</div>`
@@ -4029,6 +4040,7 @@ function abrirAtualizar() {
             ? `<a class="botao" href="${esc(urlEditor)}" target="_blank" rel="noopener">${ic('externo', 18)}Abrir o editor do Apps Script</a>`
             : '<span class="sub">Na planilha, use Extensões › Apps Script.</span>'}</li>`,
           `<li><strong>Troque o conteúdo de cada arquivo.</strong><span class="sub">No editor, abra o arquivo, apague tudo (Ctrl+A) e cole (Ctrl+V). Se o arquivo não existir, crie com + › HTML e o nome indicado.</span>`
+            + `<span class="atu-contador">${contagem()}</span>`
             + `<div class="atu-arquivos">${st.m.arquivos.map(linha).join('')}</div></li>`,
           '<li><strong>Salve com Ctrl+S.</strong></li>',
           '<li><strong>Publique no mesmo endereço.</strong><span class="sub">Implantar › Gerenciar implantações › ✏️ › Versão: <strong>Nova versão</strong> › Implantar. Não use “Nova implantação”: ela cria outro endereço.</span></li>',
@@ -4062,7 +4074,7 @@ function abrirAtualizar() {
           st.erros[i] = e && e.status === 404 ? `A versão ${nova.versao} ainda está sendo publicada. Tente de novo em alguns minutos.` : 'Não consegui baixar o arquivo agora. Tente de novo mais tarde.';
         }
         if (texto !== null) {
-          if (await copiarTexto(texto)) { st.feitos.add(i); dizer(`${a.editor} copiado.`); }
+          if (await copiarTexto(texto)) { st.feitos.add(i); dizer(`${a.editor} copiado. ${contagem()}.`); }
           else { st.manual = { i, texto }; dizer('Não consegui copiar sozinho. Copie o texto da caixa com Ctrl+C.'); }
         } else dizer(st.erros[i]);
         st.copiando = -1; desenhar();
@@ -4074,6 +4086,12 @@ function abrirAtualizar() {
         if (!b) return;
         if (b.dataset.f === 'fechar') fecharFolha();
         else if (b.dataset.f === 'repetir') carregar();
+        else if (b.dataset.f === 'copiar-editor') {
+          copiarTexto(urlEditor).then((ok) => {
+            dizer(ok ? 'Link do editor copiado.' : 'Não consegui copiar o link.');
+            aviso(ok ? 'Link do editor copiado. Abra no computador.' : 'Não deu para copiar o link do editor.', { tipo: ok ? 'info' : 'erro' });
+          });
+        }
         else if (b.dataset.f === 'copiar' && st.m && st.copiando < 0) copiar(Number(b.dataset.i));
       });
       carregar();

@@ -556,12 +556,31 @@ button.versao-nova:hover { filter: brightness(.97); }
 .diag dd { margin: 0; color: var(--tinta); overflow-wrap: anywhere; }
 .diag-lista { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .diag-lista li { overflow-wrap: anywhere; }
-.atu-ok { display: flex; align-items: flex-start; gap: 8px; color: var(--ok); }
-.atu-ok .ic { flex: none; margin-top: 1px; }
-.acoes .atu-como { flex-basis: 100%; margin: 2px 0 0; }
-.atu-novidades { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.atu-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.atu-selo { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 12px 0 10px; border-radius: 999px; border: 1px solid; font-size: 0.8125rem; font-weight: 650; }
+.atu-selo .ic { flex: none; }
+.atu-selo.ok { color: var(--ok-tinta); background: var(--ok-fundo); border-color: var(--ok-borda); }
+.atu-selo.nova { color: var(--acento-forte); background: var(--acento-fraco); border-color: var(--acento); }
+.atu-rotulo { font-size: 0.75rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-3); margin-top: 4px; }
+.atu-novidades { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.atu-novidades li { position: relative; padding: 9px 12px 9px 38px; border: 1px solid var(--linha-2); border-radius: var(--raio-m); background: var(--cartao-2); color: var(--tinta); overflow-wrap: anywhere; }
+.atu-novidades li::before { content: ''; position: absolute; left: 14px; top: 12px; width: 6px; height: 11px; border: solid var(--acento); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.atu-acoes { flex-direction: column; align-items: stretch; }
+.atu-principal { align-self: flex-start; white-space: normal; text-align: center; }
+.atu-bloco { border-top: 1px solid var(--linha-2); }
+.atu-bloco > summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--acento); font-size: 0.8125rem; font-weight: 650; cursor: pointer; list-style: none; }
+.atu-bloco > summary::-webkit-details-marker { display: none; }
+.atu-bloco > summary::after { content: '+'; font-size: 1.25rem; font-weight: 400; line-height: 1; }
+.atu-bloco[open] > summary::after { content: '−'; }
+.atu-bloco-corpo { display: grid; gap: 12px; margin: 0 0 12px; }
+.atu-outra { display: grid; gap: 4px; justify-items: start; }
+.atu-outra .sub { margin: 0; }
+.atu-aviso { margin: 4px 16px 4px; padding: 12px 14px; display: grid; gap: 10px; justify-items: start; border: 1px solid var(--acima); border-radius: var(--raio-m); background: color-mix(in srgb, var(--acima) 10%, var(--cartao)); font-size: 0.875rem; }
+.atu-aviso p { margin: 0; }
+.atu-contador { font-size: 0.8125rem; font-weight: 650; color: var(--acento-forte); }
+@media (max-width: 600px) { .atu-principal { align-self: stretch; width: 100%; } }
 .interruptor { margin-top: 8px; }
-.atu-sobre { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--linha-2); }
+.atu-sobre { margin-top: 10px; }
 .atu-passos { list-style: none; counter-reset: passo; margin: 0; padding: 0; display: grid; gap: 16px; }
 .atu-passos > li { counter-increment: passo; position: relative; padding-left: 40px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 0.875rem; }
 .atu-passos > li::before {

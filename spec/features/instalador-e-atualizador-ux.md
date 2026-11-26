@@ -247,7 +247,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: o mock de google.script.run por cenário no preview e o layout da trilha em 390 e 1440 px
 
-### T-017 — Faixa, app percebe a atualização e O que mudou [em-andamento]
+### T-017 — Faixa, app percebe a atualização e O que mudou [concluida]
 - refs: AC-035, AC-036, AC-037
 - depende: T-014
 - escreve: src/App.html, src/Estilos.html, src/Codigo.gs
@@ -273,7 +273,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: como a lista de etapas e a barra se comportam com prefers-reduced-motion e onde fica a confirmação de voltar atrás
 
-### T-019 — E2E das atualizações no app [pendente]
+### T-019 — E2E das atualizações no app [em-andamento]
 - refs: AC-034, AC-035, AC-036, AC-037, AC-038
 - depende: T-017
 - escreve: testes/e2e.mjs

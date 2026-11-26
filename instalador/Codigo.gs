@@ -23,6 +23,8 @@ var RE_ID_GOOGLE = /^[A-Za-z0-9_-]{20,120}$/;
 var RE_VERSAO = /^\d+\.\d+\.\d+$/;
 var RE_REF = /^[A-Za-z0-9._-]+$/;
 var RE_NOME = /^[A-Za-z0-9_-]+$/;
+var PREFIXO_COPIA = 'Cópia antes de atualizar';
+var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 /* ================================================================
    Página
@@ -37,7 +39,14 @@ function doGet(e) {
   // Sem setXFrameOptionsMode(ALLOWALL): ninguém precisa embutir o instalador em outro site.
   return modelo.evaluate()
     .setTitle('Instalador do Finanças')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    .setFaviconUrl(ICONE_URL);
+}
+
+/** Inclui um pedaço de HTML na página (`<?!= incluir_('Qr') ?>`). Só os nomes da lista passam. */
+function incluir_(nome) {
+  if (nome !== 'Qr') throw new Error('Arquivo não permitido.');
+  return HtmlService.createHtmlOutputFromFile(nome).getContent();
 }
 
 /* ================================================================
@@ -69,6 +78,7 @@ function estado(scriptId, implantacaoId) {
         implantacoes: implantacoesWeb_(listarImplantacoes_(id)).map(function (d) {
           return { id: d.deploymentId, url: urlWeb_(d), versaoNumero: d.deploymentConfig.versionNumber };
         }),
+        copia: copiaMaisRecente_(id),
       };
     } catch (err) {
       r.alvoErro = err.message;
@@ -77,50 +87,216 @@ function estado(scriptId, implantacaoId) {
   return r;
 }
 
-/** Instala do zero: planilha + projeto vinculado + versão + publicação. */
+/* ================================================================
+   Etapas da instalação (cada uma é uma chamada da página)
+   ================================================================ */
+
+/*
+ * Decisão: cada etapa que escreve código (criarProjeto, trocarCodigo) baixa os arquivos de novo
+ * e confere o SHA-256 logo antes do PUT. Chamadas do Apps Script não dividem memória, e guardar
+ * o texto na página ou no cache deixaria adulterar o que será escrito.
+ */
+
+/** Instala do zero encadeando as etapas: planilha + projeto vinculado + versão + publicação. */
 function instalar(opcoes) {
-  var nome = String((opcoes && opcoes.nome) || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Finanças';
   // Tudo o que pode falhar antes é conferido antes: assim um erro não deixa planilha para trás.
+  var prep = prepararInstalacao();
+  var planilha = criarPlanilha(opcoes && opcoes.nome);
+  var projeto = criarProjeto(planilha.planilhaId, prep.versao);
+  return publicarApp(planilha.planilhaId, projeto.scriptId, prep.versao);
+}
+
+/** Etapa 1: autorização, chave da API e arquivos conferidos. Não escreve nada. */
+function prepararInstalacao() {
   exigirPreparo_();
   var pub = versaoPublicada_();
   var arquivos = baixarArquivos_(pub); // confere os hashes antes de criar qualquer coisa
-  var planilha = null;
+  return { versao: pub.versao, arquivos: arquivos.length };
+}
+
+/** Etapa 2: cria a planilha (o drive.file deixa o instalador mexer só nela). */
+function criarPlanilha(nome) {
+  var limpo = String(nome || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Finanças';
+  exigirPreparo_();
+  var p = api_('POST', API_DRIVE + '?fields=id,webViewLink', { name: limpo, mimeType: 'application/vnd.google-apps.spreadsheet' });
+  return { planilhaId: p.id, planilhaUrl: p.webViewLink, nome: limpo };
+}
+
+/** Etapa 3: projeto vinculado à planilha + código conferido. Falha: planilha para a lixeira. */
+function criarProjeto(planilhaId, versao) {
+  exigirIdPlanilha_(planilhaId);
+  exigirVersao_(versao, true);
   try {
-    planilha = api_('POST', API_DRIVE + '?fields=id,webViewLink', { name: nome, mimeType: 'application/vnd.google-apps.spreadsheet' });
-    var scriptId = api_('POST', 'projects', { title: 'Finanças', parentId: planilha.id }).scriptId;
+    exigirPreparo_();
+    var arquivos = baixarArquivos_(conferirVersao_(versao));
+    var scriptId = api_('POST', 'projects', { title: 'Finanças', parentId: planilhaId }).scriptId;
     api_('PUT', 'projects/' + scriptId + '/content', { files: arquivos });
+    return { scriptId: scriptId };
+  } catch (err) {
+    throw falhaInstalacao_(err, planilhaId);
+  }
+}
+
+/** Etapa 4: versão + implantação do app da Web. Falha: planilha para a lixeira. */
+function publicarApp(planilhaId, scriptId, versao) {
+  exigirIdPlanilha_(planilhaId);
+  exigirIdProjeto_(scriptId);
+  exigirVersao_(versao, true);
+  try {
+    exigirPreparo_();
+    var pub = conferirVersao_(versao);
     var v = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Finanças ' + pub.versao });
     var d = api_('POST', 'projects/' + scriptId + '/deployments', {
       versionNumber: v.versionNumber, manifestFileName: 'appsscript', description: 'Finanças ' + pub.versao,
     });
-    return { versao: pub.versao, planilhaUrl: planilha.webViewLink, appUrl: urlWeb_(d), editorUrl: editorUrl_(scriptId), scriptId: scriptId };
+    return {
+      versao: pub.versao, appUrl: urlWeb_(d), planilhaUrl: planilhaUrl_(planilhaId),
+      editorUrl: editorUrl_(scriptId), scriptId: scriptId,
+    };
   } catch (err) {
-    console.error('instalar falhou: ' + (err.detalhe || err.message));
-    // A planilha foi criada por este instalador (drive.file permite mexer só nela): vai para a
-    // lixeira junto com o projeto vinculado, e a pessoa não fica com uma instalação pela metade.
-    var limpou = false;
-    if (planilha) {
-      try { api_('PATCH', API_DRIVE + '/' + planilha.id, { trashed: true }); limpou = true; } catch (e) { limpou = false; }
-    }
-    throw new Error('A instalação não terminou: ' + err.message +
-      (planilha && !limpou ? ' Apague a planilha "' + nome + '" que ficou no seu Drive e tente de novo.' : ' Nada ficou no seu Drive.'));
+    throw falhaInstalacao_(err, planilhaId);
   }
 }
 
+/** Manda a planilha da instalação para a lixeira (a pessoa desistiu ou a instalação falhou). */
+function desfazerInstalacao(planilhaId) {
+  exigirIdPlanilha_(planilhaId);
+  exigirPreparo_();
+  return { limpou: lixeira_(planilhaId) };
+}
+
+/** A planilha foi criada por este instalador: sem ela, a pessoa não fica com a instalação pela metade. */
+function falhaInstalacao_(err, planilhaId) {
+  console.error('instalação falhou: ' + (err.detalhe || err.message));
+  var sufixo = ' Nada ficou no seu Drive.';
+  if (!lixeira_(planilhaId)) {
+    var nome = '';
+    try { nome = ' "' + api_('GET', API_DRIVE + '/' + planilhaId + '?fields=name').name + '"'; } catch (e) { nome = ''; }
+    sufixo = ' Apague a planilha' + nome + ' que ficou no seu Drive e tente de novo.';
+  }
+  return new Error('A instalação não terminou: ' + err.message + sufixo);
+}
+
+function lixeira_(planilhaId) {
+  try { api_('PATCH', API_DRIVE + '/' + planilhaId, { trashed: true }); return true; } catch (e) { return false; }
+}
+
+function planilhaUrl_(planilhaId) {
+  return 'https://docs.google.com/spreadsheets/d/' + planilhaId + '/edit';
+}
+
+/* ================================================================
+   Etapas da atualização e volta atrás
+   ================================================================ */
+
 /** Atualiza uma instalação existente, mantendo o endereço do app e os arquivos extras. */
 function atualizar(scriptId, implantacaoId, versaoEsperada) {
-  if (!RE_ID_GOOGLE.test(scriptId || '')) throw new Error('Endereço do projeto inválido. Abra o link de atualização pelo Finanças.');
-  exigirPreparo_();
-  var alvo = lerAlvo_(scriptId);
-  if (!alvo.ehFinancas) throw new Error('Este projeto não parece ser o Finanças; nada foi alterado.');
-  var pub = versaoPublicada_();
-  if (versaoEsperada && versaoEsperada !== pub.versao) {
-    throw new Error('Saiu outra versão enquanto você olhava (' + pub.versao + '). Recarregue a página e confira as novidades.');
-  }
-  if (compararVersoes_(pub.versao, alvo.versaoAtual) <= 0) return { jaAtual: true, versaoAtual: alvo.versaoAtual };
+  var prep = prepararAtualizacao(scriptId, implantacaoId, versaoEsperada);
+  if (prep.jaAtual) return { jaAtual: true, versaoAtual: prep.versaoAtual };
+  var copia = guardarCopia(scriptId, prep.versaoNova);
+  var troca = trocarCodigo(scriptId, prep.versaoNova);
+  var pub = publicarAtualizacao(scriptId, implantacaoId, prep.versaoNova);
+  return {
+    versaoAnterior: prep.versaoAtual,
+    versaoNova: pub.versaoNova,
+    copiaSeguranca: copia.copiaSeguranca,
+    implantacoes: pub.implantacoes,
+    extrasMantidos: troca.extrasMantidos,
+  };
+}
 
+/** Etapa 1: confere projeto, versão, arquivos e implantações. Não escreve nada. */
+function prepararAtualizacao(scriptId, implantacaoId, versaoEsperada) {
+  exigirIdProjeto_(scriptId);
+  exigirIdImplantacao_(implantacaoId);
+  exigirVersao_(versaoEsperada, false);
+  exigirPreparo_();
+  var alvo = exigirFinancas_(scriptId);
+  var pub = conferirVersao_(versaoEsperada);
+  if (compararVersoes_(pub.versao, alvo.versaoAtual) <= 0) return { jaAtual: true, versaoAtual: alvo.versaoAtual };
   var novos = baixarArquivos_(pub);
   // Descobre as implantações antes de escrever: sem app da Web, nada é alterado.
+  escolherImplantacoes_(scriptId, implantacaoId);
+  return { jaAtual: false, versaoAtual: alvo.versaoAtual, versaoNova: pub.versao, arquivos: novos.length };
+}
+
+/** Etapa 2: cópia de segurança, uma versão do estado atual que a pessoa pode reativar. */
+function guardarCopia(scriptId, versaoNova) {
+  exigirIdProjeto_(scriptId);
+  exigirVersao_(versaoNova, true);
+  exigirPreparo_();
+  exigirFinancas_(scriptId);
+  var pub = conferirVersao_(versaoNova);
+  var copia = api_('POST', 'projects/' + scriptId + '/versions', { description: PREFIXO_COPIA + ' para ' + pub.versao });
+  return { copiaSeguranca: copia.versionNumber };
+}
+
+/** Etapa 3: troca o código, conferido pelo SHA-256 logo antes do PUT. */
+function trocarCodigo(scriptId, versaoNova) {
+  exigirIdProjeto_(scriptId);
+  exigirVersao_(versaoNova, true);
+  exigirPreparo_();
+  var alvo = exigirFinancas_(scriptId);
+  var novos = baixarArquivos_(conferirVersao_(versaoNova));
+  // Arquivos que a pessoa criou ficam como estão. "Código" (com acento, do guia manual) é
+  // trocado por "Codigo"; os dois nunca podem coexistir, senão as funções duplicam.
+  var nomesNovos = novos.map(function (a) { return a.name; });
+  var extras = alvo.arquivos.filter(function (a) {
+    return nomesNovos.indexOf(a.name) < 0 && ['Código', 'Codigo', 'appsscript'].indexOf(a.name) < 0;
+  });
+  api_('PUT', 'projects/' + scriptId + '/content', { files: novos.concat(extras) });
+  return { extrasMantidos: extras.map(function (a) { return a.name; }) };
+}
+
+/** Etapa 4: versão nova + implantações apontadas para ela (o endereço /exec não muda). */
+function publicarAtualizacao(scriptId, implantacaoId, versaoNova) {
+  exigirIdProjeto_(scriptId);
+  exigirIdImplantacao_(implantacaoId);
+  exigirVersao_(versaoNova, true);
+  exigirPreparo_();
+  var alvo = exigirFinancas_(scriptId);
+  var pub = conferirVersao_(versaoNova);
+  if (alvo.versaoAtual !== pub.versao) throw new Error('O código do projeto não está na versão ' + pub.versao + '; nada foi publicado.');
+  var escolhidas = escolherImplantacoes_(scriptId, implantacaoId);
+  var v = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Finanças ' + pub.versao });
+  return { versaoNova: pub.versao, implantacoes: apontarImplantacoes_(scriptId, escolhidas, v.versionNumber, pub.versao) };
+}
+
+/**
+ * Volta para uma cópia de segurança: repõe o conteúdo dela e aponta as implantações para a
+ * versão da cópia. Só aceita versões "Cópia antes de atualizar…" cujo conteúdo seja o Finanças.
+ */
+function voltarVersao(scriptId, implantacaoId, versaoNumero) {
+  exigirIdProjeto_(scriptId);
+  exigirIdImplantacao_(implantacaoId);
+  if (!/^[1-9]\d{0,8}$/.test(String(versaoNumero))) throw new Error('Número de versão inválido.');
+  var numero = Number(versaoNumero);
+  exigirPreparo_();
+  exigirFinancas_(scriptId);
+  var copia = listarVersoes_(scriptId).filter(function (v) { return v.versionNumber === numero; })[0];
+  if (!copia || String(copia.description || '').indexOf(PREFIXO_COPIA) !== 0) {
+    throw new Error('Só dá para voltar para uma cópia guardada antes de atualizar; nada foi alterado.');
+  }
+  var arquivos = api_('GET', 'projects/' + scriptId + '/content?versionNumber=' + numero).files || [];
+  var versaoAtual = versaoFinancas_(arquivos);
+  if (versaoAtual === null) throw new Error('Essa cópia não parece ser o Finanças; nada foi alterado.');
+  var escolhidas = escolherImplantacoes_(scriptId, implantacaoId);
+  api_('PUT', 'projects/' + scriptId + '/content', { files: arquivos });
+  return { versaoAtual: versaoAtual, implantacoes: apontarImplantacoes_(scriptId, escolhidas, numero, versaoAtual) };
+}
+
+/** Aponta cada implantação para a versão; o PUT mantém o mesmo endereço /exec. */
+function apontarImplantacoes_(scriptId, escolhidas, versionNumber, versao) {
+  return escolhidas.map(function (d) {
+    api_('PUT', 'projects/' + scriptId + '/deployments/' + d.deploymentId, {
+      deploymentConfig: { scriptId: scriptId, versionNumber: versionNumber, manifestFileName: 'appsscript', description: 'Finanças ' + versao },
+    });
+    return urlWeb_(d);
+  });
+}
+
+/** A implantação pedida, ou todas as de app da Web com versão; sem nenhuma, explica. */
+function escolherImplantacoes_(scriptId, implantacaoId) {
   var web = implantacoesWeb_(listarImplantacoes_(scriptId));
   var escolhidas = web;
   if (implantacaoId) {
@@ -130,32 +306,45 @@ function atualizar(scriptId, implantacaoId, versaoEsperada) {
   if (!escolhidas.length) {
     throw new Error('Este projeto ainda não tem um app da Web publicado. Publique uma vez pelo editor (Implantar › Nova implantação › App da Web) e tente de novo.');
   }
+  return escolhidas;
+}
 
-  // Cópia de segurança: uma versão do estado atual, que a pessoa pode reativar no editor.
-  var copia = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Cópia antes de atualizar para ' + pub.versao });
+/* ================================================================
+   Validação de argumentos das etapas
+   ================================================================ */
 
-  // Arquivos que a pessoa criou ficam como estão. "Código" (com acento, do guia manual) é
-  // trocado por "Codigo"; os dois nunca podem coexistir, senão as funções duplicam.
-  var nomesNovos = novos.map(function (a) { return a.name; });
-  var extras = alvo.arquivos.filter(function (a) {
-    return nomesNovos.indexOf(a.name) < 0 && ['Código', 'Codigo', 'appsscript'].indexOf(a.name) < 0;
-  });
-  api_('PUT', 'projects/' + scriptId + '/content', { files: novos.concat(extras) });
-  var v = api_('POST', 'projects/' + scriptId + '/versions', { description: 'Finanças ' + pub.versao });
-  var urls = escolhidas.map(function (d) {
-    // O PUT mantém o mesmo endereço /exec; só muda a versão apontada.
-    api_('PUT', 'projects/' + scriptId + '/deployments/' + d.deploymentId, {
-      deploymentConfig: { scriptId: scriptId, versionNumber: v.versionNumber, manifestFileName: 'appsscript', description: 'Finanças ' + pub.versao },
-    });
-    return urlWeb_(d);
-  });
-  return {
-    versaoAnterior: alvo.versaoAtual,
-    versaoNova: pub.versao,
-    copiaSeguranca: copia.versionNumber,
-    implantacoes: urls,
-    extrasMantidos: extras.map(function (a) { return a.name; }),
-  };
+function exigirIdProjeto_(id) {
+  if (!RE_ID_GOOGLE.test(id || '')) throw new Error('Endereço do projeto inválido. Abra o link de atualização pelo Finanças.');
+}
+
+function exigirIdPlanilha_(id) {
+  if (!RE_ID_GOOGLE.test(id || '')) throw new Error('Endereço da planilha inválido. Recarregue a página e tente de novo.');
+}
+
+function exigirIdImplantacao_(id) {
+  if (id && !RE_ID_GOOGLE.test(id)) throw new Error('Endereço da implantação inválido. Abra o link de atualização pelo Finanças.');
+}
+
+function exigirVersao_(versao, obrigatoria) {
+  if (versao || obrigatoria) {
+    if (!RE_VERSAO.test(versao || '')) throw new Error('Versão inválida. Recarregue a página e tente de novo.');
+  }
+}
+
+/** O projeto é o Finanças? Sem isso, nada é alterado. */
+function exigirFinancas_(scriptId) {
+  var alvo = lerAlvo_(scriptId);
+  if (!alvo.ehFinancas) throw new Error('Este projeto não parece ser o Finanças; nada foi alterado.');
+  return alvo;
+}
+
+/** A versão publicada ainda é a que a pessoa viu? Devolve a publicada. */
+function conferirVersao_(versao) {
+  var pub = versaoPublicada_();
+  if (versao && versao !== pub.versao) {
+    throw new Error('Saiu outra versão enquanto você olhava (' + pub.versao + '). Recarregue a página e confira as novidades.');
+  }
+  return pub;
 }
 
 /* ================================================================
@@ -194,13 +383,44 @@ function exigirPreparo_() {
 function lerAlvo_(scriptId) {
   var projeto = api_('GET', 'projects/' + scriptId);
   var arquivos = api_('GET', 'projects/' + scriptId + '/content').files || [];
-  var versaoAtual = null;
+  var versaoAtual = versaoFinancas_(arquivos);
+  return { titulo: projeto.title, arquivos: arquivos, versaoAtual: versaoAtual, ehFinancas: versaoAtual !== null };
+}
+
+/** Versão do Finanças no conteúdo de um projeto, ou null se o conteúdo não for o Finanças. */
+function versaoFinancas_(arquivos) {
+  var versao = null;
   arquivos.forEach(function (a) {
     if (a.type !== 'SERVER_JS' || (a.name !== 'Codigo' && a.name !== 'Código')) return;
     var m = /var VERSAO_APP = '(\d+\.\d+\.\d+)'/.exec(a.source || '');
-    if (m && (a.source || '').indexOf('bsdesenv-financas') >= 0) versaoAtual = m[1];
+    if (m && (a.source || '').indexOf('bsdesenv-financas') >= 0) versao = m[1];
   });
-  return { titulo: projeto.title, arquivos: arquivos, versaoAtual: versaoAtual, ehFinancas: versaoAtual !== null };
+  return versao;
+}
+
+/** Todas as versões do projeto, percorrendo as páginas (no máximo 20). */
+function listarVersoes_(scriptId) {
+  var todas = [], token = '';
+  for (var i = 0; i < 20; i++) {
+    var r = api_('GET', 'projects/' + scriptId + '/versions?pageSize=50' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+    todas = todas.concat(r.versions || []);
+    token = r.nextPageToken || '';
+    if (!token) break;
+  }
+  return todas;
+}
+
+/** A cópia de segurança de maior número, { numero, descricao }, ou null. Erro aqui não derruba o estado. */
+function copiaMaisRecente_(scriptId) {
+  try {
+    var achada = null;
+    listarVersoes_(scriptId).forEach(function (v) {
+      if (String(v.description || '').indexOf(PREFIXO_COPIA) === 0 && (!achada || v.versionNumber > achada.versionNumber)) achada = v;
+    });
+    return achada ? { numero: achada.versionNumber, descricao: achada.description } : null;
+  } catch (err) {
+    return null;
+  }
 }
 
 function listarImplantacoes_(scriptId) {

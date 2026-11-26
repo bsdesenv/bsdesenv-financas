@@ -71,6 +71,10 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
         if (corpo.trashed) pl.trashed = true;
         return resp(200, { id: pl.id });
       }
+      if (metodo === 'GET') {
+        const pl = env.planilhas.find((x) => x.id === url.split('?')[0].split('/').pop());
+        return pl ? resp(200, { name: pl.name }) : resp(404, { error: { message: 'File not found' } });
+      }
       const id = 'PLANILHA' + String(++seq).padStart(14, '0');
       env.planilhas.push({ id, ...corpo });
       return resp(200, { id, webViewLink: `https://docs.google.com/spreadsheets/d/${id}/edit` });
@@ -79,7 +83,8 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
     if (!env.apiLigada) {
       return resp(403, { error: { code: 403, status: 'PERMISSION_DENIED', message: MSG_USERSETTINGS } });
     }
-    const rota = url.replace('https://script.googleapis.com/v1/', '');
+    const [rota, consulta = ''] = url.replace('https://script.googleapis.com/v1/', '').split('?');
+    const query = Object.fromEntries(new URLSearchParams(consulta));
     const m = /^projects\/([^/]+)(?:\/(content|versions|deployments)(?:\/([^/]+))?)?$/.exec(rota);
     // Com a chave ligada, o próprio instalador existe mas a pessoa não tem acesso ao projeto dele.
     if (metodo === 'GET' && rota === 'projects/' + ID_INSTALADOR) {
@@ -97,9 +102,21 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
     if (!sub) return resp(200, { scriptId: id, title: p.title });
     if (sub === 'content') {
       if (metodo === 'PUT') p.files = plano(corpo.files);
+      if (query.versionNumber) {
+        const v = p.versions[Number(query.versionNumber) - 1];
+        return v ? resp(200, { files: plano(v.files) }) : resp(404, { error: { message: 'Version not found' } });
+      }
       return resp(200, { scriptId: id, files: plano(p.files) });
     }
     if (sub === 'versions') {
+      if (metodo === 'GET') {
+        // Páginas de `pageSize` versões; o pageToken é o índice da próxima.
+        const de = Number(query.pageToken || 0), tam = Number(query.pageSize || 50);
+        const lista = p.versions.map((v, i) => ({ versionNumber: i + 1, description: v.descricao }));
+        const pagina = { versions: lista.slice(de, de + tam) };
+        if (de + tam < lista.length) pagina.nextPageToken = String(de + tam);
+        return resp(200, pagina);
+      }
       p.versions.push({ descricao: corpo.description, files: plano(p.files) });
       return resp(200, { scriptId: id, versionNumber: p.versions.length, description: corpo.description });
     }
@@ -145,7 +162,7 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
 
   const contexto = {
     console: { error() {}, log() {} },
-    JSON, Array, Object, String, Number, RegExp, Error,
+    JSON, Array, Object, String, Number, RegExp, Error, encodeURIComponent,
     UrlFetchApp: { fetch: (url, opcoes) => rotear({ ...opcoes, url }), fetchAll: (reqs) => reqs.map(rotear) },
     ScriptApp: {
       getOAuthToken: () => 'token-falso',
@@ -166,12 +183,14 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in env.props ? env.props[k] : null) }) },
     HtmlService: {
+      createHtmlOutputFromFile: (nome) => ({ getContent: () => `<script>/* ${nome} */</script>` }),
       createTemplateFromFile: (nome) => {
         const modelo = { nome };
         modelo.evaluate = () => {
           const saida = { nome, titulo: null, metas: {}, valores: { script: modelo.script, implantacao: modelo.implantacao }, ajustes: [] };
           saida.setTitle = (t) => { saida.titulo = t; return saida; };
           saida.addMetaTag = (k, v) => { saida.metas[k] = v; return saida; };
+          saida.setFaviconUrl = (u) => { saida.favicon = u; return saida; };
           saida.setXFrameOptionsMode = (m) => { saida.ajustes.push('xframe:' + m); return saida; };
           env.ultimaPagina = saida;
           return saida;

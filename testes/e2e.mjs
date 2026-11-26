@@ -2104,6 +2104,96 @@ await caso('3.1.0 recorrências: o que falta pagar mostra o vencimento, e o fech
   await p.close();
 });
 
+await caso('3.5.0 fechamento: “Não aconteceu em todas” esvazia a lista sem mudar a sobra, e o Desfazer devolve', async () => {
+  const dados = { nome: 'Nao todas', categorias: [
+    { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 }, { id: 'luz', nome: 'Luz', grupo: 'fixo', ordem: 2 },
+    { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 3 }, { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 },
+    { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 5 },
+  ], anos: { 2026: { lancamentos: [
+    { id: 'f1', mes: 10, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    { id: 'f2', mes: 10, dia: 2, categoriaId: 'mercado', descricao: '', valor: 300 },
+  ], orcamento: { aluguel: { 10: 1000 }, luz: { 10: 150 }, mercado: { 10: 400 }, lazer: { 10: 200 }, salario: { 10: 5000 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, CEL, montarPagina(a, 'fech-nao-todas'));
+  await pronto(p);
+  await p.evaluate(() => abrirFechamento(2026, 10)); await folhaAberta(p);
+  assert.equal(await p.$eval('.folha.aberta p.sub', (e) => e.textContent), 'Aqui ficam as contas que faltam pagar e os planos sem nenhum lançamento. Plano com gasto já fecha no que você gastou.');
+  const botaoTodas = await p.$eval('[data-f="nao-todas"]', (e) => e.textContent);
+  assert.ok(botaoTodas.includes('Não aconteceu em todas (3)'), botaoTodas);
+  assert.equal(await p.$('[data-f="todas-auto"]'), null, 'sem automáticas, sem botão de confirmar');
+  const cabe = await p.$eval('.folha.aberta', (e) => e.scrollWidth <= e.clientWidth + 1);
+  assert.ok(cabe, 'sem estouro a 390 px');
+  const sobraAntes = await p.$eval('#fech-sobra', (e) => e.textContent);
+  await p.click('[data-f="nao-todas"]'); await sincronizado(p);
+  assert.equal(await p.$$eval('.fech-item', (els) => els.length), 0, 'a lista esvazia');
+  assert.equal(await p.$eval('#fech-ok', (e) => e.disabled), false, 'Fechar liberado');
+  assert.equal(await p.$eval('#fech-sobra', (e) => e.textContent), sobraAntes, 'a sobra não muda');
+  for (const id of ['aluguel', 'luz', 'lazer']) {
+    assert.equal(String((configDe(a, 'encerrada:2026-10:' + id) || [])[1]), '1', 'marca de ' + id);
+  }
+  await p.click('.aviso .aviso-acao'); await sincronizado(p);
+  assert.equal(await p.$$eval('.fech-item', (els) => els.length), 3, 'o Desfazer devolve as 3 pendências');
+  assert.equal(await p.$eval('#fech-ok', (e) => e.disabled), true, 'Fechar travado de novo');
+  assert.equal(configDe(a, 'encerrada:2026-10:aluguel'), undefined, 'o Desfazer apaga a marca');
+  await p.close();
+});
+
+await caso('3.5.0 fechamento: com automáticas, o lote “nas demais” deixa só as automáticas', async () => {
+  const dados = { nome: 'Automaticas', categorias: [
+    { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 }, { id: 'luz', nome: 'Luz', grupo: 'fixo', ordem: 2 },
+    { id: 'net', nome: 'Internet', grupo: 'fixo', ordem: 3 }, { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 },
+    { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 5 },
+  ], anos: { 2026: { lancamentos: [
+    { id: 'b1', mes: 10, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: { salario: { 10: 5000 }, lazer: { 10: 200 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'fech-automaticas'));
+  await pronto(p);
+  await p.evaluate(() => {
+    const base = { descricao: '', inicio: 202601, fim: null };
+    registrar({ t: 'rec', r: { id: 'ra', categoriaId: 'aluguel', valor: 900, dia: 10, automatico: false, ...base } });
+    registrar({ t: 'rec', r: { id: 'rb', categoriaId: 'luz', valor: 150, dia: 25, automatico: true, ...base } });
+    registrar({ t: 'rec', r: { id: 'rc', categoriaId: 'net', valor: 100, dia: 28, automatico: true, ...base } });
+  });
+  await sincronizado(p);
+  await p.evaluate(() => abrirFechamento(2026, 10)); await folhaAberta(p);
+  const pend = JSON.stringify(await p.evaluate(() => resumo(2026, 10).pendencias.itens.map((x) => x.c.id)));
+  const botaoAutos = await p.$eval('[data-f="todas-auto"]', (e) => e.textContent);
+  assert.ok(botaoAutos.includes('(2)'), 'pendências: ' + pend + ' | ' + botaoAutos);
+  const botaoDemais = await p.$eval('[data-f="nao-todas"]', (e) => e.textContent);
+  assert.ok(botaoDemais.includes('Não aconteceu nas demais (2)'), 'pendências: ' + pend + ' | ' + botaoDemais);
+  await p.click('[data-f="nao-todas"]'); await sincronizado(p);
+  const itens = await p.$$eval('.fech-item', (els) => els.map((e) => e.textContent));
+  assert.equal(itens.length, 2, 'restam as 2 automáticas; pendências: ' + pend + ' | ' + JSON.stringify(itens));
+  assert.ok(itens.some((t) => t.includes('Luz')) && itens.some((t) => t.includes('Internet')), JSON.stringify(itens));
+  await p.close();
+});
+
+await caso('3.5.0 fechamento: o adiado fica fora do lote, e com uma pendência só o lote some', async () => {
+  const dados = { nome: 'Adiado', categorias: [
+    { id: 'aluguel', nome: 'Aluguel', grupo: 'fixo', ordem: 1 }, { id: 'luz', nome: 'Luz', grupo: 'fixo', ordem: 2 },
+    { id: 'mercado', nome: 'Mercado', grupo: 'variavel', ordem: 3 }, { id: 'lazer', nome: 'Lazer', grupo: 'variavel', ordem: 4 },
+    { id: 'salario', nome: 'Salário', grupo: 'renda', ordem: 5 },
+  ], anos: { 2026: { lancamentos: [
+    { id: 'f1', mes: 10, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+    { id: 'f2', mes: 10, dia: 2, categoriaId: 'mercado', descricao: '', valor: 300 },
+  ], orcamento: { aluguel: { 10: 1000 }, luz: { 10: 150 }, mercado: { 10: 400 }, lazer: { 10: 200 }, salario: { 10: 5000 } } } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, PC, montarPagina(a, 'fech-adiado'));
+  await pronto(p);
+  await p.evaluate(() => abrirFechamento(2026, 10)); await folhaAberta(p);
+  await p.click('.fech-item [data-f="depois"]');
+  const botaoTodas = await p.$eval('[data-f="nao-todas"]', (e) => e.textContent);
+  assert.ok(botaoTodas.includes('(2)'), botaoTodas);
+  await p.click('[data-f="nao-todas"]'); await sincronizado(p);
+  assert.equal(await p.$$eval('.fech-item', (els) => els.length), 0, 'o lote deixa a lista vazia');
+  assert.ok(await p.$('[data-f="mostrar"]'), 'o aviso “Mostrar de novo” aparece');
+  await p.click('[data-f="mostrar"]');
+  assert.equal(await p.$$eval('.fech-item', (els) => els.length), 1, 'com uma pendência, o lote some');
+  assert.equal(await p.$('[data-f="nao-todas"]'), null, 'sem lote com uma pendência só');
+  await p.close();
+});
+
 await caso('3.1.0 parcelas: Parcelar no Novo, prévia, N lançamentos, Desfazer único', async () => {
   const dados = { nome: 'Parcelas', categorias: catsBase(), anos: { 2026: { lancamentos: [
     { id: 'pa', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },

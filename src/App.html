@@ -3294,7 +3294,7 @@ function abrirFechamento(ano, mes) {
     tipo: 'fechamento',
     montar(el) {
       el.innerHTML = topoFolha(`Fechar ${nm} de ${ano}`, 'Fechamento do mês')
-        + '<div class="folha-corpo"><p class="sub">Cada pendência é um plano que não foi lançado nem encerrado. Diga o que aconteceu com ele.</p>'
+        + '<div class="folha-corpo"><p class="sub">Aqui ficam as contas que faltam pagar e os planos sem nenhum lançamento. Plano com gasto já fecha no que você gastou.</p>'
         + '<div class="fech-lista" id="fech-lista"></div>'
         + '<label class="opcao" id="fech-levar" hidden><input type="checkbox" id="fech-levar-cb" checked><span><strong id="fech-levar-t"></strong>'
         + '<span id="fech-levar-n">Entra no dia 1 como renda “Sobra do mês anterior”. Não conta como renda nova nos totais do ano.</span></span></label></div>'
@@ -3307,8 +3307,11 @@ function abrirFechamento(ano, mes) {
         const qAdiadas = itens.length - visiveis.length;
         const aviso0 = qAdiadas ? `<p class="sub">${qAdiadas === 1 ? 'Uma pendência ficou para depois' : qAdiadas + ' pendências ficaram para depois'}. <button type="button" class="link" data-f="mostrar">Mostrar de novo</button></p>` : '';
         const autos = visiveis.filter((it) => !it.renda && soAutomaticas(it.c.id, ano, mes));
-        const btnAutos = autos.length > 1 ? `<div class="acoes"><button type="button" class="botao pequeno" data-f="todas-auto">${ic('check', 16)}Confirmar todas as automáticas (${autos.length})</button></div>` : '';
-        $('#fech-lista', el).innerHTML = btnAutos + (visiveis.length ? visiveis.map((it) => {
+        const btnAutos = autos.length > 1 ? `<button type="button" class="botao pequeno" data-f="todas-auto">${ic('check', 16)}Confirmar todas as automáticas (${autos.length})</button>` : '';
+        const demais = visiveis.filter((it) => it.renda || !soAutomaticas(it.c.id, ano, mes));
+        const btnNao = demais.length > 1 ? `<button type="button" class="botao pequeno fantasma" data-f="nao-todas">Não aconteceu ${autos.length ? 'nas demais' : 'em todas'} (${demais.length})</button>` : '';
+        const lote = btnAutos || btnNao ? `<div class="acoes">${btnAutos}${btnNao}</div>` : '';
+        $('#fech-lista', el).innerHTML = lote + (visiveis.length ? visiveis.map((it) => {
           const dados = `data-cat="${esc(it.c.id)}"`;
           return `<div class="fech-item">${mono(it.c, true)}<div class="fech-txt"><strong>${esc(it.c.nome)}</strong><span>${it.renda ? 'a receber' : 'previsto'} ${esc(moeda(it.valor))}${soAutomaticas(it.c.id, ano, mes) ? ' · débito automático' : ''}</span></div>`
             + `<div class="fech-botoes"><button type="button" class="botao pequeno" data-f="feito" ${dados}>${it.renda ? 'Foi recebido' : 'Foi pago'}</button>`
@@ -3343,6 +3346,13 @@ function abrirFechamento(ano, mes) {
           for (const x of alvo) { const lr = lancarPrevisto(x.c.id, ano, mes); if (lr) { ids.push(...lr.ids); total += lr.total; } }
           if (!ids.length) return;
           aviso(`${alvo.length} conta${alvo.length > 1 ? 's' : ''} automática${alvo.length > 1 ? 's' : ''} confirmada${alvo.length > 1 ? 's' : ''}: ${moeda(total)} lançado em ${nm}.`, { acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); if (el.isConnected) atualizar(); } });
+          atualizar();
+        } else if (f === 'nao-todas') {
+          const alvo = resumo(ano, mes).pendencias.itens.filter((x) => !adiadas.has(x.c.id) && (x.renda || !soAutomaticas(x.c.id, ano, mes)));
+          if (!alvo.length) return;
+          const chaves = alvo.map((x) => chaveEncerrada(ano, mes, x.c.id));
+          registrarLote(chaves.map((k) => ({ t: 'cfg', k, v: '1' })));
+          aviso(`${alvo.length} pendência${alvo.length > 1 ? 's' : ''} marcada${alvo.length > 1 ? 's' : ''} como “Não aconteceu” em ${nm}.`, { acao: 'Desfazer', fn: () => { registrarLote(chaves.map((k) => ({ t: 'cfg', k, v: '' }))); if (el.isConnected) atualizar(); } });
           atualizar();
         } else if (f === 'nao') { encerrarCategoria(cid, ano, mes, true); atualizar(); }
         else if (f === 'depois') { adiadas.add(cid); atualizar(); }

@@ -145,8 +145,8 @@ O endereço do app acompanha o mês que você está vendo. Assim, dá para guard
 
 O Início responde, de cima para baixo, a perguntas sobre o mês:
 
-- **Disponível:** quanto ainda dá para gastar até o fim do mês. O número grande é o **Disponível**. Abaixo, a linha "Cerca de R$ ... por dia nos próximos N dias, além dos planos" mostra o valor por dia, arredondado. Toque em **Ver composição** para abrir a conta completa, com o botão **Ajustar planos**. A barra separa **Já saiu**, **Reservado** e **Disponível**, com valores e percentuais.
-- **O que falta pagar:** três grupos. **Contas** são as contas fixas que faltam neste mês. **Confirmar** lança o que falta, no dia do vencimento quando a conta se repete todo mês (senão, hoje), e **Quitar** aparece quando a conta já teve pagamento parcial. Contas com dia mostram "vence dia 10", "vence hoje" ou "atrasada desde dia 5" (veja **O que se repete todo mês**). **Guardar** mostra o que falta da meta, com o botão **Guardar**. **A receber** são as rendas que ainda não chegaram: **Recebi** lança o que entrou, e **Não vem** tira o que não vai entrar. O total ao lado do título soma contas e Guardar.
+- **Disponível:** quanto ainda dá para gastar até o fim do mês. O número grande é o **Disponível**. Abaixo, a linha "Cerca de R$ ... por dia nos próximos N dias, além dos planos" mostra o valor por dia, arredondado. Toque em **Ver composição** para abrir a conta completa, com o botão **Ajustar planos**. Nos últimos 7 dias do mês, se ainda houver plano reservado, aparece **Revisar sobras**: ele abre a composição direto em **Ainda nos planos**, para você liberar o que não vai mais gastar. A barra separa **Já saiu**, **Reservado** e **Disponível**, com valores e percentuais.
+- **O que falta pagar:** três grupos. **Contas** são as contas fixas que faltam neste mês. **Confirmar** lança o que falta, no dia do vencimento quando a conta se repete todo mês (senão, hoje), e **Liberar** aparece quando a conta já teve pagamento parcial e veio mais barata. Contas com dia mostram "vence dia 10", "vence hoje" ou "atrasada desde dia 5" (veja **O que se repete todo mês**). **Guardar** mostra o que falta da meta, com o botão **Guardar**. **A receber** são as rendas que ainda não chegaram: **Recebi** lança o que entrou, e **Não vem** tira o que não vai entrar. O total ao lado do título soma contas e Guardar.
 - **Plano do mês:** como você está nos planos. Em cima, o **ritmo** diz se o consumo está **No ritmo**, **Acima do ritmo** ou **Acima do plano**. Depois vem a **meta de economia**: o que já foi guardado e o campo **Meta de <mês>**. Digite a meta no campo; a palavra **salvo** aparece quando grava. **Usar sugestão** aparece quando há uma sugestão diferente da meta (80% da sua sobra de consumo dos últimos 3 meses fechados), e **Limpar meta** remove a meta do mês. Sem a categoria Guardar, o bloco oferece criá-la. Em seguida, as categorias variáveis, cada uma com gasto, plano e ritmo. No celular, aparecem só as primeiras; **Ver todas as categorias** leva à tela Mês. Os **avisos** mostram categorias que passaram do plano ou que estão gastando rápido demais. **Ver lançamentos** abre as contas que somaram a categoria. Se há gasto sem plano, o bloco mostra o valor e oferece **Planejar pela média**. No topo do bloco, **Ajustar planos** leva à tela Mês, e **Como funciona** explica os cálculos.
 - **Onde foi:** barras com as 6 maiores saídas do mês, com nome, valor e percentual, e **Demais categorias**. Guardar não entra. Toque numa barra para lançar ou ajustar o plano daquela categoria. Num mês que já passou, o título é **Para onde foi o dinheiro**. Num mês futuro, em vez dele aparece **Plano por categoria**, com o plano de cada uma. Num mês futuro que já tem lançamentos (parcelas, por exemplo), o topo diz quanto das saídas já está lançado, e a composição mostra **Já lançado** no lugar de **Já saiu**.
 - **Últimos lançamentos:** os 6 mais recentes do mês. **Ver extrato** abre o Extrato.
@@ -173,17 +173,17 @@ Renda do mês (recebida + a receber)
 - **Renda do mês** é o que já entrou, mais o que falta das rendas previstas (**a receber**). Se você recebe só parte do salário, como o vale do dia 20, o disponível não cai. O resto aparece como **a receber**.
 - **Contas a pagar** é o que falta das contas fixas.
 - **Falta guardar** é o que falta para a meta de Guardar.
-- **Ainda nos planos** é o que resta dos planos das categorias variáveis. Cada plano reserva o que ainda falta dele, até o fim do mês ou até você encerrar a categoria no mês.
+- **Ainda nos planos** é o que resta dos planos das categorias variáveis. Cada plano reserva o que ainda falta dele, até o fim do mês ou até você liberar a sobra.
 
 Gastar dentro de um plano não muda o disponível: o valor sai de **Ainda nos planos**. Gastar sem plano, ou além do plano, reduz o disponível na mesma medida.
 
-**Quitar, Encerrar no mês e Não vem mais.** Ao tocar numa categoria, o painel mostra uma destas opções, conforme o tipo dela:
+**Liberar a sobra e Não vem mais.** Quando uma despesa fecha abaixo do plano, o que sobrou continua reservado até o fim do mês. Para devolvê-lo ao disponível antes:
 
-- **Quitar (libera R$ X):** conta fixa paga em parte, porque veio mais barata.
-- **Encerrar no mês (libera R$ X):** categoria variável. Você não vai gastar mais nela neste mês.
-- **Não vem mais (tira R$ X):** renda que não vai entrar toda.
+- **Na composição:** em **Ver composição** (ou **Revisar sobras**), cada linha de **Contas a pagar** e **Ainda nos planos** tem o botão **Liberar**. **Liberar todos** libera de uma vez todos os planos das categorias variáveis. Tocar no nome abre a categoria.
+- **Na categoria:** o painel mostra **Liberar R$ X**, com a frase "O plano fecha no que você gastou". Vale para conta fixa que veio mais barata e para categoria variável em que você não vai gastar mais.
+- **Renda:** **Não vem mais (tira R$ X)** tira o que não vai entrar.
 
-O que faltava deixa de ser reservado, mas o plano continua gravado. **Reabrir no mês** desfaz.
+O plano fica no que foi gasto: o que faltava volta ao disponível, e o valor planejado continua gravado, sem mudar. A categoria mostra "Liberado · fechou em R$ X". O aviso tem **Desfazer**, e no painel da categoria **Voltar a reservar** (na renda, **Reabrir no mês**) desfaz.
 
 **Meses passados** mostram a **sobra realizada**: o que entrou menos o que saiu, só com o que foi lançado. Planos que ficaram sem lançamento aparecem à parte, no aviso "Não entram N planos sem lançamento", e não entram na sobra. **Meses futuros** mostram a **sobra prevista**, pela mesma conta do disponível. O gráfico **Sobra mês a mês** mostra a sobra realizada dos meses fechados e a prevista em contorno.
 

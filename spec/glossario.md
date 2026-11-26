@@ -7,6 +7,7 @@ Entra aqui o termo que um recém-chegado entenderia errado, e principalmente **o
 | Termo | Significa |
 |---|---|
 | **disponível** | Renda do mês − o que já saiu − o que ainda está reservado (contas a pagar + planos restantes). Gastar dentro de um plano não muda o disponível. |
+| **liberar** | Encerrar uma despesa no mês (marca `encerrada:AAAA-MM:<id>`): o que faltava do plano deixa de ser reservado e volta ao **disponível**; o plano continua gravado e o mês fecha no que foi gasto. Na renda, a mesma marca se chama **Não vem mais**. |
 | **renda** | Entrada de dinheiro do mês. Pode ser prevista e recebida parcialmente; receber parte de uma renda prevista não altera o disponível. |
 | **fixo** | Categoria de despesa que se repete todo mês (ex.: aluguel, internet). Um dos valores de `GRUPOS`. |
 | **variável** | Categoria de despesa que varia de mês a mês (ex.: mercado, lazer). Um dos valores de `GRUPOS`. |

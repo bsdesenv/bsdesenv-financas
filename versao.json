@@ -1,14 +1,11 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.4.0",
-  "ref": "v3.4.0",
+  "versao": "3.5.0",
+  "ref": "v3.5.0",
   "data": "2026-11-26",
   "novidades": [
-    "Liberar a sobra",
-    "Liberar direto na composição",
-    "Revisar sobras",
-    "Um nome só",
-    "Sem teclado ao abrir uma categoria no celular"
+    "Fechar o mês de uma vez",
+    "A folha explica o que é pendência"
   ],
   "arquivos": [
     {
@@ -17,7 +14,7 @@
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
       "bytes": 35919,
-      "sha256": "732099fb8ddd8180cb175fc030a5b65189ccb6700bd0f8ba2073a6cdb551cead"
+      "sha256": "4e07ac629f50a3af45da0b88c1902b3e98c56692c8dbf3a10e391e5a249aed4b"
     },
     {
       "nome": "Index",
@@ -40,8 +37,8 @@
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 329094,
-      "sha256": "5f1760e2f2533ea38b870643e4c725f99674e63f215bccf1562d601886fdf607"
+      "bytes": 330159,
+      "sha256": "74199100afb405cc2346e139414ff99800335ba99c235c92c9546a81423d9a37"
     },
     {
       "nome": "appsscript",

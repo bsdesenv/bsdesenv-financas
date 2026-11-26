@@ -9,7 +9,7 @@
  * Detalhes: docs/ARQUITETURA.md (Dados, Sincronização, Segurança).
  */
 
-var VERSAO_APP = '3.4.0';
+var VERSAO_APP = '3.5.0';
 var ICONE_URL = 'https://raw.githubusercontent.com/bsdesenv/bsdesenv-financas/main/docs/img/icone-192.png';
 
 var CABECALHOS = {

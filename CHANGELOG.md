@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.0 — 2026-11-26
+
+### Novo
+- **Fechar o mês de uma vez.** Na folha de fechamento, **Não aconteceu em todas** resolve de uma vez as pendências que sobraram. Com contas de débito automático na lista, o botão diz **Não aconteceu nas demais** e deixa as automáticas para o lote delas. O que foi adiado com **Depois** fica de fora. Um aviso com **Desfazer** devolve todas.
+
+### Mudou
+- **A folha explica o que é pendência.** Só as contas que faltam pagar e os planos sem nenhum lançamento entram na lista. Plano com gasto já fecha no que você gastou.
+
 ## 3.4.0 — 2026-11-26
 
 ### Novo

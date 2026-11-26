@@ -235,7 +235,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: o desenho das ilustrações dos quatro passos em HTML/CSS, sem imitar a marca do Google
 
-### T-016 — Trilha de passos do instalador [em-andamento]
+### T-016 — Trilha de passos do instalador [concluida]
 - refs: AC-025, AC-026, AC-027, AC-029
 - depende: T-012, T-013
 - escreve: instalador/Index.html, testes/preview-instalador.mjs
@@ -260,7 +260,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: onde guardar versão vista e faixa fechada (localStorage por planilha) e quando consultar versaoServidor
 
-### T-018 — Progresso, sucesso e atualizar no instalador [pendente]
+### T-018 — Progresso, sucesso e atualizar no instalador [em-andamento]
 - refs: AC-028, AC-029, AC-030, AC-031, AC-032, AC-033
 - depende: T-016
 - escreve: instalador/Index.html, testes/e2e-instalador.mjs

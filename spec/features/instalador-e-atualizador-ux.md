@@ -273,7 +273,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: como a lista de etapas e a barra se comportam com prefers-reduced-motion e onde fica a confirmação de voltar atrás
 
-### T-019 — E2E das atualizações no app [em-andamento]
+### T-019 — E2E das atualizações no app [concluida]
 - refs: AC-034, AC-035, AC-036, AC-037, AC-038
 - depende: T-017
 - escreve: testes/e2e.mjs

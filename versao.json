@@ -1,11 +1,14 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.5.0",
-  "ref": "v3.5.0",
+  "versao": "3.6.0",
+  "ref": "v3.6.0",
   "data": "2026-11-26",
   "novidades": [
-    "Fechar o mês de uma vez",
-    "A folha explica o que é pendência"
+    "Instalador em passos",
+    "Progresso de verdade",
+    "Levar para o celular",
+    "Voltar para a versão anterior",
+    "O app percebe a atualização"
   ],
   "arquivos": [
     {
@@ -14,7 +17,7 @@
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
       "bytes": 36079,
-      "sha256": "5d5c2b4ea33afc96f88d0bc841d11ce6b4e20f0337d515a6925bcfe866c58f0d"
+      "sha256": "62d7d6d61a5d2415303d8bff97beb41904daaa0a40be8b1d3dc00e92794eab2c"
     },
     {
       "nome": "Index",

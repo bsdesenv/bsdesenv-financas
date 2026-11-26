@@ -297,7 +297,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - verifica: npm test
 - executor: mecanico
 
-### T-021 — Versão 3.6.0 [pendente]
+### T-021 — Versão 3.6.0 [concluida]
 - refs: AC-034
 - depende: T-020
 - escreve: versao.json, CHANGELOG.md

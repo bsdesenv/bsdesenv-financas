@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.6.0 — 2026-11-26
+
+### Novo
+- **Instalador em passos.** A tela mostra **Passo n de 4** (Autorizar, Ligar a API, Escolher o nome, Instalar). No computador, os passos ficam numa coluna à esquerda; no celular, numa barra no topo, com o botão principal fixo embaixo. Depois de ligar a API, ao voltar à aba o instalador confere sozinho e avança.
+- **Progresso de verdade.** Instalar e atualizar mostram cada etapa terminando (conferir o código, criar a planilha ou guardar a cópia, enviar o código, publicar). Se algo falha, a tela diz em que etapa parou, o que foi desfeito e oferece **Tentar de novo**, **Instalar à mão** e o detalhe técnico para copiar.
+- **Levar para o celular.** Ao terminar a instalação no computador, um QR code abre o app no celular. No celular, a tela ensina a pôr o app na tela inicial do iPhone e do Android.
+- **Voltar para a versão anterior.** Depois de atualizar, o instalador oferece voltar para a cópia guardada antes da atualização, com confirmação na própria tela, e depois **Atualizar de novo**.
+- **O app percebe a atualização.** Uma faixa na Visão geral avisa quando há versão nova. Ao voltar ao app depois de atualizar, ele mostra **Atualizado para X** com **Recarregar**, e na primeira abertura mostra uma vez **O que mudou**.
+- **Página Antes de começar.** Uma página explica, com desenhos, o que vai acontecer na instalação e o aviso do Google, antes de abrir o instalador.
+
+### Mudou
+- **Atualizações com uma ação só.** Em Ajustes › Atualizações, o botão principal é **Atualizar para X**. **Atualizar à mão** e **Verificar agora** ficam em **Outras formas**, e **Sobre e privacidade** fica recolhido. No celular, a atualização à mão avisa que precisa de computador e conta os arquivos copiados.
+
 ## 3.5.0 — 2026-11-26
 
 ### Novo

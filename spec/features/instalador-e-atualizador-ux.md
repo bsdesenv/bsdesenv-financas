@@ -187,7 +187,7 @@ Como `pessoa` que ainda não instalou, quero saber o que vai aparecer antes de c
 limite: 4
 justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instalador por onda
 
-### T-012 — Etapas do instalador e voltar atrás [pendente]
+### T-012 — Etapas do instalador e voltar atrás [concluida]
 - refs: AC-028, AC-032, AC-033
 - depende: -
 - escreve: instalador/Codigo.gs, testes/instalador.test.mjs, testes/instalador-mock.mjs
@@ -199,7 +199,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: baixar de novo ou reaproveitar os arquivos entre etapas, mantendo a conferência SHA-256 antes de toda escrita
 
-### T-013 — Gerador de QR code [pendente]
+### T-013 — Gerador de QR code [concluida]
 - refs: AC-030
 - depende: -
 - escreve: instalador/Qr.html, testes/qr.test.mjs
@@ -211,7 +211,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: como reduzir a qrcodegen ao modo byte e à correção M sem barra dupla fora de comentário
 
-### T-014 — Cartão de Atualizações e folha à mão [pendente]
+### T-014 — Cartão de Atualizações e folha à mão [concluida]
 - refs: AC-034, AC-038
 - depende: -
 - escreve: src/App.html, src/Estilos.html
@@ -223,7 +223,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: o desenho do selo de estado e dos blocos recolhidos (details/summary ou botão) no PC e no celular
 
-### T-015 — Página Antes de começar [pendente]
+### T-015 — Página Antes de começar [concluida]
 - refs: AC-039
 - depende: -
 - escreve: docs/index.html, docs/.nojekyll
@@ -235,7 +235,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: o desenho das ilustrações dos quatro passos em HTML/CSS, sem imitar a marca do Google
 
-### T-016 — Trilha de passos do instalador [pendente]
+### T-016 — Trilha de passos do instalador [em-andamento]
 - refs: AC-025, AC-026, AC-027, AC-029
 - depende: T-012, T-013
 - escreve: instalador/Index.html, testes/preview-instalador.mjs
@@ -247,7 +247,7 @@ justificativa: 10 tarefas; o gargalo é a revisão de 4 diffs de UI e de instala
 - executor: pleno
 - decidir: o mock de google.script.run por cenário no preview e o layout da trilha em 390 e 1440 px
 
-### T-017 — Faixa, app percebe a atualização e O que mudou [pendente]
+### T-017 — Faixa, app percebe a atualização e O que mudou [em-andamento]
 - refs: AC-035, AC-036, AC-037
 - depende: T-014
 - escreve: src/App.html, src/Estilos.html, src/Codigo.gs

@@ -6,6 +6,7 @@
 |---|---|---|
 | 25/11/2026 | `251126-faixa-do-apps-script.md` | Análise: tirar a faixa cinza do Apps Script (moldura + `ALLOWALL`); descartado por complexidade, segurança e diversidade de navegadores |
 | 25/11/2026 | `251126-parecer-de-consumo.md` | Parecer de consumo: primeiro, janela pré-kit; 1 melhoria proposta (medidor `--desde`) |
+| 26/11/2026 | `261126-liberar-sobra-do-plano.md` | UX/UI para liberar a sobra de um plano: verbo único, ação na composição, aviso no fim do mês |
 | — | `melhorias-ux-ui-v3.md` | Melhorias de UX/UI para a versão 3 |
 | — | `redesign-ux-ui.md` | Redesign de UX/UI |
 

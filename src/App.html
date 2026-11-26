@@ -1212,7 +1212,7 @@ function notaCategoria(c, v, est, ano = S.ano, mes = S.mes) {
     if (v.plano > 0) return `Faltam ${moeda(v.plano - v.real)}`;
     return v.real ? 'Guardado' : 'Nada guardado';
   }
-  if (v.encerrada) return c.grupo === 'renda' ? `Não vem mais · recebido ${moeda(v.real)}` : `Encerrada no mês · ${moeda(v.real)} de ${moeda(v.plano)}`;
+  if (v.encerrada) return c.grupo === 'renda' ? `Não vem mais · recebido ${moeda(v.real)}` : `Liberado · fechou em ${moeda(v.real)} (plano ${moeda(v.plano)})`;
   if (v.fase === 'futuro') return v.plano ? (c.grupo === 'renda' ? 'Renda prevista' : 'Planejado') : 'Sem plano';
   if (v.fase === 'passado') {
     if (v.tipo === 'previsto') return `Sem lançamento · plano de ${moeda(v.plano)} fora da sobra`;
@@ -1380,7 +1380,7 @@ function avisoMudanca(r) {
   if (S.exemplo || !LS.ler('aviso-2.8.0-mostrar') || LS.ler('aviso-2.8.0') || !(chaveMes(S.ano, S.mes) > inicioDados())) return '';
   const igual = Math.abs(r.legado.disponivel - r.disponivel) < 0.005;
   return '<div class="nota nota-info aviso-mudanca"><p><strong>As contas do mês mudaram na versão 2.8.0.</strong> '
-    + 'Agora o que falta de cada plano fica reservado até você lançar tudo ou encerrar a categoria no mês, e receber parte de uma renda prevista não derruba o número. '
+    + 'Agora o que falta de cada plano fica reservado até você lançar tudo ou liberar a sobra, e receber parte de uma renda prevista não derruba o número. '
     + (igual ? 'Neste mês, o disponível não mudou. ' : `Pela regra antiga, o disponível de ${MESES[S.mes - 1]} seria ${moeda(r.legado.disponivel)}; pela nova, é ${moeda(r.disponivel)}. `)
     + '<button type="button" class="link" data-acao="aviso-mudanca-ok" data-foco="aviso-mudanca-ok">Entendi</button></p></div>';
 }
@@ -1439,11 +1439,17 @@ function cartaoHeroi(r) {
       + `<span>${rendaLbl}${rendaDet} <strong>${moeda(r.renda)}</strong></span>`
       + (r.aReceber > 0 ? `<span>A receber <strong>${moeda(r.aReceber)}</strong></span>` : '')
       + '</div>';
+    const comSobra = r.porCat.filter(({ c, v }) => v.falta > 0 && c.grupo !== 'renda' && !ehGuardar(c));
+    const reservaSobra = r.nosPlanos + r.contasAPagar;
+    const revisar = r.restantes > 0 && r.restantes <= 7 && comSobra.length && reservaSobra > 0
+      ? `<div class="heroi-revisar"><p>${moeda(reservaSobra)} ainda reservados em ${comSobra.length} ${comSobra.length > 1 ? 'planos' : 'plano'}. Algum já acabou?</p><button type="button" class="botao pequeno" data-acao="revisar-sobras" data-foco="revisar-sobras">Revisar sobras</button></div>`
+      : '';
     return '<section class="cartao g-heroi heroi" aria-labelledby="h-livre"><div class="heroi-topo"><div class="heroi-principal">'
       + `<h2 id="h-livre" class="rotulo">Disponível para gastar até ${r.dias}/${dois(S.mes)}</h2>`
       + `<p class="numero-heroi${r.disponivel < 0 ? ' negativo' : ''}">${moeda(r.disponivel)}</p><p class="sub">${sub}</p>`
       + ponte + legenda + composicao + barraComposicao
-      + '<p class="heroi-nota"><span class="so-desktop">O que falta de cada plano fica reservado até você lançar tudo ou encerrar a categoria no mês.</span><span class="so-celular">O que falta dos planos e das contas fica reservado.</span> <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + '<p class="heroi-nota"><span class="so-desktop">O que falta de cada plano fica reservado até você lançar tudo ou liberar a sobra.</span><span class="so-celular">O que falta dos planos e das contas fica reservado.</span> <button type="button" class="link" data-acao="detalhe-reserva" data-foco="detalhe-reserva">Ver composição</button></p>'
+      + revisar
       + notaFechamentoAnterior()
       + avisoMudanca(r)
       + `</div>${anel}</div></section>`;
@@ -1509,7 +1515,7 @@ function cartaoPagar(r) {
   const contas = doGrupo((c) => c.grupo === 'fixo' && !ehGuardar(c)).map(({ c, v }) => item(c,
     (v.real ? `faltam ${moeda(v.falta)} de ${moeda(v.plano)}` : `previsto ${moeda(v.plano)}`) + venc(c, v),
     `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Confirmar</button>`
-    + (v.real ? `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="quit-${esc(c.id)}">Quitar</button>` : '')));
+    + (v.real ? `<button type="button" class="botao pequeno fantasma" data-acao="encerrar" ${dados(c)} data-foco="quit-${esc(c.id)}">Liberar</button>` : '')));
   const guardar = doGrupo((c) => ehGuardar(c)).map(({ c, v }) => item(c, `faltam ${moeda(v.falta)} da meta de ${moeda(v.plano)}`,
     `<button type="button" class="botao pequeno" data-acao="confirmar" ${dados(c)} data-foco="conf-${esc(c.id)}">Guardar</button>`));
   const receber = doGrupo((c) => c.grupo === 'renda').map(({ c, v }) => item(c,
@@ -1864,7 +1870,7 @@ function telaPlanejar() {
   if (planoPreviaAtiva('media')) { const a = alvoPlano('media'); if (a.length) rotMedia = `Preencher ${qtdCats(a.length)} (${moeda(somaPlano(a))})? Toque de novo`; }
   if (planoPreviaAtiva('limpar')) { const a = alvoPlano('limpar'); if (a.length) rotLimpar = `Limpar ${a.length} plano${a.length > 1 ? 's' : ''} (${moeda(somaPlano(a))})? Toque de novo`; }
   return '<details class="planejar-ajuda"><summary>Como os planos entram nos cálculos</summary>'
-    + '<p class="sub">O que falta de cada plano fica reservado no disponível até você lançar tudo ou encerrar a categoria no mês; campo vazio significa sem plano. Contas que se repetem todo mês (↻) já valem como plano; digitar um valor aqui vale só para este mês e apagar volta ao valor que se repete. A sugestão é a média do que foi lançado nos 3 meses fechados anteriores e só entra nas contas quando você a usa. Guardar entra como compromisso: o que falta para a meta fica reservado.</p></details>'
+    + '<p class="sub">O que falta de cada plano fica reservado no disponível até você lançar tudo ou liberar a sobra; campo vazio significa sem plano. Contas que se repetem todo mês (↻) já valem como plano; digitar um valor aqui vale só para este mês e apagar volta ao valor que se repete. A sugestão é a média do que foi lançado nos 3 meses fechados anteriores e só entra nas contas quando você a usa. Guardar entra como compromisso: o que falta para a meta fica reservado.</p></details>'
     + `<div class="acoes"><button type="button" class="botao" data-acao="plano-copiar" data-foco="plano-copiar"${planoPreviaAtiva('copiar') ? ' aria-expanded="true"' : ''}>Copiar de ${rotMes}</button>`
     + `<button type="button" class="botao" data-acao="plano-media" data-foco="plano-media">${rotMedia}</button>`
     + `<button type="button" class="botao fantasma" data-acao="plano-limpar" data-foco="plano-limpar">${rotLimpar}</button></div>` + escolha + (notaRec ? `<p class="nota" role="status">${esc(notaRec.trim())}</p>` : '') + blocos;
@@ -3051,7 +3057,7 @@ function abrirCategoria(cid, ano, mes) {
       el.innerHTML = topoFolha(c.nome, `${GRUPOS[c.grupo]} · ${Mes(mes)} de ${ano}`)
         + '<div class="folha-corpo"><div id="fc-resumo"></div><div class="lista fc-lista" id="fc-lista"></div>'
         + '<div><div class="rotulo" style="margin-bottom:6px">Lançar aqui</div><div class="fc-novo">'
-        + '<label class="sr" for="fc-valor">Valor</label><input class="entrada valor" id="fc-valor" inputmode="decimal" placeholder="Valor" autocomplete="off" data-autofoco>'
+        + `<label class="sr" for="fc-valor">Valor</label><input class="entrada valor" id="fc-valor" inputmode="decimal" placeholder="Valor" autocomplete="off"${matchMedia('(pointer: coarse)').matches ? '' : ' data-autofoco'}>`
         + '<label class="sr" for="fc-desc">Descrição</label><input class="entrada" id="fc-desc" placeholder="Descrição" autocomplete="off" maxlength="300">'
         + '<label class="sr" for="fc-dia">Dia</label><input class="entrada" id="fc-dia" inputmode="numeric" placeholder="dia" autocomplete="off" maxlength="2">'
         + `<button type="button" class="botao" data-f="adicionar">${ic('mais', 18)}Adicionar</button></div>`
@@ -3067,11 +3073,11 @@ function abrirCategoria(cid, ano, mes) {
         const falta = v.qtd ? v.falta : v.plano;
         const podeConfirmar = v.fase !== 'futuro' && v.plano > 0 && falta > 0 && !v.encerrada && (v.tipo === 'previsto' || c.grupo !== 'variavel');
         const rotEncerrar = c.grupo === 'renda' ? `Não vem mais (tira ${moeda(v.falta)})`
-          : c.grupo === 'fixo' ? `Quitar (libera ${moeda(v.falta)})` : `Encerrar no mês (libera ${moeda(v.falta)})`;
+          : `Liberar ${moeda(v.falta)}`;
         const podeEncerrar = v.fase !== 'futuro' && v.plano > 0 && !ehGuardar(c) && (v.encerrada || (v.falta > 0 && (c.grupo !== 'fixo' || v.real > 0)));
         const botoes = (podeConfirmar ? `<button type="button" class="botao" data-f="confirmar">${ic('check', 18)}Confirmar ${moeda(falta)} como lançado</button>` : '')
-          + (podeEncerrar ? `<button type="button" class="botao fantasma" data-f="${v.encerrada ? 'reabrir' : 'encerrar'}">${v.encerrada ? 'Reabrir no mês' : rotEncerrar}</button>` : '');
-        const conf = botoes ? `<div class="acoes">${botoes}</div>` : '';
+          + (podeEncerrar ? `<button type="button" class="botao fantasma" data-f="${v.encerrada ? 'reabrir' : 'encerrar'}">${v.encerrada ? (c.grupo === 'renda' ? 'Reabrir no mês' : 'Voltar a reservar') : rotEncerrar}</button>` : '');
+        const conf = botoes ? `<div class="acoes">${botoes}</div>` + (podeEncerrar && !v.encerrada && c.grupo !== 'renda' ? `<p class="sub" style="margin-top:6px">O plano fecha no que você gastou: ${moeda(v.real)}.</p>` : '') : '';
         $('#fc-resumo', el).innerHTML = `<div class="legenda-barra" style="margin-top:0"><span><strong style="font-size:16px;color:var(--tinta)">${moeda(v.real)}</strong> lançados</span><span>${v.plano ? 'plano ' + moeda(v.plano) + (v.recorrente ? ' (todo mês)' : '') : 'sem plano'}</span></div>`
           + barra({ pct, ritmo: v.fase === 'atual' && c.grupo === 'variavel' && v.plano ? resumo(ano, mes).ritmo : null, estado: est === 'acima' ? 'acima' : est === 'atencao' ? 'atencao' : 'ok', alta: true })
           + `<p class="lc-nota ${est === 'acima' ? 'txt-acima' : ''}" style="margin-top:6px">${esc(notaCategoria(c, v, est, ano, mes))}</p>${conf}`;
@@ -3368,66 +3374,84 @@ function encerrarCategoria(cid, ano, mes, fechar = true) {
   const nomeMes = MESES[mes - 1];
   const msg = !fechar ? `${c.nome}: o plano de ${nomeMes} volta a reservar o que falta.`
     : c.grupo === 'renda' ? `${c.nome}: ${moeda(v.falta)} a receber saíram das contas de ${nomeMes}.`
-      : `${c.nome}: ${moeda(v.falta)} deixaram de ser reservados em ${nomeMes}.`;
+      : `${c.nome}: ${moeda(v.falta)} liberados em ${nomeMes}. O plano fechou em ${moeda(v.real)}.`;
   aviso(msg, { acao: 'Desfazer', fn: () => registrar({ t: 'cfg', k, v: fechar ? '' : '1' }) });
 }
 
 /* ---------- De onde vem o disponível ---------- */
-function abrirDetalheReserva() {
+function abrirDetalheReserva(foco = '') {
   const ano = S.ano; const mes = S.mes;
   abrirFolha({
     tipo: 'reserva',
     montar(el) {
-      const r = resumo(ano, mes);
-      const ordem = (a, b) => b.v.falta - a.v.falta;
-      const daCat = (fn) => r.porCat.filter(({ c, v }) => fn(c, v));
-      const aReceber = daCat((c, v) => c.grupo === 'renda' && v.falta > 0).sort(ordem);
-      const contas = daCat((c, v) => c.grupo === 'fixo' && !ehGuardar(c) && v.falta > 0).sort(ordem);
-      const guardar = daCat((c, v) => ehGuardar(c) && v.falta > 0);
-      const planos = daCat((c, v) => c.grupo === 'variavel' && !ehGuardar(c) && v.falta > 0).sort(ordem);
-      const acima = daCat((c, v) => c.grupo !== 'renda' && !ehGuardar(c) && v.plano > 0 && v.real > v.plano + 0.004)
-        .sort((a, b) => (b.v.real - b.v.plano) - (a.v.real - a.v.plano));
-      const encerradas = daCat((c, v) => v.encerrada);
-      const totalAcima = acima.reduce((a, { v }) => a + (v.real - v.plano), 0);
-      const linha = (c, detalhe, valor, classe = '') => `<div class="reserva-linha">${mono(c)}<div class="reserva-txt"><strong>${esc(c.nome)}</strong><span>${esc(detalhe)}</span></div><strong class="reserva-valor${classe ? ' ' + classe : ''}">${valor}</strong></div>`;
-      const linhas = [
-        `<div><span>Renda do mês${r.aReceber > 0 ? ` (recebida ${moeda(r.recebida)} · a receber ${moeda(r.aReceber)})` : ''}</span><strong>${moeda(r.renda)}</strong></div>`,
-        `<div><span>− ${r.fase === 'futuro' ? 'Já lançado' : 'Já saiu'}</span><strong>${moeda(r.jaSaiu)}</strong></div>`,
-        r.contasAPagar > 0 ? `<div><span>− Contas a pagar</span><strong>${moeda(r.contasAPagar)}</strong></div>` : '',
-        r.faltaGuardar > 0 ? `<div><span>− Falta guardar</span><strong>${moeda(r.faltaGuardar)}</strong></div>` : '',
-        r.nosPlanos > 0 ? `<div><span>− Ainda nos planos</span><strong>${moeda(r.nosPlanos)}</strong></div>` : '',
-        `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`,
-      ].join('');
-      const bloco = (titulo, total, texto, itens, fmt) => !itens.length ? ''
-        : `<section><h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3><p class="sub">${texto}</p><div class="lista">${itens.map(fmt).join('')}</div></section>`;
-      el.innerHTML = topoFolha('Como o disponível é calculado', `${Mes(mes)} de ${ano}`)
-        + '<div class="folha-corpo">'
-        + '<p class="sub">O disponível é a renda do mês menos o que já saiu e menos o que ainda está reservado: as contas a pagar, o que falta guardar e o que ainda resta nos planos. Gastar dentro de um plano não muda o disponível; gastar fora dele, ou além dele, reduz na mesma medida. Não é o saldo do banco.</p>'
-        + `<div class="conta-heroi" style="margin-top:0">${linhas}</div>`
-        + bloco('A receber', r.aReceber, 'Rendas previstas que ainda não entraram por completo. Se alguma não vier, toque nela e use "Não vem mais".', aReceber,
-          ({ c, v }) => linha(c, `previsto ${moeda(v.plano)} · recebido ${moeda(v.real)}`, moeda(v.falta)))
-        + bloco('Contas a pagar', r.contasAPagar, 'O que falta das contas fixas do mês. Se uma conta veio mais barata, toque nela e use "Quitar".', contas,
-          ({ c, v }) => linha(c, v.real ? `plano ${moeda(v.plano)} · pago ${moeda(v.real)}` : `plano ${moeda(v.plano)}`, moeda(v.falta)))
-        + bloco('Falta guardar', r.faltaGuardar, 'O que falta para a meta de economia do mês.', guardar,
-          ({ c, v }) => linha(c, `meta ${moeda(v.plano)} · guardado ${moeda(v.real)}`, moeda(v.falta)))
-        + bloco('Ainda nos planos', r.nosPlanos, 'O que resta dos planos das categorias variáveis. Se você não vai gastar mais numa delas neste mês, toque nela e use "Encerrar no mês".', planos,
-          ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.falta)))
-        + bloco('Acima do plano', totalAcima, 'Categorias em que você gastou mais do que o plano. O excesso já está em "já saiu".', acima,
-          ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.real - v.plano), 'acima'))
-        + bloco('Encerradas no mês', 0, 'O que faltava delas deixou de ser reservado. O plano continua gravado.', encerradas,
-          ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · lançado ${moeda(v.real)}`, 'encerrada'))
-        + '<div class="acoes"><button type="button" class="botao" data-f="ajustar">Ajustar planos</button></div>'
-        + '</div>';
+      const pintar = () => {
+        const r = resumo(ano, mes);
+        const ordem = (a, b) => b.v.falta - a.v.falta;
+        const daCat = (fn) => r.porCat.filter(({ c, v }) => fn(c, v));
+        const aReceber = daCat((c, v) => c.grupo === 'renda' && v.falta > 0).sort(ordem);
+        const contas = daCat((c, v) => c.grupo === 'fixo' && !ehGuardar(c) && v.falta > 0).sort(ordem);
+        const guardar = daCat((c, v) => ehGuardar(c) && v.falta > 0);
+        const planos = daCat((c, v) => c.grupo === 'variavel' && !ehGuardar(c) && v.falta > 0).sort(ordem);
+        const acima = daCat((c, v) => c.grupo !== 'renda' && !ehGuardar(c) && v.plano > 0 && v.real > v.plano + 0.004)
+          .sort((a, b) => (b.v.real - b.v.plano) - (a.v.real - a.v.plano));
+        const encerradas = daCat((c, v) => v.encerrada);
+        const totalAcima = acima.reduce((a, { v }) => a + (v.real - v.plano), 0);
+        const linha = (c, detalhe, valor, classe = '', liberar = false) => `<div class="reserva-linha"><button type="button" class="reserva-abrir" data-f="abrir" data-cat="${esc(c.id)}">${mono(c)}<span class="reserva-txt"><strong>${esc(c.nome)}</strong><span>${esc(detalhe)}</span></span><strong class="reserva-valor${classe ? ' ' + classe : ''}">${valor}</strong></button>${liberar ? `<button type="button" class="botao pequeno fantasma reserva-liberar" data-f="liberar" data-cat="${esc(c.id)}">Liberar</button>` : ''}</div>`;
+        const linhas = [
+          `<div><span>Renda do mês${r.aReceber > 0 ? ` (recebida ${moeda(r.recebida)} · a receber ${moeda(r.aReceber)})` : ''}</span><strong>${moeda(r.renda)}</strong></div>`,
+          `<div><span>− ${r.fase === 'futuro' ? 'Já lançado' : 'Já saiu'}</span><strong>${moeda(r.jaSaiu)}</strong></div>`,
+          r.contasAPagar > 0 ? `<div><span>− Contas a pagar</span><strong>${moeda(r.contasAPagar)}</strong></div>` : '',
+          r.faltaGuardar > 0 ? `<div><span>− Falta guardar</span><strong>${moeda(r.faltaGuardar)}</strong></div>` : '',
+          r.nosPlanos > 0 ? `<div><span>− Ainda nos planos</span><strong>${moeda(r.nosPlanos)}</strong></div>` : '',
+          `<div class="total"><span>= Disponível</span><strong>${moeda(r.disponivel)}</strong></div>`,
+        ].join('');
+        const bloco = (titulo, total, texto, itens, fmt, extra = '', id = '') => !itens.length ? ''
+          : `<section${id ? ` id="${id}"` : ''}><h3 class="grupo-titulo"><span>${titulo}</span><span>${moeda(total)}</span></h3><p class="sub">${texto}</p>${extra}<div class="lista">${itens.map(fmt).join('')}</div></section>`;
+        el.innerHTML = topoFolha('Como o disponível é calculado', `${Mes(mes)} de ${ano}`)
+          + '<div class="folha-corpo">'
+          + '<p class="sub">O disponível é a renda do mês menos o que já saiu e menos o que ainda está reservado: as contas a pagar, o que falta guardar e o que ainda resta nos planos. Gastar dentro de um plano não muda o disponível; gastar fora dele, ou além dele, reduz na mesma medida. Não é o saldo do banco.</p>'
+          + `<div class="conta-heroi" style="margin-top:0">${linhas}</div>`
+          + bloco('A receber', r.aReceber, 'Rendas previstas que ainda não entraram por completo. Se alguma não vier, toque nela e use "Não vem mais".', aReceber,
+            ({ c, v }) => linha(c, `previsto ${moeda(v.plano)} · recebido ${moeda(v.real)}`, moeda(v.falta)))
+          + bloco('Contas a pagar', r.contasAPagar, 'O que falta das contas fixas do mês. Se uma conta veio mais barata, use "Liberar": o que faltava volta ao disponível.', contas,
+            ({ c, v }) => linha(c, v.real ? `plano ${moeda(v.plano)} · pago ${moeda(v.real)}` : `plano ${moeda(v.plano)}`, moeda(v.falta), '', true))
+          + bloco('Falta guardar', r.faltaGuardar, 'O que falta para a meta de economia do mês.', guardar,
+            ({ c, v }) => linha(c, `meta ${moeda(v.plano)} · guardado ${moeda(v.real)}`, moeda(v.falta)))
+          + bloco('Ainda nos planos', r.nosPlanos, 'O que resta dos planos das categorias variáveis. Se você não vai gastar mais numa delas neste mês, use "Liberar": o plano fecha no que você gastou.', planos,
+            ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.falta), '', true),
+            planos.length > 1 ? `<div class="acoes" style="margin-bottom:8px"><button type="button" class="botao pequeno" data-f="liberar-todos">Liberar todos (${moeda(r.nosPlanos)})</button></div>` : '',
+            'reserva-planos')
+          + bloco('Acima do plano', totalAcima, 'Categorias em que você gastou mais do que o plano. O excesso já está em "já saiu".', acima,
+            ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · gasto ${moeda(v.real)}`, moeda(v.real - v.plano), 'acima'))
+          + bloco('Liberadas no mês', 0, 'O que faltava delas voltou ao disponível. O plano continua gravado.', encerradas,
+            ({ c, v }) => linha(c, `plano ${moeda(v.plano)} · lançado ${moeda(v.real)}`, c.grupo === 'renda' ? 'não vem' : 'liberada'))
+          + '<div class="acoes"><button type="button" class="botao" data-f="ajustar">Ajustar planos</button></div>'
+          + '</div>';
+      };
+      pintar();
+      this.atualizar = pintar;
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-f]');
         if (!b) return;
         if (b.dataset.f === 'fechar') fecharFolha();
+        else if (b.dataset.f === 'abrir') { const cid = b.dataset.cat; fecharFolha(); abrirCategoria(cid, ano, mes); }
+        else if (b.dataset.f === 'liberar') { encerrarCategoria(b.dataset.cat, ano, mes, true); render(); }
+        else if (b.dataset.f === 'liberar-todos') {
+          const r = resumo(ano, mes);
+          const alvo = r.porCat.filter(({ c, v }) => c.grupo === 'variavel' && !ehGuardar(c) && v.falta > 0);
+          const total = alvo.reduce((s, { v }) => s + v.falta, 0);
+          const chaves = alvo.map(({ c }) => chaveEncerrada(ano, mes, c.id));
+          chaves.forEach((k) => registrar({ t: 'cfg', k, v: '1' }));
+          aviso(`${alvo.length} planos liberados: ${moeda(total)} voltaram ao disponível.`, { acao: 'Desfazer', fn: () => chaves.forEach((k) => registrar({ t: 'cfg', k, v: '' })) });
+          render();
+        }
         else if (b.dataset.f === 'ajustar') {
           fecharFolha();
           S.modoMes = 'planejar';
           if (S.tela !== 'mes') irPara('mes'); else render();
         }
       });
+      if (foco === 'planos') requestAnimationFrame(() => { const s = el.querySelector('#reserva-planos'); if (s) s.scrollIntoView({ block: 'start' }); });
     },
   });
 }
@@ -3439,7 +3463,7 @@ function abrirComoFunciona() {
     montar(el) {
       el.innerHTML = topoFolha('Como funciona o plano', `${Mes(S.mes)} de ${S.ano}`)
         + '<div class="folha-corpo">'
-        + '<p class="sub">O disponível é a renda do mês menos o que já saiu e menos o que ainda está reservado: as contas a pagar, o que falta guardar e o que ainda resta nos planos. Gastar dentro de um plano não muda o disponível; gastar fora dele, ou além dele, reduz na mesma medida. Quando uma conta veio mais barata, ou você não vai gastar mais numa categoria neste mês, toque nela e use Quitar ou Encerrar no mês: o que faltava deixa de ser reservado. Numa renda, Não vem mais tira o que faltava receber.</p>'
+        + '<p class="sub">O disponível é a renda do mês menos o que já saiu e menos o que ainda está reservado: as contas a pagar, o que falta guardar e o que ainda resta nos planos. Gastar dentro de um plano não muda o disponível; gastar fora dele, ou além dele, reduz na mesma medida. Quando uma conta veio mais barata, ou você não vai gastar mais numa categoria neste mês, use Liberar na lista de reservas ou na própria categoria: o que faltava volta ao disponível. Numa renda, Não vem mais tira o que faltava receber.</p>'
         + '<section><h3 class="grupo-titulo"><span>Meta de economia</span></h3><p class="sub">Separe um valor antes de gastar. O que falta para a meta fica reservado no disponível até você guardar. A meta é uma categoria “Guardar” com plano no mês.</p></section>'
         + '<section><h3 class="grupo-titulo"><span>Ritmo do plano</span></h3><p class="sub">A barra compara o gasto com o plano de consumo; a marca vertical mostra o dia de hoje. O plano de consumo é a soma dos planos das categorias de consumo, sem a categoria “Guardar”.</p></section>'
         + '<section><h3 class="grupo-titulo"><span>Avisos</span></h3><p class="sub">Os avisos mostram categorias acima do plano e projeções para categorias de gasto frequente. Projeções são estimativas e não alteram os valores.</p></section>'
@@ -4655,6 +4679,7 @@ const ACOES = {
   atualizar: () => abrirAtualizar(),
   'verificar-atualizacao': () => verificarAtualizacao({ forcar: true }),
   'detalhe-reserva': () => abrirDetalheReserva(),
+  'revisar-sobras': () => abrirDetalheReserva('planos'),
   'como-funciona': () => abrirComoFunciona(),
   'modo-mes': (el) => { S.modoMes = el.dataset.modo; render(); },
   filtro: (el) => { S.filtro = el.dataset.filtro; renderExtrato($('#tela')); },

@@ -189,7 +189,7 @@ O plano fica no que foi gasto: o que faltava volta ao disponível, e o valor pla
 
 ### Fechar o mês
 
-Um mês que já passou pode ser fechado. Antes, o app mostra as **pendências**: planos que ficaram sem lançamento. Entram aqui uma conta fixa ou uma meta de Guardar que não foi paga, uma renda que não chegou e um plano de categoria variável sem nenhum lançamento.
+Um mês que já passou pode ser fechado. Antes, o app mostra as **pendências**: as contas que faltam pagar e os planos sem nenhum lançamento. Entram aqui uma conta fixa ou uma meta de Guardar que não foi paga, uma renda que não chegou e um plano de categoria variável sem nenhum lançamento.
 
 Em **Fechar <mês>**, cada pendência pede uma resposta:
 
@@ -200,6 +200,8 @@ Em **Fechar <mês>**, cada pendência pede uma resposta:
 O botão **Fechar <mês>** só libera quando não sobra nenhuma pendência. Ao fechar, o mês guarda a **sobra realizada**: o que entrou menos o que saiu. O aviso de fechamento oferece **Desfazer**. No Início, o mês aparece como **Mês fechado**, com esse valor.
 
 Se houver mais de uma conta de débito automático pendente, o botão **Confirmar todas as automáticas (N)** lança todas de uma vez.
+
+Plano com gasto não vira pendência: ele fecha no que você gastou. Para o que sobrou na lista, **Não aconteceu em todas** resolve tudo de uma vez (com contas de débito automático na lista, o botão diz **Não aconteceu nas demais** e deixa as automáticas de fora). O que você adiou com **Depois** fica de fora. O aviso tem **Desfazer**.
 
 ### Levar a sobra para o mês seguinte
 

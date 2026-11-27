@@ -79,6 +79,8 @@ No **Novo lançamento** de um gasto, toque em **Parcelar** e escolha:
 - **O valor é:** o **total** da compra (o padrão) ou o valor **de cada parcela**.
 - **Primeira parcela em:** por padrão, o mês seguinte ao da compra.
 
+No celular, o painel ocupa o lugar do teclado de dígitos e **Em quantas vezes** é uma lista de 2× a 48×, já em 2×; o teclado do sistema não abre. Em telas baixas, a descrição sai de cena enquanto o painel está aberto e volta ao fechar **Parcelar**.
+
 A prévia mostra, por exemplo, "10× de R$ 120,00 (a primeira de R$ 120,05), de dez/2026 a set/2027". Quando o total não divide certo, a sobra de centavos vai para a primeira parcela, e a soma das parcelas é sempre o total.
 
 Cada parcela é um lançamento com a descrição "Geladeira (3/10)", no mesmo dia da compra (ou no último dia do mês, se ele não existir). Os meses futuros já mostram o que está lançado, e a sobra prevista de cada um desconta as parcelas.

@@ -8,6 +8,7 @@
 | 25/11/2026 | `251126-parecer-de-consumo.md` | Parecer de consumo: primeiro, janela pré-kit; 1 melhoria proposta (medidor `--desde`) |
 | 26/11/2026 | `261126-liberar-sobra-do-plano.md` | UX/UI para liberar a sobra de um plano: verbo único, ação na composição, aviso no fim do mês |
 | 26/11/2026 | `261126-fechar-mes-de-uma-vez.md` | Fechar o mês de uma vez: lote "Não aconteceu" no fechamento e frase sobre plano com gasto |
+| 27/11/2026 | `271126-parcelar-no-celular.md` | UX/UI do Parcelar no celular: quantidade em lista, painel no lugar do teclado de dígitos e sem rolagem mínima |
 | — | `melhorias-ux-ui-v3.md` | Melhorias de UX/UI para a versão 3 |
 | — | `redesign-ux-ui.md` | Redesign de UX/UI |
 

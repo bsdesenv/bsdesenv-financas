@@ -2428,10 +2428,44 @@ await caso('3.1.0 parcelas no celular: o painel Parcelar cabe na tela, sem rolag
   await p.tap('[data-f="cat"][data-v="mercado"]');
   await p.tap('[data-f="parcelar"]');
   await p.waitForSelector('#nv-parc:not([hidden])');
-  const sobra = await p.evaluate(() => { const f = document.querySelector('.folha.aberta'); return f.scrollWidth - f.clientWidth; });
-  assert.ok(sobra <= 1, 'sem rolagem lateral: ' + sobra);
-  await p.type('#nv-n', '10');
-  assert.match(await p.$eval('#nv-previa', (e) => e.textContent), /\d+×/);
+  assert.equal(await p.$eval('#nv-n', (e) => e.tagName), 'SELECT', 'no celular a quantidade é uma lista, sem o teclado do sistema');
+  assert.equal(await p.$eval('.nv-teclado-area .teclado', (e) => e.offsetParent), null, 'o teclado de dígitos dá lugar ao painel');
+  const caixa = await p.evaluate(() => {
+    const f = document.querySelector('.folha.aberta'); const c = document.querySelector('#nv-parc'); const r = c.getBoundingClientRect();
+    return { sobra: f.scrollWidth - f.clientWidth, dentro: r.top >= 0 && r.bottom <= innerHeight, interna: c.scrollHeight - c.clientHeight };
+  });
+  assert.ok(caixa.sobra <= 1, 'sem rolagem lateral: ' + caixa.sobra);
+  assert.ok(caixa.dentro && caixa.interna <= 1, 'o painel Parcelar aparece inteiro, sem rolagem interna');
+  await p.select('#nv-n', '10');
+  assert.match(await p.$eval('#nv-previa', (e) => e.textContent), /^10×/);
+  await p.close();
+});
+
+await caso('3.1.0 parcelas no celular baixo: o painel cabe inteiro e a descrição sai de cena', async () => {
+  const dados = { nome: 'Parcelas cel baixo', categorias: catsBase(), anos: { 2026: { lancamentos: [
+    { id: 'pcb1', mes: 11, dia: 1, categoriaId: 'salario', descricao: '', valor: 5000 },
+  ], orcamento: {} } } };
+  const a = criarAmbiente(abasDoBackup(dados));
+  const p = await abrir(a, { width: 320, height: 640, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, montarPagina(a, 'parcelas-cel-baixo'));
+  await pronto(p);
+  await p.tap('.inf-mais'); await folhaAberta(p);
+  await digitarTeclado(p, ['1', '2', '0', '0']);
+  await p.tap('[data-f="cat"][data-v="mercado"]');
+  await p.tap('[data-f="parcelar"]');
+  await p.waitForSelector('#nv-parc:not([hidden])');
+  await p.select('#nv-n', '10');
+  const caixa = await p.evaluate(() => {
+    const f = document.querySelector('.folha.aberta'); const c = document.querySelector('#nv-parc'); const r = c.getBoundingClientRect();
+    return {
+      sobra: f.scrollWidth - f.clientWidth,
+      dentro: r.top >= 0 && r.bottom <= innerHeight,
+      interna: c.scrollHeight - c.clientHeight,
+      descricao: document.querySelector('.folha-corpo').getBoundingClientRect().height,
+    };
+  });
+  assert.ok(caixa.sobra <= 1, 'sem rolagem lateral: ' + caixa.sobra);
+  assert.ok(caixa.dentro && caixa.interna <= 1, 'o painel inteiro cabe na tela: ' + JSON.stringify(caixa));
+  assert.equal(caixa.descricao, 0, 'a descrição sai de cena para o painel caber');
   await p.close();
 });
 
@@ -2900,6 +2934,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
       await p.$eval('#nv-desc', (e) => { e.value = ''; });
       await p.type('#nv-desc', desc);
     };
+    const definirN = async (n) => { if (toque) await p.select('#nv-n', n); else await p.type('#nv-n', n); };
     const dica = () => p.$eval('#nv-fatura', (e) => e.textContent);
     // 100 mercado no cartão em 18/11: fecha dia 5, entra na fatura de dezembro, dia 15
     await abrirNovoLancamento();
@@ -2922,7 +2957,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
     await digitar('10000', 'notebook');
     if (toque) await p.tap('[data-f="parcelar"]'); else await p.click('[data-f="parcelar"]');
     await p.waitForSelector('#nv-parc:not([hidden])');
-    await p.type('#nv-n', '3');
+    await definirN('3');
     assert.equal(await p.$eval('#nv-p1', (e) => e.closest('label').hidden), true, 'com cartão a primeira parcela é a da fatura');
     assert.equal(await dica(), 'A primeira parcela entra na fatura de dezembro (vence dia 15).');
     const previa = await p.$eval('#nv-previa', (e) => e.textContent);
@@ -2942,7 +2977,7 @@ for (const [rotuloVp, vp] of [['celular', CEL], ['PC', PC]]) {
     await digitar('10000', 'notebook');
     if (toque) await p.tap('[data-f="parcelar"]'); else await p.click('[data-f="parcelar"]');
     await p.waitForSelector('#nv-parc:not([hidden])');
-    await p.type('#nv-n', '3');
+    await definirN('3');
     await p.click('#nv-salvar'); await semFolha(p); await sincronizado(p);
     assert.equal(parcelas().length, 3);
     await p.evaluate(() => { S.ano = 2026; S.mes = 12; });

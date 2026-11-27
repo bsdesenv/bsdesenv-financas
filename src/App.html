@@ -2182,7 +2182,7 @@ function abrirNovo(opc = {}) {
     tipo: catIni && catIni.grupo === 'renda' ? 'renda' : 'gasto',
     cents: '', estorno: false, alto: null, texto: opc.texto || '', desc: pre ? pre.descricao : '', descManual: false, cat: catIni ? catIni.id : null,
     data: (S.ano === h.ano && S.mes === h.mes) || opc.hoje ? { modo: 'hoje' } : { modo: 'outra', iso: isoData(opc.ano || S.ano, opc.mes || S.mes, 1), semDia: true },
-    parc: { on: Boolean(opc.vezes), n: opc.vezes ? String(opc.vezes) : '', modo: 'total', primeira: null, manual: false },
+    parc: { on: Boolean(opc.vezes), n: opc.vezes ? String(opc.vezes) : (teclado ? '2' : ''), modo: 'total', primeira: null, manual: false },
     cartao: '',
   };
   /** Pago com: o cartão pedido (mesmo arquivado, vindo da fatura) ou o da última escolha da sessão, se ainda ativo. */
@@ -2213,12 +2213,20 @@ function abrirNovo(opc = {}) {
       const segmento = '<div class="segmentado" role="group" aria-label="Tipo"><button type="button" data-f="tipo" data-v="gasto">Gasto</button><button type="button" data-f="tipo" data-v="estorno" title="Devolução de um gasto: entra com sinal negativo">Estorno</button><button type="button" data-f="tipo" data-v="renda">Renda</button></div>';
       const categorias = `<fieldset class="nv-cats-area"><legend class="rotulo">Categoria</legend><div class="${teclado ? 'chips-faixa' : 'chips'}" id="nv-cats"></div></fieldset>`;
       const descricao = `<div class="linha-desc"><label class="sr" for="nv-desc">Descrição (opcional)</label><input class="entrada" id="nv-desc" value="${esc(st.desc)}" placeholder="Descrição (opcional)" autocomplete="off" maxlength="300"><div class="sugestoes" id="nv-sug"></div></div>`;
-      const painelParc = '<div class="parcelas" id="nv-parc" hidden><div class="parc-grade">'
-        + `<label class="campo">Em quantas vezes<input class="entrada" id="nv-n" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="10" value="${esc(st.parc.n)}"></label>`
-        + '<div class="campo"><span class="rotulo" id="nv-modo-rot">O valor é</span><div class="segmentado" role="group" aria-labelledby="nv-modo-rot">'
-        + '<button type="button" data-f="pmodo" data-v="total">total da compra</button><button type="button" data-f="pmodo" data-v="parcela">de cada parcela</button></div></div></div>'
-        + '<label class="campo">Primeira parcela em<select class="entrada" id="nv-p1"></select></label>'
-        + '<p class="parc-previa" id="nv-previa" aria-live="polite"></p></div>';
+      const modoParc = '<button type="button" data-f="pmodo" data-v="total">total da compra</button><button type="button" data-f="pmodo" data-v="parcela">de cada parcela</button>';
+      const opcoesN = Array.from({ length: 47 }, (_, i) => i + 2)
+        .map((n) => `<option value="${n}"${String(n) === String(st.parc.n) ? ' selected' : ''}>${n}×</option>`).join('');
+      const painelParc = teclado
+        ? '<div class="parcelas" id="nv-parc" hidden>'
+          + `<label class="parc-campo"><span class="rotulo">Em quantas vezes</span><select class="entrada" id="nv-n" autocomplete="off">${opcoesN}</select></label>`
+          + `<div class="segmentado" role="group" aria-label="O valor é">${modoParc}</div>`
+          + '<label class="parc-campo"><span class="rotulo">Primeira parcela em</span><select class="entrada" id="nv-p1"></select></label>'
+          + '<p class="parc-previa" id="nv-previa" aria-live="polite"></p></div>'
+        : '<div class="parcelas" id="nv-parc" hidden><div class="parc-grade">'
+          + `<label class="campo">Em quantas vezes<input class="entrada" id="nv-n" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="10" value="${esc(st.parc.n)}"></label>`
+          + `<div class="campo"><span class="rotulo" id="nv-modo-rot">O valor é</span><div class="segmentado" role="group" aria-labelledby="nv-modo-rot">${modoParc}</div></div></div>`
+          + '<label class="campo">Primeira parcela em<select class="entrada" id="nv-p1"></select></label>'
+          + '<p class="parc-previa" id="nv-previa" aria-live="polite"></p></div>';
       const opcoesCartao = () => `<option value="">Dinheiro, Pix ou débito</option>${cartoesDoCampo().map((c) => `<option value="${esc(c.id)}"${c.id === st.cartao ? ' selected' : ''}>${esc(c.nome)}${c.ativo ? '' : ' (arquivado)'}</option>`).join('')}`;
       const temCartao = cartoesDoCampo().length > 0;
       const dicaFatura = '<p class="sub nv-fatura" id="nv-fatura" aria-live="polite"></p>';
@@ -2237,8 +2245,8 @@ function abrirNovo(opc = {}) {
           + '<div class="nv-fixo"><div class="nv-valor"><span class="rotulo" id="nv-rot">Valor</span><output class="valor-grande" id="nv-valor" aria-labelledby="nv-rot" aria-live="polite">R$ 0,00</output>'
           + `</div><div class="nv-opcoes"><div class="datas" id="nv-datas"></div>${cartaoChip}</div></div>`
           + categorias
-          + `<div class="folha-corpo">${temCartao ? dicaFatura : ''}${descricao}${painelParc}</div>`
-          + '<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div></div>'
+          + `<div class="folha-corpo">${temCartao ? dicaFatura : ''}${descricao}</div>`
+          + `<div class="nv-teclado-area"><div class="teclado" id="nv-teclado"></div>${painelParc}</div>`
           + '<footer class="folha-rodape"><button type="button" class="botao primario grande" data-f="salvar" id="nv-salvar">Salvar</button>'
           + '<button type="button" class="botao fantasma" data-f="salvar-outro">Salvar e novo</button></footer>'
         : topoFolha('Novo lançamento')
@@ -2329,6 +2337,7 @@ function abrirNovo(opc = {}) {
       const desenharParc = () => {
         const painel = $('#nv-parc', el);
         painel.hidden = !st.parc.on;
+        el.classList.toggle('parcelando', Boolean(teclado && st.parc.on));
         if (!st.parc.on) return;
         $$('[data-f="pmodo"]', el).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === st.parc.modo)));
         const d = dataEscolhida();
@@ -2384,7 +2393,7 @@ function abrirNovo(opc = {}) {
         const d0 = dataEscolhida();
         if (st.fechado && st.fechado !== chaveDosFechados(d0, lp)) st.fechado = null;
         b.textContent = !vs.length ? 'Digite o valor' : st.fechado ? 'Confirmar em mês fechado' : st.alto !== null ? `Confirmar ${moeda(total)}`
-          : lp ? (lp.erro ? 'Parcelar' : `Salvar ${lp.n}× · ${moeda(lp.total)}`)
+          : lp ? (lp.erro ? 'Parcelar' : (teclado ? `Salvar ${lp.n}×` : `Salvar ${lp.n}× · ${moeda(lp.total)}`))
             : vs.length > 1 ? `Salvar ${vs.length} lançamentos · ${moeda(total)}` : 'Salvar ' + moeda(total);
         b.disabled = !vs.length || !st.cat || !dataEscolhida() || Boolean(lp && lp.erro) || Boolean(st.cartao && !faturaDaData(d0));
       };
@@ -2428,8 +2437,8 @@ function abrirNovo(opc = {}) {
           acao: 'Desfazer', fn: () => { ids.forEach((id) => registrar({ t: 'lanc-', id })); reajustar(); aviso(lp ? 'Parcelas desfeitas.' : 'Lançamento desfeito.'); },
         });
         if (continuar) {
-          st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false; st.estorno = false; st.alto = null; st.parc = { on: false, n: '', modo: 'total', primeira: null, manual: false };
-          $('#nv-n', el).value = '';
+          st.cents = ''; st.texto = ''; st.desc = ''; st.descManual = false; st.estorno = false; st.alto = null; st.parc = { on: false, n: teclado ? '2' : '', modo: 'total', primeira: null, manual: false };
+          $('#nv-n', el).value = teclado ? '2' : '';
           desenhar();
           $('#nv-desc', el).value = '';
           const tx = $('#nv-texto', el); if (tx) { tx.value = ''; tx.focus(); }
@@ -2453,7 +2462,7 @@ function abrirNovo(opc = {}) {
         }
         else if (f === 'todas') { st.todas = !st.todas; desenhar(); }
         else if (f === 'data') { st.data.modo = b.dataset.v; if (b.dataset.v === 'outra' && !st.data.iso) { st.data.iso = isoData(h.ano, h.mes, h.dia); st.data.semDia = false; } desenhar(); }
-        else if (f === 'parcelar') { st.parc.on = !st.parc.on; desenhar(); if (st.parc.on) $('#nv-n', el).focus(); }
+        else if (f === 'parcelar') { st.parc.on = !st.parc.on; desenhar(); if (st.parc.on && !teclado) $('#nv-n', el).focus(); }
         else if (f === 'pmodo') { st.parc.modo = b.dataset.v; atualizarValor(); }
         else if (f === 'sug') { $('#nv-desc', el).value = b.dataset.v; st.desc = b.dataset.v; st.descManual = true; atualizarValor(); }
         else if (f === 'tecla') {
@@ -2488,7 +2497,8 @@ function abrirNovo(opc = {}) {
           desenhar();
         });
       }
-      $('#nv-n', el).addEventListener('input', (e) => { st.parc.n = e.target.value.replace(/\D/g, ''); atualizarValor(); });
+      const campoN = $('#nv-n', el);
+      campoN.addEventListener(campoN.tagName === 'SELECT' ? 'change' : 'input', (e) => { st.parc.n = String(e.target.value).replace(/\D/g, ''); atualizarValor(); });
       $('#nv-p1', el).addEventListener('change', (e) => { st.parc.primeira = Number(e.target.value); st.parc.manual = true; atualizarValor(); });
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.isComposing && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); salvar(e.shiftKey); return; }

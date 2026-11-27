@@ -32,16 +32,16 @@
       "tipo": "HTML",
       "caminho": "src/Estilos.html",
       "editor": "Estilos.html",
-      "bytes": 170392,
-      "sha256": "4a94c3e72cc66ff7be5a190cb8f53b0416ea741b440afa99e00f9ad00fa51abc"
+      "bytes": 171369,
+      "sha256": "bdec06dad7dca76d73d509bef009b46ad22aebffda74aa4173bacc6139cd2895"
     },
     {
       "nome": "App",
       "tipo": "HTML",
       "caminho": "src/App.html",
       "editor": "App.html",
-      "bytes": 337211,
-      "sha256": "ac8cb9ff8e79946a03e0de0205806be5bf3aa0c2d8bb80ff1e18758e6f339404"
+      "bytes": 338234,
+      "sha256": "327d71ba39c6102585f408712162e1e197fd893e8271860541261dd969c0512a"
     },
     {
       "nome": "appsscript",

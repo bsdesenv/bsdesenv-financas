@@ -1,7 +1,7 @@
 # Parcelar no celular: sem teclado do sistema e sem rolagem mínima
 
 - **Data:** 27/11/2026
-- **Status:** implementado em 27/11/2026
+- **Status:** implementado e publicado na 3.6.1 em 27/11/2026
 - **Feature:** `spec/features/parcelar-no-celular.md`
 - **Profundidade:** SPECIFY + TASKS + IMPLEMENT (`src/App.html`, `src/Estilos.html`, `testes/e2e.mjs`, `docs/USAR.md`, `docs/ARQUITETURA.md`)
 

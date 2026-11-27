@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.1 — 2026-11-27
+
+### Corrigido
+- **Parcelar no celular sem o teclado do sistema.** **Em quantas vezes** agora é uma lista de 2× a 48×, e o painel de parcelas toma o lugar do teclado de dígitos, inteiro e sem rolagem mínima. Em telas baixas, a descrição sai de cena enquanto o painel está aberto. O computador não mudou.
+
 ## 3.6.0 — 2026-11-26
 
 ### Novo

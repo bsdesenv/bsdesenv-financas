@@ -1,14 +1,10 @@
 {
   "app": "bsdesenv-financas",
-  "versao": "3.6.0",
-  "ref": "v3.6.0",
-  "data": "2026-11-26",
+  "versao": "3.6.1",
+  "ref": "v3.6.1",
+  "data": "2026-11-27",
   "novidades": [
-    "Instalador em passos",
-    "Progresso de verdade",
-    "Levar para o celular",
-    "Voltar para a versão anterior",
-    "O app percebe a atualização"
+    "Parcelar no celular sem o teclado do sistema"
   ],
   "arquivos": [
     {
@@ -17,7 +13,7 @@
       "caminho": "src/Codigo.gs",
       "editor": "Código.gs",
       "bytes": 36079,
-      "sha256": "62d7d6d61a5d2415303d8bff97beb41904daaa0a40be8b1d3dc00e92794eab2c"
+      "sha256": "354496a6e138fd7cc4d728bd6f4ca25e43d104806e47894a25b0e670f4668ff3"
     },
     {
       "nome": "Index",

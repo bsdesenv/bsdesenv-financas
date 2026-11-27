@@ -1,7 +1,7 @@
 // Testa instalador/Codigo.gs no Node, com o Google e o GitHub falsos (testes/instalador-mock.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarAmbiente, criarVersao, plano, sha256, ID_INSTALADOR } from './instalador-mock.mjs';
+import { criarAmbiente, criarVersao, plano, sha256 } from './instalador-mock.mjs';
 
 const ID = 'AAAAAAAAAAAAAAAAAAAAAAAA';       // 24 caracteres: parece ID do Google
 const IMPL_A = 'IMPLANTACAO_A_0000000000';
@@ -176,7 +176,7 @@ test('estado: sem autorização devolve só o link e não faz nenhuma requisiç�
   assert.equal(env.chamadas.length, 0);
 });
 
-test('estado: autorizado e API ligada, sem scriptId (sonda 403 sem acesso conta como ligada)', () => {
+test('estado: autorizado e API ligada, sem scriptId (404 da sonda conta como ligada)', () => {
   const env = ambiente();
   const e = c(env, 'estado', '', '');
   assert.equal(e.autorizar, '');
@@ -186,14 +186,15 @@ test('estado: autorizado e API ligada, sem scriptId (sonda 403 sem acesso conta 
   assert.equal(e.alvo, null);
 });
 
-test('sonda: consulta o projeto do próprio instalador; 403 sem acesso = ligada, 403 usersettings = desligada', () => {
-  assert.equal(ID_INSTALADOR.length, 57);
+test('sonda: escreve num projeto que não existe; 404 sem acesso = ligada, 403 usersettings = desligada', () => {
   const ligada = ambiente();
   assert.equal(ligada.ctx.apiLigada_(), true);
   const g = ligada.chamadas.filter((x) => x.host === 'google');
   assert.equal(g.length, 1);
-  assert.equal(g[0].metodo, 'GET');
-  assert.equal(g[0].url, 'https://script.googleapis.com/v1/projects/' + ID_INSTALADOR);
+  assert.equal(g[0].metodo, 'PUT');
+  assert.match(g[0].url, /^https:\/\/script\.googleapis\.com\/v1\/projects\/[A-Za-z0-9_-]{57}\/content$/);
+  assert.deepEqual(g[0].corpo.files.map((f) => f.name), ['appsscript']);
+  assert.equal(g[0].sonda, true);
   const desligada = ambiente({ apiLigada: false });
   assert.equal(desligada.ctx.apiLigada_(), false);
   // 404 também vale como ligada.
@@ -291,7 +292,7 @@ test('instalar: falha no meio manda a planilha para a lixeira e diz que nada fic
 
 test('instalar: falha tardia (PUT do código) também limpa a planilha', () => {
   const env = ambiente();
-  env.falhas.push({ casar: (r) => r.metodo === 'PUT' && r.url.endsWith('/content'), codigo: 500, vezes: 1 });
+  env.falhas.push({ casar: (r) => r.metodo === 'PUT' && r.url.endsWith('/content') && !r.sonda, codigo: 500, vezes: 1 });
   assert.throws(() => env.ctx.instalar({}), /Nada ficou no seu Drive\./);
   assert.equal(env.planilhas[0].trashed, true);
 });
@@ -459,7 +460,7 @@ test('etapas: criarProjeto cria o projeto vinculado e escreve o código conferid
   assert.deepEqual(g[1].corpo.files.map((f) => f.name), ['Codigo', 'Index', 'Estilos', 'App', 'appsscript']);
   assert.match(g[1].corpo.files[0].source, /VERSAO_APP = '2.7.0'/);
   // Baixou e conferiu antes de escrever: o PUT vem depois do download.
-  const iPut = env.chamadas.indexOf(env.chamadas.find((x) => x.metodo === 'PUT'));
+  const iPut = env.chamadas.findIndex((x) => x.metodo === 'PUT' && !x.sonda);
   assert.ok(env.chamadas.slice(0, iPut).some((x) => x.host === 'raw' && x.url.endsWith('/src/Codigo.gs')));
 });
 

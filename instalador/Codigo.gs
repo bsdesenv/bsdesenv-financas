@@ -381,12 +381,18 @@ function urlAutorizacao_() {
 
 /**
  * A chave "API Google Apps Script" (script.google.com/home/usersettings) está ligada?
- * Consulta o próprio instalador: com a chave desligada o Google responde 403 apontando para
- * usersettings; com ela ligada, qualquer outra resposta (200, 403 sem acesso, 404) serve.
+ * A chave só barra escrita: leituras passam mesmo com ela desligada, então a sonda escreve o
+ * manifesto de um projeto de ID válido que não existe. Com a chave desligada o Google responde
+ * 403 apontando para usersettings; ligada, responde 404 (ou 403 sem acesso) — e nada é criado
+ * nem alterado, porque o projeto não existe.
  */
+var ID_SONDA_API = 'sonda' + 'A'.repeat(52);
+
 function apiLigada_() {
   try {
-    api_('GET', 'projects/' + ScriptApp.getScriptId());
+    api_('PUT', 'projects/' + ID_SONDA_API + '/content', {
+      files: [{ name: 'appsscript', type: 'JSON', source: '{"timeZone":"America/Sao_Paulo"}' }],
+    });
     return true;
   } catch (err) {
     return !err.apiDesligada;

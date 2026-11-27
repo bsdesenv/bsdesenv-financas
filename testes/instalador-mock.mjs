@@ -56,7 +56,7 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
     env.projetos[id] = { title: titulo, files: arquivos || [], versions: [], deployments: implantacoes || [] };
     return env.projetos[id];
   };
-  env.escritas = () => env.chamadas.filter((c) => c.host === 'google' && c.metodo !== 'GET');
+  env.escritas = () => env.chamadas.filter((c) => c.host === 'google' && c.metodo !== 'GET' && !c.sonda);
 
   const resp = (codigo, corpo) => ({
     getResponseCode: () => codigo,
@@ -79,8 +79,9 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
       env.planilhas.push({ id, createdTime: new Date().toISOString(), ...corpo });
       return resp(200, { id, webViewLink: `https://docs.google.com/spreadsheets/d/${id}/edit` });
     }
-    // Chave "API Google Apps Script" desligada: toda chamada ao script.googleapis.com volta o 403 do usersettings.
-    if (!env.apiLigada) {
+    // Chave "API Google Apps Script" desligada: como no Google, só a escrita volta o 403 do
+    // usersettings; leitura (GET) passa.
+    if (!env.apiLigada && metodo !== 'GET') {
       return resp(403, { error: { code: 403, status: 'PERMISSION_DENIED', message: MSG_USERSETTINGS } });
     }
     const [rota, consulta = ''] = url.replace('https://script.googleapis.com/v1/', '').split('?');
@@ -150,9 +151,12 @@ export function criarAmbiente({ apiLigada = true, autorizado = true, props = {} 
     const url = req.url;
     const host = url.startsWith(RAW) ? 'raw' : url.startsWith(CDN) ? 'cdn' : 'google';
     const corpo = req.payload ? JSON.parse(req.payload) : undefined;
-    env.chamadas.push({ host, metodo, url, corpo, auth: req.headers && req.headers.Authorization });
+    // Sonda da chave da API: escrita num projeto que não existe. Não conta como escrita de verdade.
+    const alvo = /^https:\/\/script\.googleapis\.com\/v1\/projects\/([^/]+)/.exec(url);
+    const sonda = host === 'google' && metodo !== 'GET' && !!alvo && !env.projetos[alvo[1]];
+    env.chamadas.push({ host, metodo, url, corpo, auth: req.headers && req.headers.Authorization, sonda });
     for (const f of env.falhas) {
-      if (f.vezes !== 0 && f.casar({ host, metodo, url, corpo })) {
+      if (f.vezes !== 0 && f.casar({ host, metodo, url, corpo, sonda })) {
         if (f.vezes > 0) f.vezes--;
         return resp(f.codigo, f.corpo === undefined ? {} : f.corpo);
       }
